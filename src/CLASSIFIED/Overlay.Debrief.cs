@@ -20,6 +20,9 @@ namespace CLASSIFIED
     /// </summary>
     internal partial class Overlay
     {
+        /// <summary>When this terminal's debrief started: kept outside the drawing, so laying the screen out again carries on where it was.</summary>
+        private float _debriefAt;
+
         /// <summary>Whether BEAR's terminal speaks Russian (the default) or English (the BEAR Language setting).</summary>
         internal static bool BearRussian => ClassifiedPlugin.BearLanguage == null || ClassifiedPlugin.BearLanguage.Value == BearText.Russian;
 
@@ -51,7 +54,7 @@ namespace CLASSIFIED
             }
         }
 
-        private sealed class Debrief : Ambient
+        private sealed partial class Debrief : Ambient
         {
             private bool Bear => T.Faction == Faction.Bear;
 
@@ -78,17 +81,18 @@ namespace CLASSIFIED
                 BuildArmory(kitZone);
                 if (mapZone.width >= 220f && mapZone.height >= 150f)
                 {
-                    BuildMap(mapZone);
+                    BuildModule(mapZone);
+                }
+                else
+                {
+                    _module = Module.Map;
                 }
             }
 
             internal override void Animate(float t)
             {
                 AnimateArmory(t);
-                if (_live != null)
-                {
-                    AnimateMap(t);
-                }
+                AnimateModule(t);
             }
 
             // ==== the armory =====================================================================
@@ -106,7 +110,6 @@ namespace CLASSIFIED
             private Kit.Spec _spec;
             private float _itemAt;
             private bool _dissolving;
-            private float _dissolveAt;
             private Rect _zone;
             private float _titleHeight;
             private float _yaw;
@@ -136,13 +139,15 @@ namespace CLASSIFIED
 
             private void BuildArmory(Rect zone)
             {
-                _kit = Kit.For(T.Id);
+                // This launch's table, the same however many times the screen is laid out.
+                _kit = Kit.Draw(T.Id, Rng);
                 if (_kit == null)
                 {
                     return;
                 }
                 _zone = zone;
-                _yaw = Range(0f, Mathf.PI * 2f);
+                float since = Mathf.Max(0f, O._animClock - O._debriefAt);
+                _yaw = Range(0f, Mathf.PI * 2f) + since * Turn;
                 bool roomy = zone.height >= 300f;
                 _titleHeight = roomy ? 98f : 34f;
 
@@ -173,8 +178,15 @@ namespace CLASSIFIED
                 _holo = Hologram.Create("Item", R);
                 _holo.Ink = A(T.Accent, 255);
                 _leaders = Draw();
-                ShowItem(0, O._animClock);
+                // Where the table had got to: a layout partway through must not start it again.
+                int shown = Mathf.FloorToInt(since / Cycle);
+                ShowItem(shown % _kit.Length, O._debriefAt + shown * Cycle);
             }
+
+            private const float Turn = 0.34f;
+
+            /// <summary>One item's whole time on the table: building in, turning, dissolving.</summary>
+            private const float Cycle = BuildTime + ItemTime + DissolveTime;
 
             /// <summary>Puts kit item <paramref name="index"/> on the table, sized and centred for the zone.</summary>
             private void ShowItem(int index, float now)
@@ -182,7 +194,6 @@ namespace CLASSIFIED
                 _item = index;
                 _spec = Kit.Get(_kit[index]);
                 _itemAt = now;
-                _dissolving = false;
                 WeaponModel model = WeaponModel.Load(_spec.Id);
                 _holo.Model = model;
                 _holo.Reveal = 0f;
@@ -214,10 +225,11 @@ namespace CLASSIFIED
                 _callouts.Clear();
                 if (model != null && _spec.Weapon)
                 {
-                    string[] order = { "mod_muzzle", "mod_magazine", "mod_stock", "mod_sight_rear", "mod_reciever", "mod_gas_block", "mod_handguard", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel", "mod_bipod" };
+                    string[] order = { "mod_scope", "mod_muzzle", "mod_magazine", "mod_stock", "mod_tactical", "mod_foregrip", "mod_sight_rear", "mod_reciever", "mod_gas_block", "mod_handguard", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel", "mod_bipod" };
                     foreach (string slot in order)
                     {
-                        int i = System.Array.IndexOf(model.AnchorSlots, slot);
+                        // The first part in a slot of that kind (an optic may sit in mod_scope_000).
+                        int i = System.Array.FindIndex(model.AnchorSlots, s => s == slot || s.StartsWith(slot + "_"));
                         string text = PartName(slot);
                         if (i < 0 || text == null || _callouts.Count >= 4)
                         {
@@ -264,6 +276,9 @@ namespace CLASSIFIED
             {
                 switch (slot)
                 {
+                    case "mod_scope": return Ru("ПРИЦЕЛ", "OPTIC");
+                    case "mod_tactical": return Ru("ТАКТИЧЕСКИЙ БЛОК", "TACTICAL DEVICE");
+                    case "mod_foregrip": return Ru("ПЕРЕДНЯЯ РУКОЯТКА", "FOREGRIP");
                     case "mod_muzzle": return Ru("ДУЛЬНОЕ УСТРОЙСТВО", "MUZZLE DEVICE");
                     case "mod_magazine": return Ru("МАГАЗИН", "MAGAZINE");
                     case "mod_stock": return Ru("ПРИКЛАД", "STOCK");
@@ -285,25 +300,24 @@ namespace CLASSIFIED
                 {
                     return;
                 }
+                // Everything here follows from the time on the table, so nothing restarts when the
+                // screen is laid out again.
                 float age = t - _itemAt;
-                if (!_dissolving && age > BuildTime + ItemTime && _kit.Length > 1)
+                if (age >= Cycle && _kit.Length > 1)
                 {
-                    _dissolving = true;
-                    _dissolveAt = t;
+                    ShowItem((_item + 1) % _kit.Length, _itemAt + Cycle);
+                    age = t - _itemAt;
                 }
-                if (_dissolving && t - _dissolveAt >= DissolveTime)
-                {
-                    ShowItem((_item + 1) % _kit.Length, t);
-                    age = 0f;
-                }
+                float dissolveAt = BuildTime + ItemTime;
+                _dissolving = _kit.Length > 1 && age > dissolveAt;
 
                 // Building in, eased; dissolving, faster and the same way along.
                 float build = Mathf.Clamp01((age - 0.15f) / BuildTime);
                 build = build * build * (3f - 2f * build);
-                float reveal = _dissolving ? 1f - Mathf.Clamp01((t - _dissolveAt) / DissolveTime) : build;
+                float reveal = _dissolving ? 1f - Mathf.Clamp01((age - dissolveAt) / DissolveTime) : build;
                 _holo.Reveal = reveal;
 
-                _yaw += Dt * 0.34f;
+                _yaw += Dt * Turn;
                 _holo.Yaw = _yaw;
                 _holo.Pitch = 0.30f + 0.05f * Mathf.Sin(t * 0.4f);
                 _holo.TableTurn = -t * 0.25f;
@@ -319,7 +333,7 @@ namespace CLASSIFIED
                 _holo.Tick(t);
 
                 // The words come in with the item and go with it.
-                float words = Mathf.Clamp01(age / 0.5f) * (_dissolving ? 1f - Mathf.Clamp01((t - _dissolveAt) / (DissolveTime * 0.6f)) : 1f);
+                float words = Mathf.Clamp01(age / 0.5f) * (_dissolving ? 1f - Mathf.Clamp01((age - dissolveAt) / (DissolveTime * 0.6f)) : 1f);
                 foreach (TextMeshProUGUI label in new[] { _kindLabel, _counter, _nameLabel, _fullLabel, _lineLabel })
                 {
                     if (label != null)
@@ -880,10 +894,10 @@ namespace CLASSIFIED
                     }
                     default:
                     {
-                        Vector2 at = Along(_path, p);
-                        Vector2 ahead = Along(_path, Mathf.Min(1f, p + 0.02f)) - at;
-                        Place(at, Mathf.Atan2(ahead.y, ahead.x) * Mathf.Rad2Deg - 90f);
-                        Redraw(p, () => BroadArrow(_live, Part(_path, Mathf.Max(0.04f, p)), 10f, Own));
+                        // The arrow carries its own head: no marker.
+                        _mover.gameObject.SetActive(false);
+                        float reach = Mathf.Max(0.04f, p);
+                        Redraw(p, () => BroadArrow(_live, Part(_path, reach), 10f, Own, Along(_path, reach) - Along(_path, Mathf.Max(0f, reach - 0.05f))));
                         break;
                     }
                 }
@@ -898,7 +912,7 @@ namespace CLASSIFIED
             /// <summary>Redraws the live layer when the load has moved on enough to show.</summary>
             private void Redraw(float p, System.Action draw)
             {
-                if (Mathf.Abs(p - _drawn) < 0.008f)
+                if (Mathf.Abs(p - _drawn) < 0.0005f)
                 {
                     return;
                 }
@@ -1120,7 +1134,7 @@ namespace CLASSIFIED
             }
 
             /// <summary>A broad arrow along a path: a band with a firm edge and a filled head, as staffs draw an axis of attack.</summary>
-            private void BroadArrow(Shape s, Vector2[] path, float width, Color32 color)
+            private void BroadArrow(Shape s, Vector2[] path, float width, Color32 color, Vector2 heading)
             {
                 if (path.Length < 2)
                 {
@@ -1136,9 +1150,10 @@ namespace CLASSIFIED
                     s.Line(P(a.x + n.x, a.y + n.y), P(b.x + n.x, b.y + n.y), 1.5f * U, A(color, 210));
                     s.Line(P(a.x - n.x, a.y - n.y), P(b.x - n.x, b.y - n.y), 1.5f * U, A(color, 210));
                 }
+                // The head points along the path over its last stretch, not its last tiny step,
+                // which turns from frame to frame.
                 Vector2 tip = path[path.Length - 1];
-                Vector2 back = path[path.Length - 2];
-                Vector2 dir = (tip - back).normalized;
+                Vector2 dir = heading.sqrMagnitude > 0.0001f ? heading.normalized : (tip - path[path.Length - 2]).normalized;
                 Vector2 side = new Vector2(-dir.y, dir.x);
                 Vector2 baseCentre = tip - dir * width * 1.6f;
                 s.Polygon(new[] { P(tip.x, tip.y), P(baseCentre.x + side.x * width, baseCentre.y + side.y * width), P(baseCentre.x - side.x * width, baseCentre.y - side.y * width) }, A(color, 220));

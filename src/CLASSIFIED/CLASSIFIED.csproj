@@ -119,7 +119,6 @@
     <!-- The insignia, made from the logos in art/ by scripts/make_insignia.py. -->
     <EmbeddedResource Include="Resources\insignia_bear.png" LogicalName="CLASSIFIED.insignia_bear.png" />
     <EmbeddedResource Include="Resources\insignia_usec.png" LogicalName="CLASSIFIED.insignia_usec.png" />
-    <EmbeddedResource Include="Resources\insignia_unknown.png" LogicalName="CLASSIFIED.insignia_unknown.png" />
     <!-- The debrief's weapons and equipment, made from the game's own models by scripts/make_weapons.py. -->
     <EmbeddedResource Include="Resources\item_*.bin" LogicalName="CLASSIFIED.%(Filename)%(Extension)" />
     <!-- The faction backdrops, drawn by scripts/make_backdrops.py. -->

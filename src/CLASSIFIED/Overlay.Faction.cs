@@ -656,7 +656,8 @@ namespace CLASSIFIED
         {
             BarKind kind = _variant.Bar;
             int first = StartupTracker.FirstStep;
-            int shown = _segments.Length - first;
+            int last = StartupTracker.LastStep;
+            int shown = StartupTracker.RunSteps;
             float u = _u;
             bool lamps = kind == BarKind.Lamps;
             bool ruler = kind == BarKind.Ruler;
@@ -668,7 +669,7 @@ namespace CLASSIFIED
             _barDeco.Clear();
             for (int i = 0; i < _segments.Length; i++)
             {
-                bool on = !tape && i >= first;
+                bool on = !tape && i >= first && i <= last;
                 _segments[i].gameObject.SetActive(on);
                 float x = centre - rowWidth * 0.5f + (i - first) * (segmentWidth + segmentGap) + segmentWidth * 0.5f;
                 Place(_segments[i].rectTransform, x, barTop, segmentWidth, segmentHeight);
@@ -684,6 +685,7 @@ namespace CLASSIFIED
                     _barDeco.Line(new Vector2(x - hw, barTop + hh), new Vector2(x - hw, barTop - hh), Mathf.Max(1f, u), bezel);
                     _barDeco.Line(new Vector2(x + hw, barTop + hh), new Vector2(x + hw, barTop - hh), Mathf.Max(1f, u), bezel);
                     SetText(_lampLabels[i], x, barTop - 15f * u, segmentWidth + 10f * u, 12f * u, 8f * u, 2f);
+                    _lampLabels[i].text = (i - first + 1).ToString("00");
                     _lampLabels[i].color = Theme.WithAlpha(Dim, 200);
                 }
             }

@@ -464,6 +464,7 @@ namespace CLASSIFIED
                 ? _previewVariant
                 : Variant.Roll(_random, ClassifiedPlugin.Theme.Value, PlayerFaction(), ClassifiedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig(), preview: !record);
             _chatterSource = new Chatter(_random, _variant.Theme);
+            DeployRoll();
         }
 
         /// <summary>Recolours and retexts everything that is not rebuilt by <see cref="Layout"/>.</summary>
@@ -542,6 +543,7 @@ namespace CLASSIFIED
             _group.alpha = 0f;
             ResetFx();
             Roll();
+            _debriefAt = _animClock;
             ApplyVariant();
             ResetStyle();
             _currentLabel.text = string.Empty;
@@ -583,6 +585,8 @@ namespace CLASSIFIED
             }
             _screen = null;
             _status = null;
+            _deployScreen = null;
+            CanCancel = false;
             // The logos are only needed on screen; the next show lays out again and reloads them.
             _insignia.Clear();
             Insignia.Release();
@@ -616,7 +620,7 @@ namespace CLASSIFIED
                 ? Words("С ВОЗВРАЩЕНИЕМ, БОЕЦ ", "WELCOME BACK, OPERATOR ") + nickname.ToUpperInvariant()
                 : _variant.GrantText);
 
-            int steps = StartupTracker.StepCount - StartupTracker.FirstStep;
+            int steps = StartupTracker.RunSteps;
             _stepCounter.text = Words("ЭТАП", "STEP") + $" <mspace=0.62em>{steps:00}</mspace> / {steps:00}";
             _percent.text = "<mspace=0.62em>100</mspace>%";
             // A run headed for a fake denial keeps everyone guessing until the menu settles.
@@ -634,10 +638,14 @@ namespace CLASSIFIED
             _chatter.text = Words(":: ЖЕЛАЕМ УСПЕХОВ В СЛУЖБЕ", ":: HAVE A PRODUCTIVE DAY");
             _chatter.maxVisibleCharacters = 0;
             _chatterShownAt = _animClock;
-            RebuildLog(StartupTracker.StepCount);
+            RebuildLog(StartupTracker.LastStep + 1);
             for (int i = 0; i < _segments.Length; i++)
             {
                 _segmentFills[i].enabled = false;
+            }
+            if (Deploying)
+            {
+                GrantDeploy();
             }
             SetSegments(Accent);
             _bottomLeft.text = Words("ПРОШЛО", "ELAPSED") + $" <mspace=0.62em>{elapsed:0.0}</mspace>" + Words("с", "s");
@@ -815,6 +823,11 @@ namespace CLASSIFIED
                 }
                 return;
             }
+            if (Deploying)
+            {
+                WatchDeploy(realTime);
+                return;
+            }
 
             bool haveScreen = _screen != null;
             bool screenUp = haveScreen && _screen.gameObject.activeInHierarchy;
@@ -912,9 +925,11 @@ namespace CLASSIFIED
             SetText(_topRight, halfW - cornerWidth * 0.5f, halfH - 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomLeft, -halfW + cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomRight, halfW - cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
-            string lastSync = StartupTracker.LastTotal > 0f
-                ? Words("ПРЕД. СЕАНС", "LAST SYNC") + $" <mspace=0.62em>{StartupTracker.LastTotal:0.0}</mspace>" + Words("с", "s")
-                : Words("ПРЕД. СЕАНС  --", "LAST SYNC  --");
+            float last = Deploying ? StartupTracker.LastDeployTotal : StartupTracker.LastTotal;
+            string lastName = Deploying ? Words("ПРЕД. ВЫХОД", "LAST DEPLOY") : Words("ПРЕД. СЕАНС", "LAST SYNC");
+            string lastSync = last > 0f
+                ? lastName + $" <mspace=0.62em>{last:0.0}</mspace>" + Words("с", "s")
+                : lastName + "  --";
             _bottomRight.text = Words("КЛИЕНТ", "CLIENT") + $" {Application.version}  //  {lastSync}";
 
             LayoutStyle(size, inset, halfH);
@@ -1050,7 +1065,7 @@ namespace CLASSIFIED
                     Beat(t);
                 }
                 int firstStep = StartupTracker.FirstStep;
-                _stepCounter.text = Words("ЭТАП", "STEP") + $" <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.StepCount - firstStep:00}";
+                _stepCounter.text = Words("ЭТАП", "STEP") + $" <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.RunSteps:00}";
                 bool boot = current < (int)StepId.Connect;
                 if (boot != _bootSubtitle)
                 {
@@ -1092,14 +1107,14 @@ namespace CLASSIFIED
             if (tenths != _shownStepTenths)
             {
                 _shownStepTenths = tenths;
-                _currentTime.text = $"<mspace=0.62em>{tenths / 10f:0.0}</mspace>s";
+                _currentTime.text = StepTimeText(current, tenths);
             }
 
             // Running well past this machine's usual time for the step: say so, in the warning
             // colour. Only once a full launch has set the usual times; the defaults are guesses.
             float expected = StartupTracker.ExpectedSeconds(current);
             float over = StartupTracker.StepElapsed - expected;
-            bool slow = StartupTracker.HasBaseline && over > Mathf.Max(SlowAfter, expected * 0.5f);
+            bool slow = StartupTracker.HasBaseline && CanRunSlow(current) && over > Mathf.Max(SlowAfter, expected * 0.5f);
             bool wasSlow = _slow;
             if (slow != _slow)
             {
@@ -1195,7 +1210,7 @@ namespace CLASSIFIED
             if (tenths != _shownElapsedTenths)
             {
                 _shownElapsedTenths = tenths;
-                _bottomLeft.text = Words("ПРОШЛО", "ELAPSED") + $" <mspace=0.62em>{tenths / 10f:0.0}</mspace>" + Words("с", "s");
+                _bottomLeft.text = ClockText(tenths);
             }
         }
 

@@ -11,8 +11,11 @@ in art/weapons/ to check by eye, and the names and figures to src/CLASSIFIED/Kit
     python -I scripts/make_weapons.py H:\\SPT4.1.X        (needs numpy, pillow, UnityPy)
 """
 
+import copy
 import glob
+import gzip
 import json
+import random
 import math
 import os
 import struct
@@ -69,7 +72,38 @@ ITEMS = [
     ("iskra", "item_food_ration", "food"),
     ("intel", "item_info_intelligence", "intel"),
     ("cofdm", "Item_barter_electr_wirelesstranmitter", "radio"),
+    ("ak103", "weapon_izhmash_ak103_762x39", "weapon"),
+    ("ak105", "weapon_izhmash_ak105_545x39", "weapon"),
+    ("aks74", "weapon_izhmash_aks74_545x39", "weapon"),
+    ("vss", "weapon_tochmash_vss_9x39", "weapon"),
+    ("sv98", "weapon_izhmash_sv-98_762x54r", "weapon"),
+    ("vityaz", "weapon_izhmash_pp-19-01_9x19", "weapon"),
+    ("mk16", "weapon_fn_mk16_556x45", "weapon"),
+    ("m1a", "weapon_springfield_m1a_762x51", "weapon"),
+    ("mk47", "weapon_cmmg_mk47_762x39", "weapon"),
+    ("rem700", "weapon_remington_model_700_762x51", "weapon"),
+    ("mp5k", "weapon_hk_mp5_kurtz_9x19", "weapon"),
+    ("kiver", "helmet", "helmet"),
+    ("lshz2dtm", "item_equipment_helmet_lshz2dtm", "helmet"),
+    ("vulkan5", "item_equipment_helmet_vulkan5", "helmet"),
+    ("mich2001", "helmet_mich2001_od", "helmet"),
+    ("bastion", "item_equipment_helmet_diamond_age_bastion", "helmet"),
+    ("gzhel", "armor_gjel", "armor"),
+    ("korundvm", "item_equipment_armor_korundvm", "armor"),
+    ("defender2", "item_equipment_armor_defender2", "armor"),
+    ("6b3", "item_equipment_armor_6b3", "armor"),
+    ("kirasa", "item_equipment_armor_kirasa", "armor"),
+    ("cpc", "item_equipment_armor_arscpc", "armor"),
+    ("hexgrid", "item_equipment_armor_custom_hexgrid", "armor"),
+    ("medpack", "item_equipment_backpack_medpack", "backpack"),
+    ("betav2", "item_equipment_backpack_betav2", "backpack"),
 ]
+
+# A weapon is built three ways: its default preset, and two builds with attachments added at
+# random where its slots take them (an optic, on a mount if it needs one; a light or laser; a
+# foregrip; a suppressor), each from what the database says fits, nothing that conflicts.
+BUILDS = 3
+ATTACH = [("mod_scope", 0.9), ("mod_mount", 0.75), ("mod_tactical", 0.45), ("mod_foregrip", 0.55), ("mod_muzzle", 0.4)]
 
 # Parts that are never seen from outside, or are not part of the weapon.
 SKIP = ("patron", "shell", "bullet", "_hide", "collider", "camera", "fp_", "human")
@@ -278,6 +312,96 @@ def find_preset(globals_, items, template):
     return None
 
 
+_CHILDREN = {}
+
+
+def leaves(items, ids):
+    """The items a slot filter names: items themselves, or every item under a category."""
+    if not _CHILDREN:
+        for k, v in items.items():
+            _CHILDREN.setdefault(v.get("_parent"), []).append(k)
+    out = []
+    stack = list(ids)
+    while stack:
+        k = stack.pop()
+        v = items.get(k)
+        if v is None:
+            continue
+        if v.get("_type") == "Item":
+            out.append(k)
+        else:
+            stack.extend(_CHILDREN.get(k, []))
+    return out
+
+
+def random_build(items, preset, rng, streaming):
+    """The preset with attachments added at random where its slots take them."""
+    its = copy.deepcopy(preset["_items"])
+    occupied = {(it.get("parentId"), it.get("slotId")) for it in its}
+    parents = {it["_id"]: it.get("parentId") for it in its}
+    queue = list(its)
+    added = 0
+    has_scope = any(it.get("slotId", "").startswith("mod_scope") for it in its)
+
+    def depth(iid):
+        d = 0
+        while parents.get(iid):
+            iid = parents[iid]
+            d += 1
+        return d
+
+    def conflicts(tpl):
+        mine = set(items[tpl]["_props"].get("ConflictingItems", []))
+        for it in its:
+            if it["_tpl"] in mine or tpl in items[it["_tpl"]]["_props"].get("ConflictingItems", []):
+                return True
+        return False
+
+    while queue:
+        it = queue.pop(0)
+        for slot in items[it["_tpl"]]["_props"].get("Slots", []):
+            name = slot["_name"]
+            if (it["_id"], name) in occupied:
+                continue
+            rule = next((r for r in ATTACH if name.startswith(r[0])), None)
+            if rule is None or depth(it["_id"]) > 5 or added >= 6:
+                continue
+            kind, chance = rule
+            if kind == "mod_scope" and has_scope:
+                continue
+            if kind == "mod_mount" and has_scope and rng.random() < 0.7:
+                continue
+            if rng.random() > chance:
+                continue
+            filters = slot["_props"].get("filters", [{}])
+            pool = []
+            for tpl in leaves(items, filters[0].get("Filter", []) if filters else []):
+                v = items[tpl]
+                path = v["_props"].get("Prefab", {}).get("path", "")
+                name_lower = v["_name"].lower()
+                if not path or "event" in name_lower or "test" in name_lower or conflicts(tpl):
+                    continue
+                if not os.path.exists(os.path.join(streaming, path.replace("/", os.sep))):
+                    continue
+                if kind == "mod_mount" and not has_scope:
+                    # A mount is there to carry an optic.
+                    if not any(sl["_name"].startswith("mod_scope") for sl in v["_props"].get("Slots", [])):
+                        continue
+                pool.append(tpl)
+            if not pool:
+                continue
+            pick = rng.choice(sorted(pool))
+            new = {"_id": f"r{len(its)}", "_tpl": pick, "parentId": it["_id"], "slotId": name}
+            its.append(new)
+            parents[new["_id"]] = it["_id"]
+            occupied.add((it["_id"], name))
+            queue.append(new)
+            added += 1
+            if kind == "mod_scope":
+                has_scope = True
+    return {"_parent": preset["_parent"], "_items": its}
+
+
 def single(items, template):
     """A preset of one: the item alone."""
     key = next(k for k, v in items.items() if v["_name"] == template)
@@ -353,7 +477,7 @@ def orient(verts):
 
 def write(path, verts, faces, normals, edges, anchors):
     """
-    Little endian: "CLW1"; vertex, face, edge and anchor counts (int32); vertices as int16 x, y, z
+    Gzipped, little endian: "CLW1"; vertex, face, edge and anchor counts (int32); vertices as int16 x, y, z
     over 32767; faces as uint16 x3; face normals as int8 x, y, z over 127; edges as uint16 a, b,
     int16 face0, face1 (-1: none), byte crease; anchors as int16 x, y, z, then the slot's name as
     a length byte and ASCII.
@@ -361,7 +485,7 @@ def write(path, verts, faces, normals, edges, anchors):
 
     s = 1.0 / np.abs(verts).max()
     q = np.round(verts * s * 32767).astype(np.int16)
-    with open(path, "wb") as f:
+    with gzip.open(path, "wb", compresslevel=9) as f:
         f.write(b"CLW1")
         f.write(struct.pack("<4i", len(q), len(faces), len(edges), len(anchors)))
         f.write(q.tobytes())
@@ -500,78 +624,91 @@ def main():
                       ru.get(key + " ShortName", en[key + " ShortName"]), ru.get(key + " Name", en[key + " Name"]), line_en, line_ru))
         if only and iid not in only:
             continue
-        parts = assemble(streaming, items, preset, weapon)
-        if not parts:
-            print(f"{iid}: no meshes")
-            continue
-        tris = np.concatenate([p[2] for p in parts])
-        raw = len(tris)
-        verts, faces, grid = cut_down(tris, BUDGET if weapon else BUDGET * 3 // 4)
-
-        # Centred on its box. A weapon turned barrel along +x, top up; equipment stays as the
-        # game holds it, y up.
-        c = (verts.max(axis=0) + verts.min(axis=0)) / 2.0
+        builds = [preset]
         if weapon:
-            verts, axes = orient(verts)
-        else:
-            verts, axes = verts - c, (0, 1, 2)
-            if kind in ("armor", "backpack"):
-                # Body armour and packs are character meshes, z-up: stood up a quarter turn.
-                verts = np.c_[verts[:, 0], verts[:, 2], -verts[:, 1]]
-
-        # A callout's anchor is the middle of its part's box, in the same space as the vertices.
-        boxes = {}
-        for slot, name, t in parts:
-            pts = (t.reshape(-1, 3) - c)[:, list(axes)]
-            lo, hi = pts.min(axis=0), pts.max(axis=0)
-            if slot in boxes:
-                lo, hi = np.minimum(lo, boxes[slot][0]), np.maximum(hi, boxes[slot][1])
-            boxes[slot] = (lo, hi)
-        anchor_list = [(slot, (lo + hi) / 2.0) for slot, (lo, hi) in boxes.items()] if weapon else []
-
-        if weapon:
-            def anchor(name):
-                for slot, p in anchor_list:
-                    if slot == name:
-                        return p
-                return None
-            flip_x = flip_y = False
-            muzzle = anchor("mod_muzzle") if anchor("mod_muzzle") is not None else anchor("mod_barrel")
-            stock = anchor("mod_stock")
-            if muzzle is not None and stock is not None:
-                flip_x = muzzle[0] < stock[0]
-            elif muzzle is not None:
-                flip_x = muzzle[0] < 0
-            # Top up: the magazine and grip hang below the line of the barrel.
-            below = [p for p in (anchor("mod_magazine"), anchor("mod_pistol_grip"), anchor("mod_pistolgrip")) if p is not None]
-            line = muzzle if muzzle is not None else np.zeros(3)
-            if below:
-                flip_y = np.mean([p[1] for p in below]) > line[1]
-            sign = np.array([-1.0 if flip_x else 1.0, -1.0 if flip_y else 1.0, 1.0])
-            verts = verts * sign
-            anchor_list = [(slot, p * sign) for slot, p in anchor_list]
-            if flip_x != flip_y:
-                faces = faces[:, [0, 2, 1]]
-
-        # Into a unit box; the anchors with it.
-        scale = 1.0 / np.abs(verts).max()
-        verts = verts * scale
-        anchor_list = [(slot, p * scale) for slot, p in anchor_list]
-
-        # Normals out of the item, so the hologram can tell the faces turned to it: on a closed
-        # surface the faces' normals point away from the middle, weighted by area.
-        tri = verts[faces]
-        cross = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
-        if float(np.sum(cross * (tri.mean(axis=1) - verts.mean(axis=0)))) < 0:
-            faces = faces[:, [0, 2, 1]]
-        normals, edges = edges_of(verts, faces)
-        creases = sum(1 for e in edges if e[4])
-        path = os.path.join(OUT, f"item_{iid}.bin")
-        write(path, verts, faces, normals, edges, anchor_list)
-        side_view(os.path.join(PREVIEW, f"{iid}.png"), verts, faces, edges)
-        print(f"{iid}: {len(parts)} meshes, {raw} -> {len(faces)} triangles, {len(verts)} vertices, "
-              f"{len(edges)} edges ({creases} creases), {os.path.getsize(path) // 1024} KB")
+            for k in range(1, BUILDS):
+                builds.append(random_build(items, preset, random.Random(f"{iid}-{k}"), streaming))
+        for k, build in enumerate(builds):
+            make(iid if k == 0 else f"{iid}_{k}", kind, build, items, streaming, weapon)
     write_specs(specs)
+
+
+def make(iid, kind, preset, items, streaming, weapon):
+    """One model: assembled, cut down, turned the right way up, written."""
+    parts = assemble(streaming, items, preset, weapon)
+    if not parts:
+        print(f"{iid}: no meshes")
+        return
+    tris = np.concatenate([p[2] for p in parts])
+    raw = len(tris)
+    verts, faces, grid = cut_down(tris, (BUDGET + 400) if weapon else BUDGET * 3 // 4)
+
+    # Centred on its box. A weapon turned barrel along +x, top up; equipment stays as the
+    # game holds it, y up.
+    c = (verts.max(axis=0) + verts.min(axis=0)) / 2.0
+    if weapon:
+        verts, axes = orient(verts)
+    else:
+        verts, axes = verts - c, (0, 1, 2)
+        if kind in ("armor", "backpack"):
+            # Body armour and packs are character meshes, z-up: stood up a quarter turn.
+            verts = np.c_[verts[:, 0], verts[:, 2], -verts[:, 1]]
+
+    # A callout's anchor is the middle of its part's box, in the same space as the vertices.
+    # The anchor is on the part itself: of its points, the one nearest the middle of its
+    # box (the middle of a skeleton stock is air).
+    by_slot = {}
+    for slot, name, t in parts:
+        by_slot.setdefault(slot, []).append((t.reshape(-1, 3) - c)[:, list(axes)])
+    anchor_list = []
+    if weapon:
+        for slot, chunks in by_slot.items():
+            pts = np.concatenate(chunks)
+            middle = (pts.min(axis=0) + pts.max(axis=0)) / 2.0
+            anchor_list.append((slot, pts[np.argmin(((pts - middle) ** 2).sum(axis=1))]))
+
+    if weapon:
+        def anchor(name):
+            for slot, p in anchor_list:
+                if slot == name:
+                    return p
+            return None
+        flip_x = flip_y = False
+        muzzle = anchor("mod_muzzle") if anchor("mod_muzzle") is not None else anchor("mod_barrel")
+        stock = anchor("mod_stock")
+        if muzzle is not None and stock is not None:
+            flip_x = muzzle[0] < stock[0]
+        elif muzzle is not None:
+            flip_x = muzzle[0] < 0
+        # Top up: the magazine and grip hang below the line of the barrel.
+        below = [p for p in (anchor("mod_magazine"), anchor("mod_pistol_grip"), anchor("mod_pistolgrip")) if p is not None]
+        line = muzzle if muzzle is not None else np.zeros(3)
+        if below:
+            flip_y = np.mean([p[1] for p in below]) > line[1]
+        sign = np.array([-1.0 if flip_x else 1.0, -1.0 if flip_y else 1.0, 1.0])
+        verts = verts * sign
+        anchor_list = [(slot, p * sign) for slot, p in anchor_list]
+        if flip_x != flip_y:
+            faces = faces[:, [0, 2, 1]]
+
+    # Into a unit box; the anchors with it.
+    scale = 1.0 / np.abs(verts).max()
+    verts = verts * scale
+    anchor_list = [(slot, p * scale) for slot, p in anchor_list]
+
+    # Normals out of the item, so the hologram can tell the faces turned to it: on a closed
+    # surface the faces' normals point away from the middle, weighted by area.
+    tri = verts[faces]
+    cross = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    if float(np.sum(cross * (tri.mean(axis=1) - verts.mean(axis=0)))) < 0:
+        faces = faces[:, [0, 2, 1]]
+    normals, edges = edges_of(verts, faces)
+    creases = sum(1 for e in edges if e[4])
+    path = os.path.join(OUT, f"item_{iid}.bin")
+    write(path, verts, faces, normals, edges, anchor_list)
+    side_view(os.path.join(PREVIEW, f"{iid}.png"), verts, faces, edges)
+    print(f"{iid}: {len(parts)} meshes, {raw} -> {len(faces)} triangles, {len(verts)} vertices, "
+          f"{len(edges)} edges ({creases} creases), {os.path.getsize(path) // 1024} KB")
 
 
 if __name__ == "__main__":

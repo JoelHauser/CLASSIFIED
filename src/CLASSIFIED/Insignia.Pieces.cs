@@ -26,13 +26,5 @@ namespace CLASSIFIED
             new Piece("Chevron", new Rect(0.01562f, 0.48217f, 0.46810f, 0.48062f), new Vector2(0.00000f, -0.53154f), new Vector2(1.30435f, 0.56238f), new Vector2(0.00000f, -1.00000f)),
             new Piece("Bars", new Rect(0.57812f, 0.11163f, 0.33919f, 0.29612f), new Vector2(0.00000f, -0.42360f), new Vector2(0.94516f, 0.34650f), new Vector2(0.00000f, -1.00000f)),
         };
-
-        private static readonly Piece[] UnknownPieces =
-        {
-            new Piece("Top", new Rect(0.03409f, 0.53448f, 0.42614f, 0.43103f), new Vector2(0.00000f, 0.61833f), new Vector2(0.66014f, 0.66014f), new Vector2(0.00000f, 1.00000f)),
-            new Piece("Right", new Rect(0.52841f, 0.53448f, 0.42614f, 0.43103f), new Vector2(0.61833f, -0.00000f), new Vector2(0.66014f, 0.66014f), new Vector2(1.00000f, 0.00000f)),
-            new Piece("Bottom", new Rect(0.03409f, 0.03448f, 0.42614f, 0.43103f), new Vector2(0.00000f, -0.61833f), new Vector2(0.66014f, 0.66014f), new Vector2(0.00000f, -1.00000f)),
-            new Piece("Left", new Rect(0.52841f, 0.03448f, 0.42614f, 0.43103f), new Vector2(-0.61833f, -0.00000f), new Vector2(0.66014f, 0.66014f), new Vector2(-1.00000f, 0.00000f)),
-        };
     }
 }

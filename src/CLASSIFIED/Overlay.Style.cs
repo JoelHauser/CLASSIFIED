@@ -20,8 +20,13 @@ namespace CLASSIFIED
     internal partial class Overlay
     {
         private const float TickerSpeed = 60f;
-        private const float MemoIn = 0.35f;
-        private const float MemoHold = 7f;
+        private const float MemoIn = 0.55f;
+        private const float MemoHold = 10f;
+
+        /// <summary>The least time from one notice leaving to the next arriving, outside a preview.</summary>
+        private const float MemoGap = 15f;
+
+        private float _memoGoneAt = -100f;
         private const float SheenTime = 0.9f;
 
         private LayoutKind _layout;
@@ -250,8 +255,8 @@ namespace CLASSIFIED
                 }
                 case LayoutKind.Dock:
                 {
-                    brand = new Vector2(0f, 140f * u);
-                    brandScale = 1.15f;
+                    brand = new Vector2(0f, 96f * u);
+                    brandScale = 1.1f;
                     barWidth = Mathf.Min(600f * u, (w - 2f * inset - 120f * u) * 0.5f);
                     rx = -(barWidth * 0.5f + 40f * u);
                     logX = barWidth * 0.5f + 40f * u;
@@ -566,7 +571,8 @@ namespace CLASSIFIED
         {
             Notice[] notices = _variant.Notices;
             if (_memoShownAt < 0f && notices != null && _noticeIndex < notices.Length && _phase == Phase.Loading
-                && _memoOff > 0f && _shownFraction >= notices[_noticeIndex].At && _introClock > IntroLength + 1f)
+                && _memoOff > 0f && _shownFraction >= notices[_noticeIndex].At && _introClock > IntroLength + 1f
+                && (_previewing || t - _memoGoneAt >= MemoGap))
             {
                 Notice notice = notices[_noticeIndex++];
                 _memoShownAt = t;
@@ -597,6 +603,7 @@ namespace CLASSIFIED
             _memo.anchoredPosition = new Vector2(Mathf.Round(_memoX + _memoOff * (1f - slide)), _memo.anchoredPosition.y);
             if (age >= MemoHold + MemoIn)
             {
+                _memoGoneAt = t;
                 _memoShownAt = -1f;
                 _memo.gameObject.SetActive(false);
             }
@@ -654,6 +661,6 @@ namespace CLASSIFIED
         }
 
         /// <summary>How long the fade-out takes; the sting holds on the logo, so it runs longer.</summary>
-        private float OutroTime => _variant.Outro == OutroKind.Sting ? 1f : FadeTime;
+        private float OutroTime => Mathf.Min(Deploying ? DeployOutroTime : float.MaxValue, _variant.Outro == OutroKind.Sting ? 1f : FadeTime);
     }
 }

@@ -55,6 +55,7 @@ namespace CLASSIFIED
             Faction faction = PlayerFaction();
             if (faction == Faction.Unknown || faction == o._variant.Faction)
             {
+                o.AddQuestIntel(o._variant);
                 return;
             }
             ClassifiedPlugin.Log.LogInfo($"Terminal: operator is {Theme.Name(faction)}, changing terminals.");
@@ -63,7 +64,46 @@ namespace CLASSIFIED
             // Its notices are spaced over the whole load; the ones already behind it come at once,
             // so only keep those still ahead.
             next.Notices = System.Array.FindAll(next.Notices, n => n.At > StartupTracker.Fraction());
+            o.AddQuestIntel(next);
             o.CrossfadeTo(next);
+        }
+
+        /// <summary>
+        /// The profile's tasks are known now: the next notice still to come becomes intel about
+        /// one of them, or, if none is left and the load has a way to go, one is added.
+        /// </summary>
+        private void AddQuestIntel(Variant variant)
+        {
+            if (StartupTracker.Quests.Count == 0 || variant.Notices == null)
+            {
+                return;
+            }
+            float done = StartupTracker.Fraction();
+            foreach (Notice existing in variant.Notices)
+            {
+                if (existing.Kind == NoticeKind.Intel && existing.From != null && (existing.From.StartsWith("S2") || existing.From.Contains("HQ") || existing.From.Contains("РАЗВЕД")))
+                {
+                    return;
+                }
+            }
+            int index = System.Array.FindIndex(variant.Notices, n => n.At > done);
+            if (index >= 0)
+            {
+                Notice quest = QuestIntel.Make(_random, variant.Faction, variant.Notices[index].At);
+                if (quest != null)
+                {
+                    variant.Notices[index] = quest;
+                }
+            }
+            else if (done < 0.7f)
+            {
+                Notice quest = QuestIntel.Make(_random, variant.Faction, Mathf.Min(0.85f, done + 0.12f));
+                if (quest != null)
+                {
+                    var list = new System.Collections.Generic.List<Notice>(variant.Notices) { quest };
+                    variant.Notices = list.ToArray();
+                }
+            }
         }
 
         /// <summary>Starts a crossfade to <paramref name="variant"/>: the screen is captured at the end of this frame, the switch made on the next.</summary>
@@ -130,6 +170,7 @@ namespace CLASSIFIED
         {
             _previewVariant = _previewing ? variant : _previewVariant;
             _variant = variant;
+            _debriefAt = _animClock;
             _chatterSource = new Chatter(_random, variant.Theme);
             ResetFx();
             ApplyVariant();
@@ -211,12 +252,9 @@ namespace CLASSIFIED
         private string Subtitle(bool boot)
         {
             Theme theme = _variant.Theme;
-            if (theme.Faction == Faction.Bear && BearRussian && !string.IsNullOrEmpty(theme.Native))
-            {
-                // All Russian: the unit's own name and what the terminal is doing.
-                return Cyr(theme.Native + (boot ? "  //  ЗАПУСК СИСТЕМЫ" : "  //  ВХОД В СЕТЬ"));
-            }
-            return theme.Division + (boot ? "  //  STARTING UP" : "  //  SIGNING IN");
+            // BEAR in Russian gives its unit's own name; the stage follows the terminal's language.
+            string unit = theme.Faction == Faction.Bear && BearRussian && !string.IsNullOrEmpty(theme.Native) ? Cyr(theme.Native) : theme.Division;
+            return unit + "  //  " + Stage(boot);
         }
 
         /// <summary>Whether the terminal's font has Russian letters; checked when the font is set.</summary>

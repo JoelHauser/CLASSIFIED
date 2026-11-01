@@ -95,41 +95,6 @@ def reantialias(alpha, factor=8):
     return solid.reshape(h, factor, w, factor).mean(axis=(1, 3))
 
 
-def unknown_alpha(size=896):
-    """Before the faction is known: four wedges closing on an empty centre, drawn 8x and averaged down."""
-    f = 8
-    s = size * f
-    img = Image.new("L", (s, s), 0)
-    d = ImageDraw.Draw(img)
-    c = s / 2
-    r = s / 2 * 0.98
-    for k in range(4):
-        ang = math.pi / 2 - k * math.pi / 2
-        dx, dy = math.cos(ang), -math.sin(ang)
-        nx, ny = -dy, dx
-        tip = (c + dx * r * 0.30, c + dy * r * 0.30)
-        a = (c + dx * r * 0.98 + nx * r * 0.34, c + dy * r * 0.98 + ny * r * 0.34)
-        b = (c + dx * r * 0.98 - nx * r * 0.34, c + dy * r * 0.98 - ny * r * 0.34)
-        d.polygon([a, tip, b], fill=255)
-    a = np.asarray(img).astype(np.float32) / 255.0
-    return a.reshape(size, f, size, f).mean(axis=(1, 3))
-
-
-def unknown_piece(cx, cy, box):
-    dx, dy = cx - 448, cy - 448
-    if abs(dy) > abs(dx):
-        return "Top" if dy < 0 else "Bottom"
-    return "Right" if dx > 0 else "Left"
-
-
-FACTIONS.append(("Unknown", None, [
-    ("Top", (0.0, 1.0)),
-    ("Right", (1.0, 0.0)),
-    ("Bottom", (0.0, -1.0)),
-    ("Left", (-1.0, 0.0)),
-], unknown_piece))
-
-
 def split(alpha, classify, names):
     """Each pixel's piece: the piece of the nearest solid shape, so the soft edge goes with its shape."""
     solid = alpha >= 0.5
@@ -164,11 +129,8 @@ def pack(rects, width):
 
 def build(name, source, pieces, classify, preview):
     names = [p[0] for p in pieces]
-    if source:
-        rgba = np.asarray(Image.open(os.path.join(ART, source)).convert("RGBA")).astype(np.float32) / 255.0
-        alpha = reantialias(rgba[:, :, 3])
-    else:
-        alpha = unknown_alpha()
+    rgba = np.asarray(Image.open(os.path.join(ART, source)).convert("RGBA")).astype(np.float32) / 255.0
+    alpha = reantialias(rgba[:, :, 3])
     piece_of, alpha = split(alpha, classify, names)
     h, w = alpha.shape
 
@@ -284,7 +246,6 @@ def main():
     write_preview(previews, {
         "Bear": ((10, 3, 3), (196, 38, 42)),
         "Usec": ((3, 6, 12), (46, 134, 222)),
-        "Unknown": ((5, 5, 5), (200, 200, 200)),
     })
     print("Wrote", os.path.relpath(TABLE, ROOT), "and art/preview.png")
 

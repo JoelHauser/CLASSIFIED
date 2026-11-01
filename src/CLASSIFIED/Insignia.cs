@@ -6,8 +6,7 @@ using UnityEngine.UI;
 namespace CLASSIFIED
 {
     /// <summary>
-    /// The factions' insignia: the game's own BEAR and USEC logos, and four wedges closing on an
-    /// empty centre for a terminal that does not yet know whose it is. Each is cut into the
+    /// The factions' insignia: the game's own BEAR and USEC logos. Each is cut into the
     /// pieces that fly together when the terminal comes on (BEAR: the shield's two halves, the
     /// paw, the mountains, the name, the pin and the fang; USEC: the eagle, the four letters, the
     /// chevron and its bars), only ever along the gaps in the logo, so nothing seams once they meet.
@@ -52,11 +51,15 @@ namespace CLASSIFIED
         private static readonly Texture2D[] Atlases = new Texture2D[3];
 
         internal static Piece[] PiecesOf(Faction faction) =>
-            faction == Faction.Bear ? BearPieces : faction == Faction.Usec ? UsecPieces : UnknownPieces;
+            faction == Faction.Usec ? UsecPieces : BearPieces;
 
         /// <summary>The faction's picture, loaded the first time it is asked for. Null if it could not be read.</summary>
         internal static Texture2D Atlas(Faction faction)
         {
+            if (faction == Faction.Unknown)
+            {
+                faction = Faction.Bear;
+            }
             int slot = (int)faction;
             if (Atlases[slot] != null)
             {

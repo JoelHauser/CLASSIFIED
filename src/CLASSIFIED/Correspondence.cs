@@ -347,15 +347,6 @@ namespace CLASSIFIED
                     "CONTRACTOR OF THE MONTH: 'WHOEVER IS STILL HERE'"
                 },
                 Chatter = new[] { "CONTRACT {hex}  FILED", "PAYROLL  ACCRUED", "NDA {n}  COUNTERSIGNED", "CLIENT CALL  NO ANSWER", "COMPLIANCE  {pct}%", "BOARD MINUTES  CIRCULATED" }
-            },
-
-            [ThemeChoice.Unidentified] = new Department
-            {
-                Code = "SYS",
-                Titles = new[] { "SYSTEM ADMINISTRATOR" },
-                Memos = new[] { "OPERATOR IDENTITY NOT YET CONFIRMED. THE TERMINAL WILL ASSIGN ITSELF WHEN YOU SIGN IN." },
-                Headlines = new[] { "SECURE NETWORK  //  AWAITING SIGN-IN" },
-                Chatter = new[] { "SESSION {hex}  PENDING", "OPERATOR  UNKNOWN" }
             }
         };
 
@@ -518,7 +509,7 @@ namespace CLASSIFIED
         private const string UsecInitials = "ABCDJKMRST";
 
         internal static Department For(ThemeChoice id) =>
-            Departments.TryGetValue(id, out Department department) ? department : Departments[ThemeChoice.Unidentified];
+            Departments.TryGetValue(id, out Department department) ? department : Departments[ThemeChoice.BearCommand];
 
         /// <summary>The unit's orders: the theme's own and the ones here.</summary>
         internal static List<string> MemosFor(Theme theme) => Join(theme.Memos, For(theme.Id).Memos);
@@ -544,7 +535,7 @@ namespace CLASSIFIED
             faction == Faction.Bear ? BearCommon : faction == Faction.Usec ? UsecCommon : new string[0][];
 
         internal static string[] CommonChatter(Faction faction) =>
-            faction == Faction.Bear ? BearChatter : faction == Faction.Usec ? UsecChatter : For(ThemeChoice.Unidentified).Chatter;
+            faction == Faction.Usec ? UsecChatter : BearChatter;
 
         /// <summary>What our signals people pick up from <paramref name="enemy"/>'s radios.</summary>
         internal static string[] Intercepts(Faction enemy) => enemy == Faction.Bear ? BearIntercepts : UsecIntercepts;

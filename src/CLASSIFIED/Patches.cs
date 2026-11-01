@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Comfort.Common;
 using EFT;
 using EFT.UI;
+using EFT.UI.Matchmaker;
 using HarmonyLib;
 
 namespace CLASSIFIED
@@ -61,6 +63,7 @@ namespace CLASSIFIED
             {
                 MenuBackgroundFix.Apply(harmony);
             }
+            ApplyDeploy(harmony);
 
             MethodInfo show = AccessTools.Method(typeof(ProfileLoadingScreen), nameof(ProfileLoadingScreen.Show), new[] { typeof(bool) });
             if (show == null)
@@ -153,6 +156,7 @@ namespace CLASSIFIED
                     StartupTracker.NoteProfile(profile.Info.Nickname,
                         profile.Info.Side == EPlayerSide.Bear ? "BEAR" : profile.Info.Side == EPlayerSide.Usec ? "USEC" : null,
                         profile.Info.Level);
+                    StartupTracker.NoteQuests(ActiveQuests(profile));
                     // The terminal may be wearing last launch's faction, or none: put it right.
                     Overlay.ProfileKnown();
                 }
@@ -162,6 +166,118 @@ namespace CLASSIFIED
                 ClassifiedPlugin.Log.LogDebug($"No profile detail: {e.Message}");
             }
         }
+
+        /// <summary>The names of the profile's tasks under way, in the game's language; none it cannot name.</summary>
+        private static List<string> ActiveQuests(Profile profile)
+        {
+            var names = new List<string>();
+            if (profile.QuestsData == null)
+            {
+                return names;
+            }
+            foreach (EFT.Quests.QuestDataClass quest in profile.QuestsData)
+            {
+                if (quest == null || string.IsNullOrEmpty(quest.Id)
+                    || (quest.Status != EFT.Quests.EQuestStatus.Started && quest.Status != EFT.Quests.EQuestStatus.AvailableForFinish))
+                {
+                    continue;
+                }
+                string key = quest.Id + " name";
+                string name;
+                try
+                {
+                    name = key.Localized();
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+                // An unloaded locale hands the key back.
+                if (string.IsNullOrEmpty(name) || name == key || name.EndsWith(" name") || name.Length > 60)
+                {
+                    continue;
+                }
+                names.Add(name.Trim());
+                if (names.Count >= 12)
+                {
+                    break;
+                }
+            }
+            ClassifiedPlugin.Log.LogInfo($"Profile: {names.Count} tasks under way known to the terminal.");
+            return names;
+        }
+
+        /// <summary>
+        /// The raid load: the deploy screen showing (the run starts in a prefix, since the screen
+        /// sends its first status from inside Show), its statuses, whether it can be cancelled, the
+        /// final countdown, and the raid starting. Each hook stands alone: a missing one is logged
+        /// and the rest still work.
+        /// </summary>
+        private static void ApplyDeploy(Harmony harmony)
+        {
+            MethodInfo show = null;
+            foreach (MethodInfo method in typeof(MatchmakerTimeHasCome).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                if (method.Name == nameof(MatchmakerTimeHasCome.Show) && method.GetParameters().Length == 3)
+                {
+                    show = method;
+                }
+            }
+            if (show == null)
+            {
+                ClassifiedPlugin.Log.LogWarning("MatchmakerTimeHasCome.Show not found; the terminal will not show while raids load.");
+                return;
+            }
+            harmony.Patch(show, prefix: new HarmonyMethod(typeof(Patches), nameof(DeployShown)));
+            DeployHook(harmony, AccessTools.Method(typeof(MatchmakerTimeHasCome), nameof(MatchmakerTimeHasCome.ChangeStatus)), prefix: nameof(DeployStatus));
+            DeployHook(harmony, AccessTools.Method(typeof(MatchmakerTimeHasCome), nameof(MatchmakerTimeHasCome.ChangeCancelButtonVisibility)), postfix: nameof(CancelAvailable));
+            DeployHook(harmony, AccessTools.Method(typeof(MatchmakerFinalCountdown), nameof(MatchmakerFinalCountdown.Show), new[] { typeof(Profile), typeof(DateTime) }), postfix: nameof(CountdownShown));
+            DeployHook(harmony, AccessTools.Method(typeof(GameWorld), nameof(GameWorld.OnGameStarted)), postfix: nameof(RaidStarted));
+        }
+
+        private static void DeployHook(Harmony harmony, MethodInfo target, string prefix = null, string postfix = null)
+        {
+            if (target == null)
+            {
+                ClassifiedPlugin.Log.LogWarning($"No method found for raid-load hook '{prefix ?? postfix}'; the raid-loading terminal works without it.");
+                return;
+            }
+            harmony.Patch(target,
+                prefix: prefix != null ? new HarmonyMethod(typeof(Patches), prefix) : null,
+                postfix: postfix != null ? new HarmonyMethod(typeof(Patches), postfix) : null);
+        }
+
+        private static void DeployShown(MatchmakerTimeHasCome __instance, RaidSettings raidSettings)
+        {
+            try
+            {
+                if (!ClassifiedPlugin.ShowThisDeploy())
+                {
+                    return;
+                }
+                StartupTracker.BeginDeploy();
+                Overlay.BeginDeploy(__instance, raidSettings);
+            }
+            catch (Exception e)
+            {
+                // Never let the terminal stand between the player and a raid.
+                ClassifiedPlugin.Log.LogError("Raid-loading terminal failed to start: " + e);
+                Overlay.HideNow();
+            }
+        }
+
+        private static void DeployStatus(string status, float? progress) => StartupTracker.DeployStatus(status, progress);
+
+        private static void CancelAvailable(bool available) => Overlay.CanCancel = available;
+
+        private static void CountdownShown(DateTime gameStartTime)
+        {
+            float seconds = (float)(gameStartTime - EFT.DateTimeExtensions.Now).TotalSeconds;
+            StartupTracker.ReachCountdown(seconds);
+            Overlay.Countdown(seconds);
+        }
+
+        private static void RaidStarted() => Overlay.RaidStarted();
 
         private static void Handbook() => StartupTracker.Reach(StepId.Handbook);
         private static void WeaponBuilds() => StartupTracker.Reach(StepId.WeaponBuilds);

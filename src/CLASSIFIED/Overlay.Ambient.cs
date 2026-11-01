@@ -88,7 +88,7 @@ namespace CLASSIFIED
         {
             // Every unit of a faction gets the debrief (Overlay.Debrief.cs): its weapon and its
             // operation. An unidentified terminal has neither.
-            return Kit.For(id) != null ? new Debrief() : null;
+            return Kit.Has(id) ? new Debrief() : null;
         }
 
         /// <summary>Shared strengths, shapes and the text-free areas for the ambient drawings.</summary>

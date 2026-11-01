@@ -59,6 +59,7 @@ namespace CLASSIFIED
         private bool _previewLoop;
         private View _view;
         private bool _captionHidden;
+        private RunKind _previewKind;
 
         private Image _captionBack;
         private TextMeshProUGUI _caption;
@@ -87,6 +88,7 @@ namespace CLASSIFIED
             }
             Overlay o = _instance;
             o.ResetPreviewControls(captionHidden: false);
+            o._previewKind = ClassifiedPlugin.PreviewLoad.Value;
             o._previewPins = Pins.FromConfig();
             o._previewGlitches = ClassifiedPlugin.Glitches.Value;
             o.PlayPreview(o.RollPreview(ClassifiedPlugin.Theme.Value));
@@ -231,6 +233,12 @@ namespace CLASSIFIED
             {
                 _previewLoop = !_previewLoop;
             }
+            else if (Input.GetKeyDown(KeyCode.T))
+            {
+                // The launch, or a raid load: replayed from the start as the other.
+                _previewKind = _previewKind == RunKind.Launch ? RunKind.Deploy : RunKind.Launch;
+                PlayPreview(v);
+            }
             else if (Input.GetKeyDown(KeyCode.RightBracket))
             {
                 StartupTracker.PreviewSeek(StartupTracker.PreviewStepStart(StartupTracker.Current + 1));
@@ -293,7 +301,7 @@ namespace CLASSIFIED
                 _random = new System.Random(Environment.TickCount);
             }
             Faction faction = theme != ThemeChoice.Random ? Theme.Get(theme).Faction : PlayerFaction();
-            if (faction == Faction.Unknown && theme == ThemeChoice.Random)
+            if (faction == Faction.Unknown)
             {
                 // No profile seen yet: the preview shows a faction anyway.
                 faction = Faction.Bear;
@@ -314,7 +322,7 @@ namespace CLASSIFIED
                 StartupTracker.EndRun();
                 Hide();
             }
-            if (!StartupTracker.BeginPreview(ClassifiedPlugin.PreviewSeconds.Value))
+            if (!StartupTracker.BeginPreview(ClassifiedPlugin.PreviewSeconds.Value, kind: _previewKind))
             {
                 return;
             }
@@ -435,7 +443,7 @@ namespace CLASSIFIED
         // ---- the caption --------------------------------------------------------------------
 
         private const string PreviewHelp =
-            "LEFT/RIGHT  UNIT      UP/DOWN  LAYOUT      1-6  PIN PART (SHIFT: BACK)      0  UNPIN ALL      N  RE-ROLL      R  REPLAY      I  INTRO      E  ENDING      L  LOOP\n"
+            "LEFT/RIGHT  UNIT      UP/DOWN  LAYOUT      1-6  PIN PART (SHIFT: BACK)      0  UNPIN ALL      N  RE-ROLL      R  REPLAY      I  INTRO      E  ENDING      L  LOOP      T  LAUNCH / RAID\n"
             + "SPACE  HOLD      - / +  SPEED      [ / ]  STEP      M  NOTICE      G  GLITCH      D  DENIAL      C  CROSSFADE      V  VIEW      H  HIDE THIS      ESC  CLOSE";
 
         private const string ReelHelp =
@@ -514,7 +522,8 @@ namespace CLASSIFIED
             b.Clear();
             if (_phase == Phase.Loading)
             {
-                b.Append($"STEP {Mathf.Max(0, StartupTracker.Current) + 1:00} / {StartupTracker.StepCount:00}  ");
+                b.Append(_previewKind == RunKind.Deploy && !_showreel ? "RAID LOAD  //  " : "LAUNCH  //  ");
+                b.Append($"STEP {Mathf.Max(0, StartupTracker.Current) - StartupTracker.FirstStep + 1:00} / {StartupTracker.RunSteps:00}  ");
                 b.Append(StartupTracker.Labels[Mathf.Max(0, StartupTracker.Current)].ToUpperInvariant());
                 b.Append($"  //  {StartupTracker.Elapsed:0.0}s OF {StartupTracker.PreviewTotal:0.0}s");
             }

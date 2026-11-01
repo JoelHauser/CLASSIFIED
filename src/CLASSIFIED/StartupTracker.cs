@@ -6,7 +6,11 @@ using System.IO;
 
 namespace CLASSIFIED
 {
-    /// <summary>The load steps, in the order the game runs them.</summary>
+    /// <summary>
+    /// The load steps, in the order the game runs them: the launch's, then the raid load's. A run
+    /// covers one stretch of them (see <see cref="StartupTracker.FirstStep"/> and
+    /// <see cref="StartupTracker.LastStep"/>).
+    /// </summary>
     public enum StepId
     {
         VerifyFiles,
@@ -23,7 +27,24 @@ namespace CLASSIFIED
         WeaponBuilds,
         Voice,
         World,
-        MainMenu
+        MainMenu,
+
+        // The raid load, from the deploy screen to the raid.
+        DeployPrepare,
+        DeployBundles,
+        DeployMap,
+        DeployCache,
+        DeployMatch,
+        DeployObjects,
+        DeployStart,
+        DeployCountdown
+    }
+
+    /// <summary>Which load a run is: the game starting up, or a raid loading.</summary>
+    public enum RunKind
+    {
+        Launch,
+        Deploy
     }
 
     /// <summary>
@@ -54,7 +75,16 @@ namespace CLASSIFIED
             "Loading weapon builds",
             "Loading voice",
             "Loading weather and maps",
-            "Opening main menu"
+            "Opening main menu",
+
+            "Preparing the raid",
+            "Loading asset bundles",
+            "Loading the area",
+            "Caching data",
+            "Matching",
+            "Loading objects",
+            "Starting the raid",
+            "Deploying"
         };
 
         /// <summary>The same steps in Russian, for BEAR's terminal.</summary>
@@ -74,15 +104,43 @@ namespace CLASSIFIED
             "Загрузка сборок оружия",
             "Загрузка озвучки",
             "Загрузка погоды и карт",
-            "Открытие главного меню"
+            "Открытие главного меню",
+
+            "Подготовка к выходу",
+            "Загрузка пакетов ресурсов",
+            "Загрузка района",
+            "Кэширование данных",
+            "Сбор группы",
+            "Загрузка объектов",
+            "Начало рейда",
+            "Выдвижение"
         };
 
         /// <summary>
-        /// For a first launch, in seconds: one real SPT 4.1 launch (the four boot steps are
-        /// guesses). Replaced by this machine's own times after one.
+        /// For a first run, in seconds: one real SPT 4.1 launch (the four boot steps are guesses),
+        /// and the medians of 165 raid loads on a 12700K. Replaced by this machine's own times
+        /// after one.
         /// </summary>
-        private static readonly float[] DefaultSeconds = { 0.5f, 6f, 1f, 3f, 0.1f, 9f, 0.4f, 0.7f, 0.6f, 0.5f, 2.7f, 0.2f, 1.6f, 1f, 1.5f };
+        private static readonly float[] DefaultSeconds =
+        {
+            0.5f, 6f, 1f, 3f, 0.1f, 9f, 0.4f, 0.7f, 0.6f, 0.5f, 2.7f, 0.2f, 1.6f, 1f, 1.5f,
+            0.8f, 1.5f, 17f, 11f, 0.1f, 1.1f, 55f, 9f
+        };
 
+        /// <summary>The raid load's statuses, as the game sends them to its deploy screen (keys, not translated text).</summary>
+        private static readonly Dictionary<string, StepId> DeployStatuses = new Dictionary<string, StepId>
+        {
+            { "Preparing the game...", StepId.DeployPrepare },
+            { "LoadingBundles", StepId.DeployBundles },
+            { "CreatingPools", StepId.DeployBundles },
+            { "Map loading...", StepId.DeployMap },
+            { "Caching data...", StepId.DeployCache },
+            { "Matching...", StepId.DeployMatch },
+            { "Loading objects...", StepId.DeployObjects },
+            { "Local game starting...", StepId.DeployStart }
+        };
+
+        /// <summary>Every step there is: the size of the per-step arrays, not of a run.</summary>
         internal static int StepCount => Labels.Length;
 
         private static readonly Stopwatch Clock = Stopwatch.StartNew();
@@ -110,14 +168,29 @@ namespace CLASSIFIED
         internal static bool Active { get; private set; }
         internal static int Current { get; private set; } = -1;
 
-        /// <summary>The step this run started at: 0 for a launch, <see cref="StepId.Connect"/> otherwise.</summary>
+        /// <summary>What the running (or last) run is loading.</summary>
+        internal static RunKind Kind { get; private set; }
+
+        /// <summary>The step this run started at: 0 for a launch, <see cref="StepId.Connect"/> for a later profile load, the first deploy step for a raid.</summary>
         internal static int FirstStep { get; private set; }
+
+        /// <summary>The step this run ends on.</summary>
+        internal static int LastStep { get; private set; } = (int)StepId.MainMenu;
+
+        /// <summary>How many steps this run shows.</summary>
+        internal static int RunSteps => LastStep - FirstStep + 1;
 
         /// <summary>Total of the last launch that ran from the splash to the main menu, or 0 if none is known.</summary>
         internal static float LastTotal { get; private set; }
 
+        /// <summary>Total of the last raid load that reached the raid, or 0 if none is known.</summary>
+        internal static float LastDeployTotal { get; private set; }
+
         /// <summary>Launches from the splash so far, this one included.</summary>
         internal static int Launches { get; private set; }
+
+        /// <summary>Raid loads so far, this one included, shown or not.</summary>
+        internal static int Deploys { get; private set; }
 
         /// <summary>The selected profile's nickname, once the game has picked it; null before.</summary>
         internal static string Nickname { get; set; }
@@ -147,8 +220,27 @@ namespace CLASSIFIED
             }
         }
 
+        /// <summary>The names of the tasks the profile has under way, as the game names them: this launch's, or the last one's until the profile loads.</summary>
+        internal static readonly List<string> Quests = new List<string>();
+
+        /// <summary>The profile's tasks under way. Remembered, so the next launch knows them from the start.</summary>
+        internal static void NoteQuests(List<string> names)
+        {
+            if (Preview || names == null)
+            {
+                return;
+            }
+            bool same = names.Count == Quests.Count && names.TrueForAll(Quests.Contains);
+            Quests.Clear();
+            Quests.AddRange(names);
+            if (!same)
+            {
+                SaveTimings();
+            }
+        }
+
         /// <summary>True once a full launch has replaced the guessed step times with real ones.</summary>
-        internal static bool HasBaseline => LastTotal > 0f || Preview;
+        internal static bool HasBaseline => (Kind == RunKind.Deploy ? LastDeployTotal : LastTotal) > 0f || Preview;
 
         /// <summary>
         /// A pretend run, started from the main menu to show the terminal: the steps advance on
@@ -203,6 +295,7 @@ namespace CLASSIFIED
                 EndRun();
             }
 
+            Range(RunKind.Launch, (int)first);
             Clear((int)first);
             if (first == StepId.VerifyFiles)
             {
@@ -225,42 +318,116 @@ namespace CLASSIFIED
         /// <summary>Starts a pretend run from the first step. Does nothing while a real one is going.</summary>
         /// <param name="length">Roughly how long the run takes, in seconds.</param>
         /// <param name="overrun">Whether one step runs over its time, to show the slow-step warning.</param>
-        internal static bool BeginPreview(float length = PreviewLength, bool overrun = true)
+        internal static bool BeginPreview(float length = PreviewLength, bool overrun = true, RunKind kind = RunKind.Launch)
         {
             if (Active && !Preview)
             {
                 return false;
             }
             Active = false;
+            Range(kind, kind == RunKind.Deploy ? (int)StepId.DeployPrepare : 0);
 
             float total = 0f;
-            for (int i = 0; i < StepCount; i++)
+            for (int i = FirstStep; i <= LastStep; i++)
             {
                 total += Math.Max(Expected[i], 0.05f);
             }
             for (int i = 0; i < StepCount; i++)
             {
-                PreviewPlan[i] = Math.Max(0.25f, Math.Max(Expected[i], 0.05f) * length / total);
+                bool inRun = i >= FirstStep && i <= LastStep;
+                PreviewPlan[i] = inRun ? Math.Max(0.25f, Math.Max(Expected[i], 0.05f) * length / total) : 0f;
                 PreviewExpected[i] = PreviewPlan[i];
+            }
+            if (kind == RunKind.Deploy)
+            {
+                // The countdown counts down whole seconds, whatever the squeeze.
+                PreviewPlan[(int)StepId.DeployCountdown] = PreviewExpected[(int)StepId.DeployCountdown] = Math.Min(5f, Math.Max(3f, length * 0.25f));
             }
             if (overrun)
             {
                 // One step overruns, so the slow-step warning shows too.
-                int slow = (int)PreviewSlowStep;
-                PreviewExpected[slow] = Math.Max(Expected[slow], 0.25f);
+                int slow = (int)(kind == RunKind.Deploy ? StepId.DeployCache : PreviewSlowStep);
+                PreviewExpected[slow] = Math.Max(Expected[slow] * length / total, 0.25f);
                 PreviewPlan[slow] = PreviewExpected[slow] + Math.Max(1.5f, PreviewExpected[slow] * 0.5f) + 1.2f;
             }
             PreviewTotal = 0f;
-            for (int i = 0; i < StepCount; i++)
+            for (int i = FirstStep; i <= LastStep; i++)
             {
                 PreviewTotal += PreviewPlan[i];
             }
 
             Preview = true;
             _previewNow = 0f;
-            Clear(0);
-            Advance(0);
+            Clear(FirstStep);
+            Advance(FirstStep);
             return true;
+        }
+
+        private static void Range(RunKind kind, int first)
+        {
+            Kind = kind;
+            FirstStep = first;
+            LastStep = kind == RunKind.Deploy ? (int)StepId.DeployCountdown : (int)StepId.MainMenu;
+        }
+
+        /// <summary>A raid is loading: the deploy screen came up.</summary>
+        internal static void BeginDeploy()
+        {
+            if (Active)
+            {
+                if (!Preview && Kind == RunKind.Deploy)
+                {
+                    return;
+                }
+                // A raid load beats a preview, and closes any launch run left open.
+                EndRun();
+            }
+            Range(RunKind.Deploy, (int)StepId.DeployPrepare);
+            Clear(FirstStep);
+            Advance(FirstStep);
+        }
+
+        /// <summary>Counts a raid load, whether or not the terminal shows it (taking turns goes by this).</summary>
+        internal static void CountDeploy()
+        {
+            Deploys++;
+            SaveTimings();
+        }
+
+        /// <summary>
+        /// The deploy screen's status changed. Statuses it does not know are kept as the running
+        /// step's detail, so anything the game (or a mod) adds still shows.
+        /// </summary>
+        internal static void DeployStatus(string status, float? progress)
+        {
+            if (!Active || Preview || Kind != RunKind.Deploy || string.IsNullOrEmpty(status))
+            {
+                return;
+            }
+            if (DeployStatuses.TryGetValue(status, out StepId id))
+            {
+                Advance((int)id);
+                if (progress.HasValue && (int)id == Current)
+                {
+                    Details[Current] = $"{Math.Round(progress.Value * 100f):0}%";
+                }
+            }
+            else
+            {
+                ClassifiedPlugin.Log.LogInfo($"Raid load: status '{status}' is not one of the known steps; shown as a detail.");
+                Details[Math.Max(Current, FirstStep)] = status;
+            }
+        }
+
+        /// <summary>The final countdown screen came up: the last step runs exactly as long as it shows.</summary>
+        internal static void ReachCountdown(float seconds)
+        {
+            if (!Active || Preview || Kind != RunKind.Deploy)
+            {
+                return;
+            }
+            Advance((int)StepId.DeployCountdown);
+            Expected[(int)StepId.DeployCountdown] = Math.Max(0.5f, seconds);
         }
 
         /// <summary>Runs the pretend clock on by <paramref name="seconds"/>: the frame's time, scaled by the preview's speed, or 0 to hold.</summary>
@@ -275,11 +442,20 @@ namespace CLASSIFIED
         /// <summary>Moves the preview along. True once its last step has run its time.</summary>
         internal static bool PreviewTick()
         {
-            if (!Preview || !Active || Current < 0 || StepElapsed < PreviewPlan[Current])
+            if (!Preview || !Active || Current < 0)
             {
                 return false;
             }
-            if (Current == StepCount - 1)
+            if (Current == (int)StepId.DeployMap)
+            {
+                // The game reports how far the map has loaded; so does the pretend one.
+                Details[Current] = $"{Math.Min(99f, StepElapsed / Math.Max(PreviewPlan[Current], 0.05f) * 100f):0}%";
+            }
+            if (StepElapsed < PreviewPlan[Current])
+            {
+                return false;
+            }
+            if (Current == LastStep)
             {
                 return true;
             }
@@ -315,10 +491,10 @@ namespace CLASSIFIED
             if (!Active || seconds < Elapsed)
             {
                 _previewNow = 0f;
-                Clear(0);
-                Advance(0);
+                Clear(FirstStep);
+                Advance(FirstStep);
             }
-            while (Current < StepCount - 1 && _stepStart - _runStart + PreviewPlan[Current] <= seconds)
+            while (Current < LastStep && _stepStart - _runStart + PreviewPlan[Current] <= seconds)
             {
                 _previewNow = _stepStart + PreviewPlan[Current];
                 PreviewNext();
@@ -330,7 +506,7 @@ namespace CLASSIFIED
         internal static float PreviewStepStart(int step)
         {
             float at = 0f;
-            for (int i = 0; i < step && i < StepCount; i++)
+            for (int i = FirstStep; i < step && i <= LastStep; i++)
             {
                 at += PreviewPlan[i];
             }
@@ -342,8 +518,7 @@ namespace CLASSIFIED
             Array.Clear(Took, 0, Took.Length);
             Array.Clear(Skipped, 0, Skipped.Length);
             Array.Clear(Details, 0, Details.Length);
-            FirstStep = first;
-            Current = FirstStep - 1;
+            Current = first - 1;
             _shownFraction = 0f;
             _runStart = Now;
             _runTerminal = 0f;
@@ -353,8 +528,9 @@ namespace CLASSIFIED
 
         internal static void Reach(StepId id)
         {
-            // A preview runs on its own schedule; the game calls some of these again in the menu.
-            if (!Preview)
+            // A preview runs on its own schedule; the game calls some of these again in the menu,
+            // and during a raid load, where they are not this run's steps.
+            if (!Preview && Kind == RunKind.Launch && (int)id <= LastStep)
             {
                 Advance((int)id);
             }
@@ -362,7 +538,7 @@ namespace CLASSIFIED
 
         private static void Advance(int step)
         {
-            if (!Active || step <= Current)
+            if (!Active || step <= Current || step > LastStep)
             {
                 return;
             }
@@ -390,6 +566,22 @@ namespace CLASSIFIED
             {
                 Details[(int)id] = detail;
             }
+        }
+
+        /// <summary>Ends a run that did not finish (a cancelled raid load): logged, but nothing is kept as a yardstick.</summary>
+        internal static void AbortRun(string why)
+        {
+            if (!Active)
+            {
+                return;
+            }
+            if (!Preview)
+            {
+                ClassifiedPlugin.Log.LogInfo($"Loading stopped after {Elapsed:0.00}s at '{Labels[Math.Max(Current, FirstStep)]}': {why}.");
+                Archive.Save();
+            }
+            Active = false;
+            Preview = false;
         }
 
         internal static void EndRun()
@@ -421,17 +613,21 @@ namespace CLASSIFIED
             ClassifiedPlugin.Log.LogInfo(
                 $"Terminal: {_runTerminal * 1000f:0} ms of its own work over {_runFrames} frames ({(_runFrames > 0 ? _runTerminal * 1000f / _runFrames : 0f):0.00} ms/frame).");
 
-            // Only a run that reached the menu is a fair yardstick for the next one.
-            if (Current == StepCount - 1)
+            // Only a run that reached its end is a fair yardstick for the next one.
+            if (Current == LastStep)
             {
-                for (int i = FirstStep; i < StepCount; i++)
+                for (int i = FirstStep; i <= LastStep; i++)
                 {
                     if (!Skipped[i])
                     {
                         Expected[i] = Took[i];
                     }
                 }
-                if (FirstStep == 0)
+                if (Kind == RunKind.Deploy)
+                {
+                    LastDeployTotal = total;
+                }
+                else if (FirstStep == 0)
                 {
                     LastTotal = total;
                 }
@@ -452,7 +648,7 @@ namespace CLASSIFIED
 
             float total = 0f;
             float done = 0f;
-            for (int i = FirstStep; i < StepCount; i++)
+            for (int i = FirstStep; i <= LastStep; i++)
             {
                 float expected = Math.Max(Usual(i), 0.05f);
                 total += expected;
@@ -529,7 +725,15 @@ namespace CLASSIFIED
                 }
                 foreach (string line in File.ReadAllLines(TimingsPath))
                 {
-                    string[] parts = line.Split('=');
+                    string[] parts = line.Split(new[] { '=' }, 2);
+                    if (parts.Length == 2 && parts[0] == "Quest")
+                    {
+                        if (parts[1].Length > 0 && Quests.Count < 12)
+                        {
+                            Quests.Add(parts[1]);
+                        }
+                        continue;
+                    }
                     if (parts.Length == 2 && parts[0] == "Side")
                     {
                         LastSide = parts[1] == "BEAR" || parts[1] == "USEC" ? parts[1] : null;
@@ -545,9 +749,17 @@ namespace CLASSIFIED
                     {
                         LastTotal = seconds;
                     }
+                    else if (parts[0] == "DeployTotal")
+                    {
+                        LastDeployTotal = seconds;
+                    }
                     else if (parts[0] == "Launches")
                     {
                         Launches = (int)seconds;
+                    }
+                    else if (parts[0] == "Deploys")
+                    {
+                        Deploys = (int)seconds;
                     }
                     else if (Enum.TryParse(parts[0], out StepId id))
                     {
@@ -568,11 +780,17 @@ namespace CLASSIFIED
                 var lines = new List<string>
                 {
                     "LaunchTotal=" + LastTotal.ToString("0.000", CultureInfo.InvariantCulture),
-                    "Launches=" + Launches.ToString(CultureInfo.InvariantCulture)
+                    "DeployTotal=" + LastDeployTotal.ToString("0.000", CultureInfo.InvariantCulture),
+                    "Launches=" + Launches.ToString(CultureInfo.InvariantCulture),
+                    "Deploys=" + Deploys.ToString(CultureInfo.InvariantCulture)
                 };
                 if (LastSide != null)
                 {
                     lines.Add("Side=" + LastSide);
+                }
+                foreach (string quest in Quests)
+                {
+                    lines.Add("Quest=" + quest.Replace('\n', ' ').Replace('\r', ' '));
                 }
                 for (int i = 0; i < StepCount; i++)
                 {

@@ -13,10 +13,12 @@ For SPT 4.1.x. Client only.
 - **Six units each**, every one with its own colours, wording and choice of the parts above:
   - BEAR: Command Post, Reconnaissance, Signals, Counterintelligence, Supply, Medical Service.
   - USEC: Tactical Operations Center, S2 Intelligence, S6 Communications, S4 Logistics, Medical, Corporate Command.
-- **The debrief.** Beside the terminal, the unit's kit turns on a table as a hologram, one piece after another: its weapon (AK-12, SVDS, AKS-74U, AS VAL, PKM, AK-74M; HK 416A5, M4A1, SR-25, MCX, M60E4, MP5), then its helmet, armour, night vision, headset, pack, medical kit or rations, with their names and figures; a weapon's parts are named as it comes side on. Next to it, the operations map: an assault, a drone over the target, direction finding, a convoy, a casualty evacuation or a surveillance track, drawn the way each side draws its maps and playing out as the game loads.
+- **The debrief.** Beside the terminal, the unit's kit turns on a table as a hologram, one piece after another: one of its weapons, often with an optic, light, foregrip or suppressor fitted, then three pieces of its gear (helmets, armour, night vision, headsets, packs, medical kit, rations), with their names and figures; a weapon's parts are named as it comes side on. Next to it, one of several panels: the operations map (an assault, a drone over the target, direction finding, a convoy, a casualty evacuation or a surveillance track, in each side's own map conventions), a wanted dossier, a radio intercept, reconnaissance imagery being enhanced, the unit's readiness, or your own tasks.
+- **Your tasks.** The terminal reads the tasks your profile has under way and now and then passes on intel about one of them.
 - **The factions' own insignia.** The BEAR and USEC logos, flying together piece by piece as the terminal comes on.
 - **Traffic.** Orders signed by officers of your side, priority intel on the region, the other side's radio intercepts, and a ticker of headlines and the day's readings. Nothing repeats until you have seen the rest.
-- **A first launch** signs in unidentified and switches to your faction when your profile loads. After that it remembers your faction.
+- **A first launch** shows either side and switches to yours when your profile loads. After that it remembers your faction.
+- **Raid loads too, if you like.** Switch on F12 > Raid Loading > **Show While Loading Raids**: the game's real deploy steps, the countdown, Esc to cancel while the game allows it, one notice at most. It stands aside for Deploy Screen Overhaul by default, and takes turns with ACCESS GRANTED's raid terminal.
 
 ## With ACCESS GRANTED
 

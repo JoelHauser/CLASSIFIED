@@ -46,8 +46,14 @@ namespace CLASSIFIED
             }
         }
 
+        /// <summary>An item's figures. A weapon's builds (ak74m_1, ak74m_2) share its default's.</summary>
         internal static Spec Get(string id)
         {
+            int build = id.LastIndexOf('_');
+            if (build > 0 && int.TryParse(id.Substring(build + 1), out _))
+            {
+                id = id.Substring(0, build);
+            }
             foreach (Spec spec in All)
             {
                 if (spec.Id == id)
@@ -58,25 +64,56 @@ namespace CLASSIFIED
             return All[0];
         }
 
-        /// <summary>Each unit's table, in the order it is shown: the weapon first. Null for none.</summary>
-        internal static string[] For(ThemeChoice unit)
+        /// <summary>How many builds each weapon has: its default (no suffix) and _1, _2 with random attachments.</summary>
+        private const int Builds = 3;
+
+        /// <summary>Each unit's weapons and its gear, to draw a table from. Null for none.</summary>
+        private static string[][] Pools(ThemeChoice unit)
         {
             switch (unit)
             {
-                case ThemeChoice.BearCommand: return new[] { "ak12", "6b47", "6b43", "gssh01" };
-                case ThemeChoice.BearReconnaissance: return new[] { "svds", "pnv10t", "6sh118", "6b47" };
-                case ThemeChoice.BearSignals: return new[] { "aks74u", "gssh01", "cofdm", "iskra" };
-                case ThemeChoice.BearCounterintelligence: return new[] { "val", "altyn", "intel", "6b13" };
-                case ThemeChoice.BearSupply: return new[] { "pkm", "tushonka", "iskra", "6sh118" };
-                case ThemeChoice.BearMedical: return new[] { "ak74m", "salewa", "grizzly", "ssh68" };
-                case ThemeChoice.UsecOperations: return new[] { "m4a1", "fast", "avs", "pvs14" };
-                case ThemeChoice.UsecIntelligence: return new[] { "sr25", "gpnvg", "intel", "exfil" };
-                case ThemeChoice.UsecSignals: return new[] { "mcx", "comtac", "cofdm", "nicecomm" };
-                case ThemeChoice.UsecLogistics: return new[] { "m60", "blackjack", "slick", "comtac" };
-                case ThemeChoice.UsecMedical: return new[] { "mp5", "surv12", "ledx", "grizzly" };
-                case ThemeChoice.UsecCommand: return new[] { "hk416", "airframe", "slick", "gpnvg" };
+                case ThemeChoice.BearCommand: return new[] { new[] { "ak12", "ak105" }, new[] { "6b47", "6b43", "gssh01", "korundvm", "vulkan5", "intel" } };
+                case ThemeChoice.BearReconnaissance: return new[] { new[] { "svds", "sv98", "vss" }, new[] { "pnv10t", "6sh118", "6b47", "kirasa", "gssh01" } };
+                case ThemeChoice.BearSignals: return new[] { new[] { "aks74u", "aks74" }, new[] { "gssh01", "cofdm", "iskra", "6b3", "lshz2dtm" } };
+                case ThemeChoice.BearCounterintelligence: return new[] { new[] { "val", "vss", "vityaz" }, new[] { "altyn", "intel", "6b13", "kiver", "defender2" } };
+                case ThemeChoice.BearSupply: return new[] { new[] { "pkm", "ak103" }, new[] { "tushonka", "iskra", "6sh118", "gzhel", "6b3" } };
+                case ThemeChoice.BearMedical: return new[] { new[] { "ak74m", "aks74" }, new[] { "salewa", "grizzly", "ssh68", "medpack", "kirasa" } };
+                case ThemeChoice.UsecOperations: return new[] { new[] { "m4a1", "mk16" }, new[] { "fast", "avs", "pvs14", "cpc", "comtac" } };
+                case ThemeChoice.UsecIntelligence: return new[] { new[] { "sr25", "m1a", "rem700" }, new[] { "gpnvg", "intel", "exfil", "hexgrid", "bastion" } };
+                case ThemeChoice.UsecSignals: return new[] { new[] { "mcx", "mk47" }, new[] { "comtac", "cofdm", "nicecomm", "mich2001", "slick" } };
+                case ThemeChoice.UsecLogistics: return new[] { new[] { "m60", "mk47" }, new[] { "blackjack", "slick", "comtac", "betav2", "cpc" } };
+                case ThemeChoice.UsecMedical: return new[] { new[] { "mp5", "mp5k" }, new[] { "surv12", "ledx", "grizzly", "medpack", "mich2001" } };
+                case ThemeChoice.UsecCommand: return new[] { new[] { "hk416", "mk16" }, new[] { "airframe", "slick", "gpnvg", "bastion", "hexgrid" } };
                 default: return null;
             }
+        }
+
+        /// <summary>Whether the unit has a table at all.</summary>
+        internal static bool Has(ThemeChoice unit) => Pools(unit) != null;
+
+        /// <summary>
+        /// This launch's table for the unit: one of its weapons, in one of its builds, then three
+        /// of its gear in some order. The same <paramref name="random"/> draws the same table, so
+        /// laying the screen out again keeps it.
+        /// </summary>
+        internal static string[] Draw(ThemeChoice unit, System.Random random)
+        {
+            string[][] pools = Pools(unit);
+            if (pools == null)
+            {
+                return null;
+            }
+            string weapon = pools[0][random.Next(pools[0].Length)];
+            int build = random.Next(Builds);
+            var gear = new List<string>(pools[1]);
+            for (int i = gear.Count - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                (gear[i], gear[j]) = (gear[j], gear[i]);
+            }
+            var table = new List<string> { build == 0 ? weapon : weapon + "_" + build };
+            table.AddRange(gear.GetRange(0, Math.Min(3, gear.Count)));
+            return table.ToArray();
         }
     }
 
@@ -131,7 +168,11 @@ namespace CLASSIFIED
                 {
                     if (stream != null)
                     {
-                        model = Read(new BinaryReader(stream));
+                        // Gzipped by the script.
+                        using (var unzipped = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Decompress))
+                        {
+                            model = Read(new BinaryReader(unzipped));
+                        }
                     }
                     else
                     {

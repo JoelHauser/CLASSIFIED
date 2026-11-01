@@ -104,7 +104,7 @@ namespace CLASSIFIED
             // The last steps are where the game freezes longest (seconds at a time); a glitch
             // caught on screen by one of those looks like a fault, so none start there.
             if (_phase != Phase.Loading || _variant.Glitches == GlitchLevel.Off || _introClock < GlitchesFrom
-                || StartupTracker.Current >= (int)StepId.WeaponBuilds)
+                || StartupTracker.Current >= (int)(Deploying ? StepId.DeployStart : StepId.WeaponBuilds))
             {
                 return;
             }

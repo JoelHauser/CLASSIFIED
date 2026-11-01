@@ -23,10 +23,7 @@ namespace CLASSIFIED
         UsecSignals,
         UsecLogistics,
         UsecMedical,
-        UsecCommand,
-
-        /// <summary>Before the terminal knows whose it is: a first launch, until the profile loads. Never rolled.</summary>
-        Unidentified
+        UsecCommand
     }
 
     /// <summary>Which faction's terminal shows. Profile follows the selected profile's faction.</summary>
@@ -309,20 +306,6 @@ namespace CLASSIFIED
                 Chatter = new[] { "INVOICE {n}  DISPUTED", "CONTRACT CLAUSE {n}  REVIEWED", "HAZARD PAY  {pct}% APPROVED", "BOARD CALL  RESCHEDULED" },
                 Headlines = new[] { "USEC REMAINS 'FULLY COMMITTED' TO CLIENT, SAYS CLIENT-FREE PRESS OFFICE", "CONTRACT DISPUTE WITH TERRAGROUP ENTERS THIRD YEAR" },
                 Memos = new[] { "THE TERRAGROUP CONTRACT IS SUSPENDED, NOT ENDED. YOU ARE STILL BOUND BY ITS CONFIDENTIALITY CLAUSES.", "HAZARD PAY IS CALCULATED FROM THE MOMENT YOU REACH THE EXTRACT. ARRIVE AT THE EXTRACT." }
-            },
-
-            // ---- Before the faction is known ---------------------------------------------
-            new Theme(ThemeChoice.Unidentified, Faction.Unknown, "050505", "2A2A2A", "C8C8C8", "8A8A8A", "FFFFFF", "F0F0F0", "8A8A8A", "E03C3C", "3CA0FF")
-            {
-                Backdrops = new[] { BackdropKind.Plain }, Frames = new[] { FrameKind.Lock },
-                Intros = new[] { IntroKind.Crt }, Bars = new[] { BarKind.Ruler }, Outros = new[] { OutroKind.Zoom },
-                Division = "UNIDENTIFIED TERMINAL", TitleCard = "AUTHORISED PERSONNEL ONLY", LogTag = "OK",
-                SlowNote = "STAND BY",
-                Headers = new[] { "SECURE TERMINAL  //  OPERATOR UNKNOWN" },
-                Grants = new[] { "OPERATOR IDENTIFIED" },
-                Chatter = new[] { "HANDSHAKE  {hex}", "CERTIFICATE  CHECKED", "AWAITING OPERATOR" },
-                Headlines = new[] { "THIS TERMINAL HAS NOT BEEN ASSIGNED", "IDENTIFY YOURSELF" },
-                Memos = new[] { "THIS TERMINAL BELONGS TO A PRIVATE MILITARY NETWORK. YOUR SIGN-IN WILL DECIDE WHICH ONE." }
             }
         };
 
@@ -447,15 +430,17 @@ namespace CLASSIFIED
             Archive.Recording = !preview;
             v.Milestone = launches > 0 && launches % 100 == 0;
 
+            if (faction == Faction.Unknown)
+            {
+                // Nothing known about the operator yet (a first launch): either side, until the
+                // profile loads and puts it right.
+                faction = random.Next(2) == 0 ? Faction.Bear : Faction.Usec;
+            }
             if (choice != ThemeChoice.Random)
             {
                 v.Theme = Theme.Get(choice);
             }
-            else if (faction == Faction.Unknown)
-            {
-                v.Theme = Theme.Get(ThemeChoice.Unidentified);
-            }
-            else if (v.Milestone)
+            else if (v.Milestone && faction != Faction.Unknown)
             {
                 v.Theme = Theme.Get(faction == Faction.Bear ? ThemeChoice.BearCommand : ThemeChoice.UsecCommand);
             }
@@ -523,8 +508,10 @@ namespace CLASSIFIED
             // Two or three notices a launch, spread over it: the unit's orders, orders from
             // elsewhere in the faction, regional intel, the enemy's radio traffic, and now and
             // then something nobody admits to sending.
-            int count = preview ? 3 : random.Next(2, 4);
-            float[] at = { 0.12f, 0.4f, 0.68f };
+            // Few, and spread out: a launch two, a shorter load (back from a raid) one. A
+            // preview shows three, to look at.
+            int count = preview ? 3 : StartupTracker.FirstStep == 0 ? 2 : 1;
+            float[] at = count == 1 ? new[] { 0.45f } : count == 2 ? new[] { 0.2f, 0.62f } : new[] { 0.12f, 0.4f, 0.68f };
             v.Notices = new Notice[count];
             List<string> divisionMemos = Correspondence.MemosFor(t);
             string[][] common = Correspondence.CommonMemos(t.Faction);
@@ -573,6 +560,15 @@ namespace CLASSIFIED
                     notice.Signature = Correspondence.Signature(random, t.Id, sender);
                 }
                 v.Notices[i] = notice;
+            }
+            // Now and then one of them is about the operator's own tasks, when they are known.
+            if (!preview && count > 0 && StartupTracker.Quests.Count > 0 && random.Next(100) < 60)
+            {
+                Notice quest = QuestIntel.Make(random, t.Faction, v.Notices[count - 1].At);
+                if (quest != null)
+                {
+                    v.Notices[count - 1] = quest;
+                }
             }
             Archive.Save();
             return v;

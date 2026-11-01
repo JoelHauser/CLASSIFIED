@@ -12,6 +12,14 @@ namespace CLASSIFIED
         English
     }
 
+    /// <summary>What the raid-loading terminal does when Deploy Screen Overhaul is installed too.</summary>
+    public enum DeployScreenMode
+    {
+        StandAside,
+        TakeTurns,
+        AlwaysTerminal
+    }
+
     /// <summary>Whose units the showreel plays.</summary>
     public enum ReelFactions
     {
@@ -65,6 +73,83 @@ namespace CLASSIFIED
         internal static ConfigEntry<float> PreviewSeconds;
         internal static ConfigEntry<float> ShotSeconds;
         internal static ConfigEntry<ReelFactions> ReelUnits;
+        internal static ConfigEntry<RunKind> PreviewLoad;
+        internal static ConfigEntry<bool> RaidLoading;
+        internal static ConfigEntry<DeployScreenMode> WithDeployScreen;
+        internal static ConfigEntry<bool> ShowMapName;
+
+        private const string DeployScreenGuid = "com.mybutthasarash.deployscreen";
+
+        /// <summary>Whether Deploy Screen Overhaul is installed: it draws the same screen. Asked when a raid loads, since it may load after this plugin.</summary>
+        internal static bool DeployScreenInstalled => BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(DeployScreenGuid);
+
+        /// <summary>
+        /// A raid is loading: whether this terminal shows it. Off unless switched on. With Deploy
+        /// Screen Overhaul installed it stands aside by default, or they take turns. With ACCESS
+        /// GRANTED's raid terminal on too, the With ACCESS GRANTED setting decides, raid by raid.
+        /// Counts the raid either way, so taking turns stays in step.
+        /// </summary>
+        internal static bool ShowThisDeploy()
+        {
+            StartupTracker.CountDeploy();
+            if (!Enabled.Value || !RaidLoading.Value)
+            {
+                return false;
+            }
+            if (DeployScreenInstalled)
+            {
+                switch (WithDeployScreen.Value)
+                {
+                    case DeployScreenMode.StandAside:
+                        return false;
+                    case DeployScreenMode.TakeTurns:
+                        if (StartupTracker.Deploys % 2 == 0)
+                        {
+                            Log.LogInfo("Deploy Screen Overhaul is installed: this raid load is its turn.");
+                            return false;
+                        }
+                        break;
+                }
+            }
+            if (AccessGrantedInstalled && AccessGrantedShowsRaids())
+            {
+                switch (WithAccessGranted.Value)
+                {
+                    case AccessGrantedMode.AlwaysAccessGranted:
+                        return false;
+                    case AccessGrantedMode.TakeTurns:
+                        // Over the deploys this terminal is allowed, every other one is ACCESS GRANTED's.
+                        _raidTurn++;
+                        if (_raidTurn % 2 == 0)
+                        {
+                            Log.LogInfo("ACCESS GRANTED shows raid loads too: this one is its turn.");
+                            return false;
+                        }
+                        break;
+                }
+            }
+            return true;
+        }
+
+        private static int _raidTurn;
+
+        /// <summary>Whether ACCESS GRANTED has its own raid-loading terminal switched on, from its settings.</summary>
+        private static bool AccessGrantedShowsRaids()
+        {
+            try
+            {
+                if (BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(AccessGrantedGuid, out PluginInfo info) && info.Instance != null
+                    && info.Instance.Config.TryGetEntry(new ConfigDefinition("Raid Loading", "Show While Loading Raids"), out ConfigEntry<bool> entry))
+                {
+                    return entry.Value;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.LogDebug("Could not read ACCESS GRANTED's raid setting: " + e.Message);
+            }
+            return false;
+        }
 
         /// <summary>Whether ACCESS GRANTED is installed: then the two share the launches.</summary>
         internal static bool AccessGrantedInstalled { get; private set; }
@@ -109,6 +194,7 @@ namespace CLASSIFIED
                 Overlay.StartShowreel();
             }
             Overlay.PreviewInput();
+            Overlay.DeployInput();
         }
 
         private static void DrawShowreelButton(ConfigEntryBase entry)
@@ -176,6 +262,16 @@ namespace CLASSIFIED
             ShotSeconds = Config.Bind("Preview", "Showreel Shot Length", 6f, new ConfigDescription(
                 "How long each unit stays on screen in the showreel, in seconds. The first holds a little longer for its title card.",
                 new AcceptableValueRange<float>(2f, 20f)));
+            PreviewLoad = Config.Bind("Preview", "Preview Load", RunKind.Launch,
+                "Which load the preview pretends to be when it opens: the game launching, or a raid loading. T switches while it shows.");
+            RaidLoading = Config.Bind("Raid Loading", "Show While Loading Raids", false,
+                "Also show the terminal while a raid loads, from the deploy screen to the raid: the game's real load steps, "
+                + "the countdown, then into the raid. One notice at most. Esc cancels the raid while the game allows it.");
+            WithDeployScreen = Config.Bind("Raid Loading", "With Deploy Screen Overhaul", DeployScreenMode.StandAside,
+                "Only matters when Deploy Screen Overhaul is installed too, since both draw the raid loading screen. "
+                + "Stand Aside leaves raid loads to it; Take Turns alternates raids; Always Terminal shows this terminal every raid.");
+            ShowMapName = Config.Bind("Raid Loading", "Show Map Name", false,
+                "Name the map on the raid-loading terminal. Off gives it a site code instead.");
             ReelUnits = Config.Bind("Preview", "Showreel Units", ReelFactions.Both,
                 "Whose units the showreel plays: all twelve, BEAR and USEC in turn, or one faction's six.");
             // A button, not a setting: the value is never read.
