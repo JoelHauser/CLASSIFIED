@@ -3,3 +3,9 @@ obj/
 dist/
 *.user
 .vs/
+scripts/__pycache__/
+
+# Previews the art scripts write, to check by eye.
+art/preview.png
+art/backdrops.png
+art/weapons/

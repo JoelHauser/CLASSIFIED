@@ -1,270 +1,216 @@
-using System.Collections.Generic;
+using System;
+using System.IO;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace CLASSIFIED
 {
     /// <summary>
-    /// The factions' insignia, made for this mod (not the game's own art), in four pieces each
-    /// so they can fly together the way the logo assembles:
-    ///   BEAR: a shield cut by three claw marks, a ridge of mountains rising from its foot.
-    ///   USEC: a spearhead between two swept wings, over a chevron of bars.
-    ///   Unknown: four wedges closing on an empty centre, before the terminal knows whose it is.
-    /// Every part is a convex polygon (all <see cref="Shape.Polygon"/> draws), in units of the
-    /// insignia's radius: it fits within about one radius of its centre.
+    /// The factions' insignia: the game's own BEAR and USEC logos, and four wedges closing on an
+    /// empty centre for a terminal that does not yet know whose it is. Each is cut into the
+    /// pieces that fly together when the terminal comes on (BEAR: the shield's two halves, the
+    /// paw, the mountains, the name, the pin and the fang; USEC: the eagle, the four letters, the
+    /// chevron and its bars), only ever along the gaps in the logo, so nothing seams once they meet.
+    ///
+    /// The pieces are packed into one picture per faction (Resources/insignia_*.png, white with
+    /// the shape in alpha, tinted where drawn), made from the logos in art/ by
+    /// scripts/make_insignia.py, which also writes the piece table in Insignia.Pieces.cs. Sizes
+    /// are in units of the insignia's radius: the logo's farthest corner touches it, so it sits
+    /// inside every frame. Loaded when first drawn and let go when the terminal hides.
     /// </summary>
-    internal static class Insignia
+    internal static partial class Insignia
     {
-        internal const int Pieces = 4;
+        /// <summary>The most pieces any insignia has.</summary>
+        internal const int MaxPieces = 7;
 
-        private enum Ink
+        internal readonly struct Piece
         {
-            /// <summary>The faction's colour.</summary>
-            Main,
+            internal readonly string Name;
 
-            /// <summary>A highlight, as the logo's light triangle.</summary>
-            Light,
+            /// <summary>Where the piece sits in its faction's picture, in UV.</summary>
+            internal readonly Rect Uv;
 
-            /// <summary>The background colour: a cut through the piece below.</summary>
-            Cut
-        }
+            /// <summary>Its centre in the assembled logo, in units of the radius, y up.</summary>
+            internal readonly Vector2 Centre;
 
-        private struct Part
-        {
-            internal Vector2[] Points;
-            internal Ink Ink;
-        }
+            /// <summary>Its size, in units of the radius.</summary>
+            internal readonly Vector2 Size;
 
-        private static readonly Vector2[] BearShield =
-        {
-            new Vector2(-0.66f, 0.88f), new Vector2(0.66f, 0.88f), new Vector2(0.76f, 0.78f), new Vector2(0.76f, -0.05f), new Vector2(0.66f, -0.40f),
-            new Vector2(0.46f, -0.70f), new Vector2(0.24f, -0.88f), new Vector2(0f, -0.98f), new Vector2(-0.24f, -0.88f),
-            new Vector2(-0.46f, -0.70f), new Vector2(-0.66f, -0.40f), new Vector2(-0.76f, -0.05f), new Vector2(-0.76f, 0.78f)
-        };
+            /// <summary>The way it flies in from.</summary>
+            internal readonly Vector2 Direction;
 
-        /// <summary>Draws piece <paramref name="piece"/> of the faction's insignia into <paramref name="shape"/>, radius <paramref name="r"/>.</summary>
-        internal static void DrawPiece(Faction faction, int piece, Shape shape, float r, Color32 main, Color32 light, Color32 cut)
-        {
-            foreach (Part part in Parts(faction, piece))
+            internal Piece(string name, Rect uv, Vector2 centre, Vector2 size, Vector2 direction)
             {
-                var points = new Vector2[part.Points.Length];
-                for (int i = 0; i < points.Length; i++)
+                Name = name;
+                Uv = uv;
+                Centre = centre;
+                Size = size;
+                Direction = direction;
+            }
+        }
+
+        private static readonly Texture2D[] Atlases = new Texture2D[3];
+
+        internal static Piece[] PiecesOf(Faction faction) =>
+            faction == Faction.Bear ? BearPieces : faction == Faction.Usec ? UsecPieces : UnknownPieces;
+
+        /// <summary>The faction's picture, loaded the first time it is asked for. Null if it could not be read.</summary>
+        internal static Texture2D Atlas(Faction faction)
+        {
+            int slot = (int)faction;
+            if (Atlases[slot] != null)
+            {
+                return Atlases[slot];
+            }
+            string resource = "CLASSIFIED.insignia_" + faction.ToString().ToLowerInvariant() + ".png";
+            try
+            {
+                using (Stream stream = typeof(Insignia).Assembly.GetManifestResourceStream(resource))
                 {
-                    points[i] = part.Points[i] * r;
-                }
-                shape.Polygon(points, part.Ink == Ink.Main ? main : part.Ink == Ink.Light ? light : cut);
-            }
-        }
-
-        /// <summary>The whole insignia in one shape, for a watermark or a seal.</summary>
-        internal static void DrawAll(Faction faction, Shape shape, float r, Color32 main, Color32 light, Color32 cut)
-        {
-            for (int piece = 0; piece < Pieces; piece++)
-            {
-                DrawPiece(faction, piece, shape, r, main, light, cut);
-            }
-        }
-
-        /// <summary>Which way piece <paramref name="piece"/> sits from the centre: the way it flies in from.</summary>
-        internal static Vector2 Direction(Faction faction, int piece)
-        {
-            switch (faction)
-            {
-                case Faction.Bear:
-                    return piece == 0 ? Vector2.down : new Vector2(-1f, 1f + 0.4f * (piece - 2)).normalized;
-                case Faction.Usec:
-                    return piece == 0 ? Vector2.up : piece == 1 ? Vector2.left : piece == 2 ? Vector2.right : Vector2.down;
-                default:
-                    return piece == 0 ? Vector2.up : piece == 1 ? Vector2.right : piece == 2 ? Vector2.down : Vector2.left;
-            }
-        }
-
-        private static List<Part> Parts(Faction faction, int piece)
-        {
-            var parts = new List<Part>();
-            switch (faction)
-            {
-                case Faction.Bear:
-                    Bear(piece, parts);
-                    break;
-                case Faction.Usec:
-                    Usec(piece, parts);
-                    break;
-                default:
-                    Unknown(piece, parts);
-                    break;
-            }
-            return parts;
-        }
-
-        private static void Bear(int piece, List<Part> parts)
-        {
-            if (piece == 0)
-            {
-                // The shield, a band cut across it, and a ridge of mountains rising from its foot
-                // into the band.
-                parts.Add(new Part { Points = BearShield, Ink = Ink.Main });
-                Clipped(parts, Ink.Cut, new Vector2(-0.62f, -0.37f), new Vector2(0.62f, -0.37f), new Vector2(0.62f, 0.06f), new Vector2(-0.62f, 0.06f));
-                Clipped(parts, Ink.Main, new Vector2(-0.80f, -0.38f), new Vector2(-0.46f, -0.08f), new Vector2(-0.14f, -0.38f));
-                Clipped(parts, Ink.Main, new Vector2(-0.30f, -0.38f), new Vector2(0.04f, 0.0f), new Vector2(0.38f, -0.38f));
-                Clipped(parts, Ink.Main, new Vector2(0.22f, -0.38f), new Vector2(0.50f, -0.12f), new Vector2(0.80f, -0.38f));
-                return;
-            }
-
-            // A claw mark: a long blade, sharper on one side, slanting down to the right, cut
-            // through the shield.
-            int i = piece - 1;
-            float x = -0.42f + 0.33f * i;
-            float drop = i == 1 ? 0.06f : 0f;
-            Vector2 top = new Vector2(x - 0.12f, 0.76f + drop);
-            Vector2 bottom = new Vector2(x + 0.22f, 0.16f - drop * 0.5f);
-            Clipped(parts, Ink.Cut, Blade(top, bottom, 0.13f, 0.035f));
-        }
-
-        private static void Usec(int piece, List<Part> parts)
-        {
-            switch (piece)
-            {
-                case 0:
-                    // The spearhead, its right face caught by the light.
-                    parts.Add(new Part
+                    if (stream == null)
                     {
-                        Points = new[] { new Vector2(0f, 0.98f), new Vector2(0.22f, 0.34f), new Vector2(0f, -0.10f), new Vector2(-0.22f, 0.34f) },
-                        Ink = Ink.Main
-                    });
-                    parts.Add(new Part
+                        ClassifiedPlugin.Log.LogWarning("Insignia: " + resource + " is missing from the DLL.");
+                        return null;
+                    }
+                    var bytes = new byte[stream.Length];
+                    int read = 0;
+                    while (read < bytes.Length)
                     {
-                        Points = new[] { new Vector2(0.02f, 0.80f), new Vector2(0.16f, 0.35f), new Vector2(0.02f, 0.04f) },
-                        Ink = Ink.Light
-                    });
-                    return;
-                case 1:
-                case 2:
-                {
-                    // Two swept feathers each side.
-                    float s = piece == 1 ? -1f : 1f;
-                    parts.Add(Mirror(s, new Vector2(0.30f, 0.40f), new Vector2(0.98f, 0.70f), new Vector2(0.98f, 0.52f), new Vector2(0.30f, 0.20f)));
-                    parts.Add(Mirror(s, new Vector2(0.30f, 0.12f), new Vector2(0.86f, 0.34f), new Vector2(0.86f, 0.18f), new Vector2(0.30f, -0.06f)));
-                    return;
-                }
-                default:
-                {
-                    // The chevron, and bars standing in it that stop just short of its arms.
-                    parts.Add(Mirror(-1f, new Vector2(0.80f, -0.20f), new Vector2(0.64f, -0.20f), new Vector2(0f, -0.74f), new Vector2(0f, -0.94f)));
-                    parts.Add(Mirror(1f, new Vector2(0.80f, -0.20f), new Vector2(0.64f, -0.20f), new Vector2(0f, -0.74f), new Vector2(0f, -0.94f)));
-                    const float Slope = 0.54f / 0.64f;
-                    foreach (float bx in new[] { -0.30f, 0f, 0.30f })
-                    {
-                        float half = 0.065f;
-                        float Floor(float px) => -0.20f - (0.64f - Mathf.Abs(px)) * Slope + 0.07f;
-                        parts.Add(new Part
+                        int n = stream.Read(bytes, read, bytes.Length - read);
+                        if (n <= 0)
                         {
-                            Points = new[]
-                            {
-                                new Vector2(bx - half, -0.24f), new Vector2(bx + half, -0.24f),
-                                new Vector2(bx + half, Floor(bx + half)), new Vector2(bx - half, Floor(bx - half))
-                            },
-                            Ink = Ink.Main
-                        });
+                            break;
+                        }
+                        read += n;
                     }
-                    return;
+                    var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+                    if (!ImageConversion.LoadImage(texture, bytes, true))
+                    {
+                        UnityEngine.Object.Destroy(texture);
+                        ClassifiedPlugin.Log.LogWarning("Insignia: could not decode " + resource + ".");
+                        return null;
+                    }
+                    texture.wrapMode = TextureWrapMode.Clamp;
+                    // Mipmapped and trilinear: the same picture is drawn from a small emblem to a
+                    // watermark half the screen tall. The slight negative bias keeps the small
+                    // one crisp.
+                    texture.filterMode = FilterMode.Trilinear;
+                    texture.mipMapBias = -0.4f;
+                    texture.hideFlags = HideFlags.HideAndDontSave;
+                    Atlases[slot] = texture;
                 }
             }
+            catch (Exception e)
+            {
+                ClassifiedPlugin.Log.LogWarning("Insignia: could not load " + resource + ": " + e.Message);
+                return null;
+            }
+            return Atlases[slot];
         }
 
-        private static void Unknown(int piece, List<Part> parts)
+        /// <summary>Lets the pictures go. Anything still drawing one loads it again.</summary>
+        internal static void Release()
         {
-            // A wedge pointing at the centre, turned a quarter for each piece.
-            Vector2 d = Direction(Faction.Unknown, piece);
-            Vector2 n = new Vector2(-d.y, d.x);
-            parts.Add(new Part
+            for (int i = 0; i < Atlases.Length; i++)
             {
-                Points = new[] { d * 0.98f + n * 0.34f, d * 0.30f, d * 0.98f - n * 0.34f },
-                Ink = Ink.Main
-            });
-        }
-
-        private static Part Mirror(float side, params Vector2[] points)
-        {
-            var mirrored = new Vector2[points.Length];
-            for (int i = 0; i < points.Length; i++)
-            {
-                // Mirroring reverses the winding; Polygon takes either.
-                mirrored[i] = new Vector2(points[i].x * side, points[i].y);
-            }
-            return new Part { Points = mirrored, Ink = Ink.Main };
-        }
-
-        /// <summary>A part kept inside the shield, so a cut never shows against the background.</summary>
-        private static void Clipped(List<Part> parts, Ink ink, params Vector2[] points)
-        {
-            Vector2[] clipped = Clip(points, BearShield);
-            if (clipped.Length >= 3)
-            {
-                parts.Add(new Part { Points = clipped, Ink = ink });
-            }
-        }
-
-        /// <summary>
-        /// A blade from <paramref name="a"/> to <paramref name="b"/>: one edge bowed out by
-        /// <paramref name="wide"/>, the other by <paramref name="narrow"/>, both away from the
-        /// line between the tips, so the outline stays convex.
-        /// </summary>
-        private static Vector2[] Blade(Vector2 a, Vector2 b, float wide, float narrow)
-        {
-            const int Steps = 10;
-            Vector2 n = new Vector2(-(b - a).y, (b - a).x).normalized;
-            var points = new List<Vector2>();
-            for (int k = 0; k <= Steps; k++)
-            {
-                float t = k / (float)Steps;
-                points.Add(Vector2.Lerp(a, b, t) + n * (wide * Mathf.Sin(Mathf.PI * Mathf.Pow(t, 0.8f))));
-            }
-            for (int k = Steps - 1; k > 0; k--)
-            {
-                float t = k / (float)Steps;
-                points.Add(Vector2.Lerp(a, b, t) - n * (narrow * Mathf.Sin(Mathf.PI * t)));
-            }
-            return points.ToArray();
-        }
-
-        /// <summary>Sutherland-Hodgman: the part of convex <paramref name="subject"/> inside convex <paramref name="clip"/>.</summary>
-        private static Vector2[] Clip(Vector2[] subject, Vector2[] clip)
-        {
-            float area = 0f;
-            for (int i = 0; i < clip.Length; i++)
-            {
-                Vector2 p = clip[i];
-                Vector2 q = clip[(i + 1) % clip.Length];
-                area += p.x * q.y - q.x * p.y;
-            }
-            float inward = area > 0f ? 1f : -1f;
-
-            var output = new List<Vector2>(subject);
-            for (int e = 0; e < clip.Length && output.Count > 0; e++)
-            {
-                Vector2 c0 = clip[e];
-                Vector2 c1 = clip[(e + 1) % clip.Length];
-                var input = output;
-                output = new List<Vector2>();
-                for (int i = 0; i < input.Count; i++)
+                if (Atlases[i] != null)
                 {
-                    Vector2 p = input[i];
-                    Vector2 q = input[(i + 1) % input.Count];
-                    float dp = Side(c0, c1, p) * inward;
-                    float dq = Side(c0, c1, q) * inward;
-                    if (dp >= 0f)
-                    {
-                        output.Add(p);
-                    }
-                    if ((dp >= 0f) != (dq >= 0f))
-                    {
-                        output.Add(Vector2.Lerp(p, q, dp / (dp - dq)));
-                    }
+                    UnityEngine.Object.Destroy(Atlases[i]);
+                    Atlases[i] = null;
                 }
             }
-            return output.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// One insignia on screen: an image per piece under a shared rect, each at its place in the
+    /// logo. The terminal's emblem moves the pieces to assemble it; the watermark and the seal
+    /// just show it whole.
+    /// </summary>
+    internal sealed class InsigniaView
+    {
+        internal readonly RectTransform Root;
+        private readonly RawImage[] _images = new RawImage[Insignia.MaxPieces];
+        private readonly Vector2[] _home = new Vector2[Insignia.MaxPieces];
+        private readonly Vector2[] _direction = new Vector2[Insignia.MaxPieces];
+
+        /// <summary>How many pieces the shown insignia has.</summary>
+        internal int Count { get; private set; }
+
+        private InsigniaView(RectTransform root)
+        {
+            Root = root;
         }
 
-        private static float Side(Vector2 a, Vector2 b, Vector2 p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+        internal static InsigniaView Create(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var root = (RectTransform)go.transform;
+            root.anchorMin = root.anchorMax = root.pivot = new Vector2(0.5f, 0.5f);
+            root.sizeDelta = Vector2.zero;
+            var view = new InsigniaView(root);
+            for (int i = 0; i < Insignia.MaxPieces; i++)
+            {
+                var piece = new GameObject("Piece" + i, typeof(RectTransform));
+                piece.transform.SetParent(root, false);
+                RawImage image = piece.AddComponent<RawImage>();
+                image.raycastTarget = false;
+                RectTransform rect = image.rectTransform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+                image.gameObject.SetActive(false);
+                view._images[i] = image;
+            }
+            return view;
+        }
+
+        /// <summary>Shows <paramref name="faction"/>'s insignia assembled, radius <paramref name="r"/>, in <paramref name="color"/>.</summary>
+        internal void Show(Faction faction, float r, Color32 color)
+        {
+            Insignia.Piece[] pieces = Insignia.PiecesOf(faction);
+            Texture2D atlas = Insignia.Atlas(faction);
+            Count = atlas != null ? pieces.Length : 0;
+            for (int i = 0; i < _images.Length; i++)
+            {
+                RawImage image = _images[i];
+                bool used = i < Count;
+                image.gameObject.SetActive(used);
+                if (!used)
+                {
+                    image.texture = null;
+                    continue;
+                }
+                Insignia.Piece piece = pieces[i];
+                image.texture = atlas;
+                image.uvRect = piece.Uv;
+                image.color = color;
+                RectTransform rect = image.rectTransform;
+                rect.sizeDelta = piece.Size * r;
+                _home[i] = piece.Centre * r;
+                _direction[i] = piece.Direction;
+                rect.anchoredPosition = _home[i];
+                image.canvasRenderer.SetAlpha(1f);
+            }
+            // The rect covers the logo, so a mask finds it where it is drawn.
+            Root.sizeDelta = new Vector2(2f * r, 2f * r);
+        }
+
+        /// <summary>Piece <paramref name="i"/>, <paramref name="away"/> canvas units out along its way in, at <paramref name="alpha"/>.</summary>
+        internal void Place(int i, float away, float alpha)
+        {
+            _images[i].rectTransform.anchoredPosition = _home[i] + _direction[i] * away;
+            _images[i].canvasRenderer.SetAlpha(alpha);
+        }
+
+        /// <summary>Drops the pictures, so the faction's texture can be let go.</summary>
+        internal void Clear()
+        {
+            Count = 0;
+            foreach (RawImage image in _images)
+            {
+                image.texture = null;
+                image.gameObject.SetActive(false);
+            }
+        }
     }
 }

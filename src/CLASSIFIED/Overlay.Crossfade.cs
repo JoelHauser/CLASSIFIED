@@ -211,8 +211,12 @@ namespace CLASSIFIED
         private string Subtitle(bool boot)
         {
             Theme theme = _variant.Theme;
-            string native = string.IsNullOrEmpty(theme.Native) || !_cyrillic ? string.Empty : theme.Native + "  //  ";
-            return native + theme.Division + (boot ? "  //  STARTING UP" : "  //  SIGNING IN");
+            if (theme.Faction == Faction.Bear && BearRussian && !string.IsNullOrEmpty(theme.Native))
+            {
+                // All Russian: the unit's own name and what the terminal is doing.
+                return Cyr(theme.Native + (boot ? "  //  ЗАПУСК СИСТЕМЫ" : "  //  ВХОД В СЕТЬ"));
+            }
+            return theme.Division + (boot ? "  //  STARTING UP" : "  //  SIGNING IN");
         }
 
         /// <summary>Whether the terminal's font has Russian letters; checked when the font is set.</summary>

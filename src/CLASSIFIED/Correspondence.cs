@@ -55,7 +55,7 @@ namespace CLASSIFIED
                     "OPERATION ENTERS ANOTHER PHASE. PHASES NOW NUMBERED IN ROMAN NUMERALS",
                     "CHIEF OF STAFF: 'WE ARE WINNING. DO NOT ASK AGAINST WHOM'"
                 },
-                Chatter = new[] { "ORDER {n}  ACKNOWLEDGED", "PHASE LINE  CROSSED", "STRENGTH REPORT  {n} ACTIVE", "CODE WORD  CHANGED", "BRIEFING  0500", "STAFF MAP  REDRAWN" }
+                Chatter = new[] { "ПРИКАЗ {n}  ПРИНЯТ К ИСПОЛНЕНИЮ", "РУБЕЖ  ПРОЙДЕН", "СТРОЕВАЯ ЗАПИСКА  {n} В СТРОЮ", "ПАРОЛЬ  СМЕНЁН", "ПОСТАНОВКА ЗАДАЧ  05:00", "КАРТА ОБСТАНОВКИ  ПЕРЕЧЕРЧЕНА" }
             },
             [ThemeChoice.BearReconnaissance] = new Department
             {
@@ -81,7 +81,7 @@ namespace CLASSIFIED
                     "RECON DRONE RETURNS WITH FOOTAGE OF ANOTHER DRONE",
                     "SPOTTERS CONFIRM ENEMY PATROLS KEEP TO A SCHEDULE. OURS DO NOT"
                 },
-                Chatter = new[] { "GRID SQUARE {n}  OBSERVED", "SIGHTING {hex}  REPORTED", "DRONE {n}  RECOVERED", "NIGHT SCOPE  CHARGED", "ROUTE {n}  WALKED", "TRACKS  PHOTOGRAPHED" }
+                Chatter = new[] { "КВАДРАТ {n}  ПРОСМОТРЕН", "ОБНАРУЖЕНИЕ {hex}  ДОЛОЖЕНО", "БПЛА {n}  ВОЗВРАЩЁН", "НОЧНОЙ ПРИЦЕЛ  ЗАРЯЖЕН", "МАРШРУТ {n}  ПРОЙДЕН", "СЛЕДЫ  СФОТОГРАФИРОВАНЫ" }
             },
             [ThemeChoice.BearSignals] = new Department
             {
@@ -107,7 +107,7 @@ namespace CLASSIFIED
                     "RELAY MAST RESTORED; SIGNALLERS ASK FOR CREDIT IN WRITING",
                     "ENEMY TRAFFIC UP {pct}% OVERNIGHT. MOST OF IT COMPLAINING"
                 },
-                Chatter = new[] { "FREQUENCY HOP  OK", "TRAFFIC {n} GROUPS  SENT", "CIPHER PAD {n}  USED", "LINE CHECK  PASSED", "BURST {hex}  DECODED", "ANTENNA  REALIGNED" }
+                Chatter = new[] { "ППРЧ  В НОРМЕ", "ПЕРЕДАНО {n} ГРУПП", "ШИФРБЛОКНОТ {n}  ИЗРАСХОДОВАН", "ПРОВЕРКА СВЯЗИ  ПРОЙДЕНА", "ПАКЕТ {hex}  РАСШИФРОВАН", "АНТЕННА  ПЕРЕНАЦЕЛЕНА" }
             },
             [ThemeChoice.BearCounterintelligence] = new Department
             {
@@ -133,7 +133,7 @@ namespace CLASSIFIED
                     "AUDIT FINDS {n3} UNACCOUNTED ROUNDS AND ONE UNACCOUNTED CORPORAL",
                     "LOYALTY QUESTIONNAIRE EXTENDED TO 40 PAGES. PAGE 41 'UNDER DEVELOPMENT'"
                 },
-                Chatter = new[] { "SUBJECT {hex}  WATCHED", "STATEMENT {n}  SIGNED", "CASE {n}  CLOSED", "SERVICE NO {emp}  FLAGGED", "LISTENING POST  ACTIVE", "SAFE  RESEALED" }
+                Chatter = new[] { "ОБЪЕКТ {hex}  ПОД НАБЛЮДЕНИЕМ", "ОБЪЯСНИТЕЛЬНАЯ {n}  ПОДПИСАНА", "ДЕЛО {n}  ЗАКРЫТО", "ЛИЧНЫЙ НОМЕР {emp}  НА КОНТРОЛЕ", "ПОСТ ПРОСЛУШИВАНИЯ  РАБОТАЕТ", "СЕЙФ  ОПЕЧАТАН" }
             },
             [ThemeChoice.BearSupply] = new Department
             {
@@ -159,7 +159,7 @@ namespace CLASSIFIED
                     "RATIONS EXTENDED BY A WEEK THANKS TO 'CREATIVE COUNTING'",
                     "PRAPOR DELIVERY ARRIVES ON TIME. STAFF ORDER AN INVESTIGATION"
                 },
-                Chatter = new[] { "INVENTORY {n}  COUNTED", "CRATE {hex}  SIGNED FOR", "GENERATOR  {pct}% FUEL", "TUSHONKA  {n} TINS", "BOOTS  RE-ISSUED", "STORES  LOCKED" }
+                Chatter = new[] { "ИНВЕНТАРИЗАЦИЯ {n}  ПРОВЕДЕНА", "ЯЩИК {hex}  ПОЛУЧЕН ПОД РОСПИСЬ", "ГЕНЕРАТОР  {pct}% ТОПЛИВА", "ТУШЁНКА  {n} БАНОК", "САПОГИ  ПЕРЕВЫДАНЫ", "СКЛАД  ОПЕЧАТАН" }
             },
             [ThemeChoice.BearMedical] = new Department
             {
@@ -185,7 +185,7 @@ namespace CLASSIFIED
                     "MEDICS REPORT RECORD DEMAND FOR SPLINTS AFTER STAIRS INCIDENT",
                     "BLOOD DRIVE A SUCCESS; TEA AND BISCUITS GONE IN MINUTES"
                 },
-                Chatter = new[] { "PATIENT {emp}  DISCHARGED", "SUTURES  {n} PACKS", "MORPHINE  LOCKED", "STRETCHER {n}  CLEANED", "BLOOD TYPE  CHECKED", "WARD  {pct}% FULL" }
+                Chatter = new[] { "РАНЕНЫЙ {emp}  ВЫПИСАН", "ШОВНЫЙ МАТЕРИАЛ  {n} УП.", "МОРФИН  ПОД ЗАМКОМ", "НОСИЛКИ {n}  ОБРАБОТАНЫ", "ГРУППА КРОВИ  ПРОВЕРЕНА", "ПАЛАТА  ЗАНЯТА НА {pct}%" }
             },
 
             // ---- USEC -------------------------------------------------------------------
@@ -439,9 +439,9 @@ namespace CLASSIFIED
 
         private static readonly string[] BearChatter =
         {
-            "FORMATION  0600", "POST {n}  RELIEVED", "WEAPON {hex}  CLEANED", "TRACER  {n} BELTS", "GUARD ROSTER  POSTED", "MAIL  NONE",
-            "STOVE  LIT", "GENERATOR  ON", "TEA  BREWED", "BOOTS  DRYING", "CAT  FED", "CHECKPOINT {n}  MANNED",
-            "PLAYING CARDS  CONFISCATED", "ROUBLES  {n} THOUSAND", "SECURE CONTAINER  CHECKED", "SERVICE NO {emp}  ON DUTY"
+            "ПОСТРОЕНИЕ  06:00", "ПОСТ {n}  СМЕНЁН", "ОРУЖИЕ {hex}  ВЫЧИЩЕНО", "ТРАССЕРЫ  {n} ЛЕНТ", "ГРАФИК НАРЯДОВ  ВЫВЕШЕН", "ПОЧТЫ  НЕТ",
+            "ПЕЧЬ  ЗАТОПЛЕНА", "ГЕНЕРАТОР  ВКЛЮЧЁН", "ЧАЙ  ЗАВАРЕН", "САПОГИ  СУШАТСЯ", "КОТ  НАКОРМЛЕН", "КПП {n}  ЗАНЯТ",
+            "КАРТЫ ИГРАЛЬНЫЕ  ИЗЪЯТЫ", "РУБЛЕЙ  {n} ТЫС.", "ПОДСУМОК  ПРОВЕРЕН", "ЛИЧНЫЙ НОМЕР {emp}  НА ДЕЖУРСТВЕ"
         };
 
         private static readonly string[] UsecChatter =

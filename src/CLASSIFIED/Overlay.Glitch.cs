@@ -368,7 +368,7 @@ namespace CLASSIFIED
                 {
                     case 0:
                         _revealStage = 1;
-                        ShowLabel("> AUTHENTICATION FAILED", Warn);
+                        ShowLabel(Words("> ДОСТУП ЗАПРЕЩЁН", "> AUTHENTICATION FAILED"), Warn);
                         SetSegments(Warn);
                         StartTear(t, true);
                         KickRing(t);
@@ -376,7 +376,7 @@ namespace CLASSIFIED
                     case 1 when age >= DeniedFor:
                         _revealStage = 2;
                         EndFx();
-                        ShowLabel("> RETRYING...", Dim);
+                        ShowLabel(Words("> ПОВТОРНАЯ ПОПЫТКА...", "> RETRYING..."), Dim);
                         SetSegments(Faint);
                         break;
                     case 2 when age >= DeniedFor + RetryFor:

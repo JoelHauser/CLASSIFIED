@@ -57,6 +57,26 @@ namespace CLASSIFIED
             "Opening main menu"
         };
 
+        /// <summary>The same steps in Russian, for BEAR's terminal.</summary>
+        internal static readonly string[] LabelsRu =
+        {
+            "Проверка файлов игры",
+            "Подключение пакетов ресурсов",
+            "Построение интерфейса",
+            "Загрузка сцен входа",
+            "Соединение с сервером",
+            "Построение базы предметов",
+            "Чтение кэша значков",
+            "Получение настроек",
+            "Загрузка профилей",
+            "Выбор профиля",
+            "Загрузка справочника",
+            "Загрузка сборок оружия",
+            "Загрузка озвучки",
+            "Загрузка погоды и карт",
+            "Открытие главного меню"
+        };
+
         /// <summary>
         /// For a first launch, in seconds: one real SPT 4.1 launch (the four boot steps are
         /// guesses). Replaced by this machine's own times after one.
@@ -136,13 +156,13 @@ namespace CLASSIFIED
         /// </summary>
         internal static bool Preview { get; private set; }
 
-        /// <summary>The preview's step times: the real ones squeezed into about ten seconds.</summary>
+        /// <summary>The preview's step times: the real ones squeezed into the preview's length.</summary>
         private static readonly float[] PreviewPlan = new float[Labels.Length];
 
         /// <summary>What the preview treats as each step's usual time; one step is meant to run over it.</summary>
         private static readonly float[] PreviewExpected = new float[Labels.Length];
 
-        private const float PreviewLength = 10f;
+        internal const float PreviewLength = 10f;
 
         /// <summary>How long the running pretend run's steps add up to, in seconds.</summary>
         internal static float PreviewTotal { get; private set; }
@@ -154,7 +174,14 @@ namespace CLASSIFIED
             // Qualified: Assembly-CSharp has a global Paths class of its own.
             Path.Combine(BepInEx.Paths.ConfigPath, ClassifiedPlugin.PluginGuid + ".timings.txt");
 
-        private static float Now => (float)Clock.Elapsed.TotalSeconds;
+        /// <summary>
+        /// A pretend run's clock, in seconds. The preview moves it each frame (see
+        /// <see cref="PreviewAdvance"/>), so it can hold the run, slow it down or jump it to
+        /// any point; a real run always goes by the stopwatch.
+        /// </summary>
+        private static float _previewNow;
+
+        private static float Now => Preview ? _previewNow : (float)Clock.Elapsed.TotalSeconds;
 
         internal static float Elapsed => Active ? Now - _runStart : 0f;
         internal static float StepElapsed => Active && Current >= 0 ? Now - _stepStart : 0f;
@@ -230,9 +257,19 @@ namespace CLASSIFIED
             }
 
             Preview = true;
+            _previewNow = 0f;
             Clear(0);
             Advance(0);
             return true;
+        }
+
+        /// <summary>Runs the pretend clock on by <paramref name="seconds"/>: the frame's time, scaled by the preview's speed, or 0 to hold.</summary>
+        internal static void PreviewAdvance(float seconds)
+        {
+            if (Preview && Active)
+            {
+                _previewNow += Math.Max(0f, seconds);
+            }
         }
 
         /// <summary>Moves the preview along. True once its last step has run its time.</summary>
@@ -246,6 +283,12 @@ namespace CLASSIFIED
             {
                 return true;
             }
+            PreviewNext();
+            return false;
+        }
+
+        private static void PreviewNext()
+        {
             int next = Current + 1;
             Advance(next);
             if (next == (int)StepId.ItemDatabase)
@@ -256,7 +299,42 @@ namespace CLASSIFIED
             {
                 Details[next] = $"{(string.IsNullOrEmpty(Nickname) ? "Operator" : Nickname)}, level 42";
             }
-            return false;
+        }
+
+        /// <summary>
+        /// Jumps the pretend run to <paramref name="seconds"/> from its start, every step before
+        /// that finished on its planned time. Going back runs it again from the start.
+        /// </summary>
+        internal static void PreviewSeek(float seconds)
+        {
+            if (!Preview)
+            {
+                return;
+            }
+            seconds = Math.Max(0f, Math.Min(seconds, PreviewTotal));
+            if (!Active || seconds < Elapsed)
+            {
+                _previewNow = 0f;
+                Clear(0);
+                Advance(0);
+            }
+            while (Current < StepCount - 1 && _stepStart - _runStart + PreviewPlan[Current] <= seconds)
+            {
+                _previewNow = _stepStart + PreviewPlan[Current];
+                PreviewNext();
+            }
+            _previewNow = _runStart + seconds;
+        }
+
+        /// <summary>When step <paramref name="step"/> of the pretend run starts, in seconds from its start.</summary>
+        internal static float PreviewStepStart(int step)
+        {
+            float at = 0f;
+            for (int i = 0; i < step && i < StepCount; i++)
+            {
+                at += PreviewPlan[i];
+            }
+            return at;
         }
 
         private static void Clear(int first)

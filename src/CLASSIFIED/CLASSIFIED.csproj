@@ -108,7 +108,7 @@
       <HintPath>$(GameManaged)\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- Decodes the Internal Affairs fingerprint picture. -->
+    <!-- Decodes the insignia pictures. -->
     <Reference Include="UnityEngine.ImageConversionModule">
       <HintPath>$(GameManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
@@ -116,7 +116,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\fingerprint.png" LogicalName="CLASSIFIED.fingerprint.png" />
+    <!-- The insignia, made from the logos in art/ by scripts/make_insignia.py. -->
+    <EmbeddedResource Include="Resources\insignia_bear.png" LogicalName="CLASSIFIED.insignia_bear.png" />
+    <EmbeddedResource Include="Resources\insignia_usec.png" LogicalName="CLASSIFIED.insignia_usec.png" />
+    <EmbeddedResource Include="Resources\insignia_unknown.png" LogicalName="CLASSIFIED.insignia_unknown.png" />
+    <!-- The debrief's weapons and equipment, made from the game's own models by scripts/make_weapons.py. -->
+    <EmbeddedResource Include="Resources\item_*.bin" LogicalName="CLASSIFIED.%(Filename)%(Extension)" />
+    <!-- The faction backdrops, drawn by scripts/make_backdrops.py. -->
+    <EmbeddedResource Include="Resources\backdrop_*.png" LogicalName="CLASSIFIED.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!-- Opt-in: dotnet build -c Release -p:DeployToSPT=true -->

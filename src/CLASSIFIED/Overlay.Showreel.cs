@@ -1,13 +1,20 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CLASSIFIED
 {
     /// <summary>
-    /// The showreel, for recording a video of the mod: from the main menu (the F12 button), the
-    /// menu fades to a title card, then one pretend load runs quickly through a few units of both
-    /// factions (not all: the rest are for players to find), each in a different layout, frame,
-    /// background and bar, crossfading from one to the next (Overlay.Crossfade.cs). The last one
-    /// finishes the load and leaves for the main menu with its usual ending. Esc stops it.
+    /// The showreel, for recording a video of the mod or looking over every unit: from the main
+    /// menu (the F12 button), the menu fades to a title card, then one pretend load runs through
+    /// all twelve units (or one faction's six, see the Showreel Units setting), BEAR and USEC in
+    /// turn, each in a different layout, frame, background and bar from its own choices,
+    /// crossfading from one to the next (Overlay.Crossfade.cs). Each stays on screen for the
+    /// Showreel Shot Length setting. The last one finishes the load and leaves for the main menu
+    /// with its usual ending.
+    ///
+    /// Nothing but the terminal shows, for recording. While it plays, Left/Right skip back and on
+    /// a unit, Space holds the current one, -/+ change the speed, V and H work as in the preview
+    /// (H shows what is on screen), Esc stops it.
     /// </summary>
     internal partial class Overlay
     {
@@ -16,32 +23,33 @@ namespace CLASSIFIED
             internal ThemeChoice Theme;
             internal Pins Pins;
 
-            /// <summary>How long it is on screen, in seconds.</summary>
-            internal float Length;
-
             /// <summary>Whether a notice slides in during this shot.</summary>
             internal bool Notice;
 
-            internal Shot(ThemeChoice theme, float length, LayoutKind layout, FrameKind frame, BackdropKind backdrop, BarKind bar, bool notice = false)
+            internal Shot(ThemeChoice theme, LayoutKind layout, FrameKind frame, BackdropKind backdrop, BarKind bar, bool notice = false)
             {
                 Theme = theme;
-                Length = length;
                 Pins = new Pins { Layout = layout, Frame = frame, Backdrop = backdrop, Bar = bar };
                 Notice = notice;
             }
         }
 
-        // BEAR and USEC in turn, every layout, a different frame and background on every cut, each
-        // from that unit's own choices. The first shot also carries the title card, so it stays
-        // longest.
+        // BEAR and USEC in turn, every layout two or three times, a different frame and background
+        // on every cut, each from that unit's own choices.
         private static readonly Shot[] Shots =
         {
-            new Shot(ThemeChoice.BearCommand, 4.6f, LayoutKind.Centered, FrameKind.Seal, BackdropKind.Grid, BarKind.Segments),
-            new Shot(ThemeChoice.UsecOperations, 2f, LayoutKind.Split, FrameKind.Brackets, BackdropKind.Blueprint, BarKind.Thin),
-            new Shot(ThemeChoice.BearSignals, 2.6f, LayoutKind.Sidebar, FrameKind.Orbit, BackdropKind.Dots, BarKind.Segments, notice: true),
-            new Shot(ThemeChoice.UsecIntelligence, 2f, LayoutKind.Dock, FrameKind.Squares, BackdropKind.Ruled, BarKind.Thin),
-            new Shot(ThemeChoice.BearReconnaissance, 2f, LayoutKind.SplitMirror, FrameKind.Dial, BackdropKind.Grid, BarKind.Segments),
-            new Shot(ThemeChoice.UsecCommand, 2.4f, LayoutKind.Centered, FrameKind.Ornate, BackdropKind.Pinstripe, BarKind.Solid)
+            new Shot(ThemeChoice.BearCommand, LayoutKind.Centered, FrameKind.Plate, BackdropKind.Map, BarKind.Lamps),
+            new Shot(ThemeChoice.UsecOperations, LayoutKind.Split, FrameKind.Hud, BackdropKind.Map, BarKind.Ruler),
+            new Shot(ThemeChoice.BearSignals, LayoutKind.Sidebar, FrameKind.Gauge, BackdropKind.Map, BarKind.Lamps, notice: true),
+            new Shot(ThemeChoice.UsecIntelligence, LayoutKind.Dock, FrameKind.Scope, BackdropKind.Imagery, BarKind.Ruler),
+            new Shot(ThemeChoice.BearReconnaissance, LayoutKind.SplitMirror, FrameKind.Reticle, BackdropKind.Imagery, BarKind.Tape),
+            new Shot(ThemeChoice.UsecSignals, LayoutKind.Centered, FrameKind.Hud, BackdropKind.Map, BarKind.Segments, notice: true),
+            new Shot(ThemeChoice.BearCounterintelligence, LayoutKind.Split, FrameKind.Plate, BackdropKind.Document, BarKind.Tape),
+            new Shot(ThemeChoice.UsecLogistics, LayoutKind.Sidebar, FrameKind.Lock, BackdropKind.Document, BarKind.Segments),
+            new Shot(ThemeChoice.BearSupply, LayoutKind.Dock, FrameKind.Gauge, BackdropKind.Document, BarKind.Lamps, notice: true),
+            new Shot(ThemeChoice.UsecMedical, LayoutKind.SplitMirror, FrameKind.Scope, BackdropKind.Map, BarKind.Ruler),
+            new Shot(ThemeChoice.BearMedical, LayoutKind.Sidebar, FrameKind.Gauge, BackdropKind.Map, BarKind.Tape, notice: true),
+            new Shot(ThemeChoice.UsecCommand, LayoutKind.Centered, FrameKind.Lock, BackdropKind.Document, BarKind.Segments)
         };
 
         /// <summary>The menu fading to the title card, before the card's words come up.</summary>
@@ -50,6 +58,12 @@ namespace CLASSIFIED
 
         /// <summary>The title card plays at this speed, so it reads as an opening rather than a flash.</summary>
         private const float TitleCardSpeed = 0.7f;
+
+        /// <summary>How much longer the first shot stays, for its title card.</summary>
+        private const float TitleCardExtra = 2.6f;
+
+        /// <summary>Left goes back to the start of the shot showing until it has been up this long, then to the one before.</summary>
+        private const float RestartWithin = 1.5f;
 
         private bool _showreel;
         private Variant[] _reel;
@@ -78,6 +92,22 @@ namespace CLASSIFIED
             _instance.PlayShowreel();
         }
 
+        /// <summary>The shots the Showreel Units setting asks for, in order.</summary>
+        private static List<Shot> ReelShots()
+        {
+            ReelFactions which = ClassifiedPlugin.ReelUnits.Value;
+            var shots = new List<Shot>();
+            foreach (Shot shot in Shots)
+            {
+                Faction faction = Theme.Get(shot.Theme).Faction;
+                if (which == ReelFactions.Both || (which == ReelFactions.Bear) == (faction == Faction.Bear))
+                {
+                    shots.Add(shot);
+                }
+            }
+            return shots;
+        }
+
         private void PlayShowreel()
         {
             if (_phase != Phase.Hidden)
@@ -90,13 +120,15 @@ namespace CLASSIFIED
                 _random = new System.Random(System.Environment.TickCount);
             }
 
-            _reel = new Variant[Shots.Length];
-            _cuts = new float[Shots.Length];
+            List<Shot> shots = ReelShots();
+            float length = ClassifiedPlugin.ShotSeconds.Value;
+            _reel = new Variant[shots.Count];
+            _cuts = new float[shots.Count];
             float planned = 0f;
-            for (int i = 0; i < Shots.Length; i++)
+            for (int i = 0; i < shots.Count; i++)
             {
-                _reel[i] = RollShot(Shots[i], first: i == 0, last: i == Shots.Length - 1);
-                planned += Shots[i].Length;
+                _reel[i] = RollShot(shots[i], first: i == 0, last: i == shots.Count - 1);
+                planned += length + (i == 0 ? TitleCardExtra : 0f);
                 _cuts[i] = planned;
             }
 
@@ -113,13 +145,16 @@ namespace CLASSIFIED
                 _cuts[i] *= stretch;
             }
 
+            ResetPreviewControls(captionHidden: true);
+            _previewPins = new Pins();
             _showreel = true;
             _shot = 0;
             _previewVariant = _reel[0];
             _previewing = true;
             StartLoading(null);
+            ApplyView();
             _introClock = -ReelPreRoll;
-            ClassifiedPlugin.Log.LogInfo($"Showreel: {Shots.Length} units over {StartupTracker.PreviewTotal:0.0}s.");
+            ClassifiedPlugin.Log.LogInfo($"Showreel: {_reel.Length} units over {StartupTracker.PreviewTotal:0.0}s.");
         }
 
         private Variant RollShot(Shot shot, bool first, bool last)
@@ -137,7 +172,7 @@ namespace CLASSIFIED
             Variant v = Variant.Roll(_random, shot.Theme, Theme.Get(shot.Theme).Faction, GlitchLevel.Off, StartupTracker.Launches, pins, preview: true);
             v.FakeDenial = false;
             v.Greet = false;
-            v.GrantText = "CLEARANCE CONFIRMED";
+            v.GrantText = Variant.ClearanceLine(v.Faction);
 
             // At most one notice, straight away: a shot is too short for the usual spacing. Not
             // the unsigned notes, which only make sense to someone who has seen the others.
@@ -165,13 +200,50 @@ namespace CLASSIFIED
             return v;
         }
 
-        /// <summary>Cuts to the next unit when its time comes. Called each frame of the load.</summary>
+        /// <summary>When shot <paramref name="i"/> comes on, in seconds of the reel's load.</summary>
+        private float ShotStart(int i) => i <= 0 ? 0f : _cuts[i - 1];
+
+        /// <summary>Cuts to whichever unit the load has reached, either way. Called each frame of the load.</summary>
         private void ShowreelTick()
         {
-            if (_shot < _reel.Length - 1 && !_capturing && StartupTracker.Elapsed >= _cuts[_shot])
+            if (_capturing)
             {
-                _shot++;
+                return;
+            }
+            float at = StartupTracker.Elapsed;
+            int shot = 0;
+            while (shot < _reel.Length - 1 && at >= _cuts[shot])
+            {
+                shot++;
+            }
+            if (shot != _shot)
+            {
+                _shot = shot;
                 CrossfadeTo(_reel[_shot]);
+            }
+        }
+
+        /// <summary>The reel's own keys: Left/Right skip a unit back or on.</summary>
+        private void ReelInput()
+        {
+            if (_phase != Phase.Loading)
+            {
+                return;
+            }
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                // On the last unit, on to the ending.
+                StartupTracker.PreviewSeek(_shot < _reel.Length - 1 ? ShotStart(_shot + 1) : StartupTracker.PreviewTotal);
+            }
+            else if (Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                bool restart = StartupTracker.Elapsed - ShotStart(_shot) > RestartWithin || _shot == 0;
+                StartupTracker.PreviewSeek(ShotStart(restart ? _shot : _shot - 1));
+                if (restart)
+                {
+                    // Same unit from its start: show it come on again.
+                    CrossfadeTo(_reel[_shot]);
+                }
             }
         }
 

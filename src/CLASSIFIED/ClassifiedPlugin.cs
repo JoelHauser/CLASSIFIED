@@ -5,6 +5,21 @@ using HarmonyLib;
 
 namespace CLASSIFIED
 {
+    /// <summary>The language BEAR's terminal speaks.</summary>
+    public enum BearText
+    {
+        Russian,
+        English
+    }
+
+    /// <summary>Whose units the showreel plays.</summary>
+    public enum ReelFactions
+    {
+        Both,
+        Bear,
+        Usec
+    }
+
     /// <summary>What CLASSIFIED does when ACCESS GRANTED is installed too.</summary>
     public enum AccessGrantedMode
     {
@@ -36,6 +51,7 @@ namespace CLASSIFIED
 
         internal static ConfigEntry<bool> Enabled;
         internal static ConfigEntry<FactionChoice> FactionSetting;
+        internal static ConfigEntry<BearText> BearLanguage;
         internal static ConfigEntry<AccessGrantedMode> WithAccessGranted;
         internal static ConfigEntry<ThemeChoice> Theme;
         internal static ConfigEntry<GlitchLevel> Glitches;
@@ -46,6 +62,9 @@ namespace CLASSIFIED
         internal static ConfigEntry<BarKind> Bar;
         internal static ConfigEntry<OutroKind> Ending;
         internal static ConfigEntry<KeyboardShortcut> PreviewKey;
+        internal static ConfigEntry<float> PreviewSeconds;
+        internal static ConfigEntry<float> ShotSeconds;
+        internal static ConfigEntry<ReelFactions> ReelUnits;
 
         /// <summary>Whether ACCESS GRANTED is installed: then the two share the launches.</summary>
         internal static bool AccessGrantedInstalled { get; private set; }
@@ -127,6 +146,8 @@ namespace CLASSIFIED
                 "Show your faction's loading terminal instead of the plain loading text.");
             FactionSetting = Config.Bind("General", "Faction", FactionChoice.Profile,
                 "Whose terminal to show. Profile follows your profile's faction (the first launch signs in unidentified until the profile loads); BEAR or USEC shows that side's whatever your profile.");
+            BearLanguage = Config.Bind("General", "BEAR Language", BearText.Russian,
+                "BEAR's terminal speaks Russian: its steps, orders, chatter and labels. English shows all of it in English instead.");
             WithAccessGranted = Config.Bind("General", "With ACCESS GRANTED", AccessGrantedMode.TakeTurns,
                 "Only matters when ACCESS GRANTED is installed too. Take Turns alternates launches between the TerraGroup terminal and yours; or always show one of the two.");
             Theme = Config.Bind("Style", "Unit", ThemeChoice.Random,
@@ -146,12 +167,22 @@ namespace CLASSIFIED
             Ending = Config.Bind("Style", "Ending", OutroKind.Random,
                 "How the screen leaves for the main menu. Random lets each unit pick one of its own.");
             PreviewKey = Config.Bind("Preview", "Preview Key", new KeyboardShortcut(UnityEngine.KeyCode.F6, UnityEngine.KeyCode.LeftControl),
-                "In the main menu, plays the terminal with a pretend load. While it shows: Left/Right change unit, "
-                + "Up/Down change layout, Space re-rolls the rest, R replays, Esc closes.");
+                "In the main menu, plays the terminal with a pretend load. The keys are listed along the bottom while it "
+                + "shows: Left/Right unit, Up/Down layout, 1 to 6 pin a part, Space holds the load, -/+ speed, "
+                + "[ and ] step, E jumps to the ending, V hides parts of the screen, H hides the key list, Esc closes.");
+            PreviewSeconds = Config.Bind("Preview", "Preview Length", 12f, new ConfigDescription(
+                "How long the preview's pretend load takes, in seconds, before its ending plays.",
+                new AcceptableValueRange<float>(5f, 60f)));
+            ShotSeconds = Config.Bind("Preview", "Showreel Shot Length", 6f, new ConfigDescription(
+                "How long each unit stays on screen in the showreel, in seconds. The first holds a little longer for its title card.",
+                new AcceptableValueRange<float>(2f, 20f)));
+            ReelUnits = Config.Bind("Preview", "Showreel Units", ReelFactions.Both,
+                "Whose units the showreel plays: all twelve, BEAR and USEC in turn, or one faction's six.");
             // A button, not a setting: the value is never read.
             Config.Bind("Preview", "Showreel", false, new ConfigDescription(
-                "For recording a video: closes this menu and plays a short reel of BEAR and USEC units, crossfading "
-                + "from one to the next, then hands over to the main menu. Main menu only; Esc stops it.",
+                "Closes this menu and plays every unit in turn over one pretend load, crossfading from one to the next, "
+                + "then hands over to the main menu. Nothing on screen but the terminal, for recording; while it plays, "
+                + "Left/Right skip units, Space holds one, -/+ change speed, H shows what is on screen, Esc stops it. Main menu only.",
                 null, new ConfigurationManagerAttributes { CustomDrawer = DrawShowreelButton, HideDefaultButton = true }));
 
             StartupTracker.LoadTimings();

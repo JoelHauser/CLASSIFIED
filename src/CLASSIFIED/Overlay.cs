@@ -126,8 +126,7 @@ namespace CLASSIFIED
         private Image _powerLine;
 
         private RectTransform _emblem;
-        private readonly Shape[] _pieces = new Shape[Insignia.Pieces];
-        private readonly Vector2[] _pieceDirections = new Vector2[Insignia.Pieces];
+        private InsigniaView _insignia;
         private RawImage _emblemGlow;
         // Screen-sized glows are big (20 MB at 3440x1440): keep one. The logo's glow changes
         // size with the layout and is small: keep a few.
@@ -280,6 +279,14 @@ namespace CLASSIFIED
             _laidOutSize = Vector2.zero;
         }
 
+        /// <summary>BEAR's terminal speaks Russian (spelt in Latin letters if the font has no Cyrillic); the others English.</summary>
+        private string Words(string russian, string english) => _variant != null && _variant.Faction == Faction.Bear && BearRussian ? Cyr(russian) : english;
+
+        /// <summary>A load step's name for the readout, in the terminal's language.</summary>
+        private string StepName(int step) => _variant != null && _variant.Faction == Faction.Bear && BearRussian
+            ? Cyr(StartupTracker.LabelsRu[step].ToUpperInvariant())
+            : StartupTracker.Labels[step].ToUpperInvariant();
+
         /// <summary>The game is showing an error: get out of its way at once.</summary>
         internal static void HideNow()
         {
@@ -322,7 +329,7 @@ namespace CLASSIFIED
             _background = MakeImage("Background", c, Ink);
             Stretch(_background.rectTransform);
             _glow = MakeRaw("Glow", c, Art.Radial, Glow);
-            _grid = MakeRaw("Backdrop", c, Art.Dots, Accent);
+            _grid = MakeRaw("Backdrop", c, null, Accent);
             Stretch(_grid.rectTransform);
             Isolate(_glow);
             Isolate(_grid);
@@ -339,10 +346,7 @@ namespace CLASSIFIED
             {
                 _frameParts[i] = Shape.Create("Frame" + i, _emblem);
             }
-            for (int i = 0; i < _pieces.Length; i++)
-            {
-                _pieces[i] = Shape.Create("Piece" + i, _emblem);
-            }
+            _insignia = InsigniaView.Create("Insignia", _emblem);
             _recLabel = MakeText("Rec", _emblem, TextAlignmentOptions.Right, Warn);
             _recLabel.text = "REC";
 
@@ -386,6 +390,7 @@ namespace CLASSIFIED
             _logTimes = MakeText("LogTimes", r, TextAlignmentOptions.TopRight, Dim);
             _chatter = MakeText("Chatter", r, TextAlignmentOptions.Left, Dim);
             _chatter.overflowMode = TextOverflowModes.Ellipsis;
+            BuildFaction(c, r);
 
             _topLeft = MakeText("TopLeft", c, TextAlignmentOptions.TopLeft, Dim);
             _topRight = MakeText("TopRight", c, TextAlignmentOptions.TopRight, Dim);
@@ -420,6 +425,7 @@ namespace CLASSIFIED
             _introTitle = MakeText("IntroTitle", transform, TextAlignmentOptions.Center, Text);
             _introTitle.text = "CLASSIFIED";
             _introSub = MakeText("IntroSub", transform, TextAlignmentOptions.Center, Accent);
+            BuildIntros();
             _flash = MakeImage("Flash", transform, Color.white);
             Stretch(_flash.rectTransform);
             _flash.gameObject.SetActive(false);
@@ -499,7 +505,7 @@ namespace CLASSIFIED
             _wordmark.text = _wordmarkGhost.text = _wordmarkSplit.text = theme.Wordmark;
             _introTitle.text = theme.Wordmark;
             _topLeft.text = Cyr(_variant.Header);
-            _topRight.text = _variant.TopRight;
+            _topRight.text = Cyr(_variant.TopRight);
             _bootSubtitle = !(StartupTracker.Current >= (int)StepId.Connect);
             _subtitle.text = Subtitle(_bootSubtitle);
             ApplyStyle();
@@ -577,6 +583,11 @@ namespace CLASSIFIED
             }
             _screen = null;
             _status = null;
+            // The logos are only needed on screen; the next show lays out again and reloads them.
+            _insignia.Clear();
+            Insignia.Release();
+            _grid.texture = null;
+            Backdrops.Release();
             gameObject.SetActive(false);
         }
 
@@ -602,16 +613,16 @@ namespace CLASSIFIED
 
             string nickname = StartupTracker.Nickname;
             _grantText = Cyr(_variant.Greet && !string.IsNullOrEmpty(nickname)
-                ? "WELCOME BACK, OPERATOR " + nickname.ToUpperInvariant()
+                ? Words("С ВОЗВРАЩЕНИЕМ, БОЕЦ ", "WELCOME BACK, OPERATOR ") + nickname.ToUpperInvariant()
                 : _variant.GrantText);
 
             int steps = StartupTracker.StepCount - StartupTracker.FirstStep;
-            _stepCounter.text = $"STEP <mspace=0.62em>{steps:00}</mspace> / {steps:00}";
+            _stepCounter.text = Words("ЭТАП", "STEP") + $" <mspace=0.62em>{steps:00}</mspace> / {steps:00}";
             _percent.text = "<mspace=0.62em>100</mspace>%";
             // A run headed for a fake denial keeps everyone guessing until the menu settles.
             if (_variant.FakeDenial)
             {
-                ShowLabel("> VERIFYING CLEARANCE", Dim);
+                ShowLabel(Words("> ПРОВЕРКА ДОПУСКА", "> VERIFYING CLEARANCE"), Dim);
             }
             else
             {
@@ -620,7 +631,7 @@ namespace CLASSIFIED
             _currentTime.text = string.Empty;
             _currentTime.color = Text;
             _currentDetail.text = string.Empty;
-            _chatter.text = ":: HAVE A PRODUCTIVE DAY";
+            _chatter.text = Words(":: ЖЕЛАЕМ УСПЕХОВ В СЛУЖБЕ", ":: HAVE A PRODUCTIVE DAY");
             _chatter.maxVisibleCharacters = 0;
             _chatterShownAt = _animClock;
             RebuildLog(StartupTracker.StepCount);
@@ -629,7 +640,7 @@ namespace CLASSIFIED
                 _segmentFills[i].enabled = false;
             }
             SetSegments(Accent);
-            _bottomLeft.text = $"ELAPSED <mspace=0.62em>{elapsed:0.0}</mspace>s";
+            _bottomLeft.text = Words("ПРОШЛО", "ELAPSED") + $" <mspace=0.62em>{elapsed:0.0}</mspace>" + Words("с", "s");
         }
 
         private void LateUpdate()
@@ -647,13 +658,16 @@ namespace CLASSIFIED
             }
 
             float real = Time.unscaledTime;
-            _frameDt = Mathf.Min(Time.unscaledDeltaTime, MaxFrameStep);
+            // A preview can run slower or faster, or freeze.
+            _frameDt = Mathf.Min(Time.unscaledDeltaTime, MaxFrameStep) * PreviewSpeed;
             _animClock += _frameDt;
             float t = _animClock;
             StandInFor(_phase);
             if (_phase == Phase.Loading)
             {
                 StartupTracker.NoteFrame(Time.unscaledDeltaTime);
+                // A pretend load runs on the preview's clock, which can also hold it where it is.
+                StartupTracker.PreviewAdvance(_previewHold ? 0f : Mathf.Min(Time.unscaledDeltaTime, 0.1f) * PreviewSpeed);
                 CompleteCrossfade();
                 WatchGame(real);
                 if (_phase == Phase.Hidden)
@@ -701,6 +715,7 @@ namespace CLASSIFIED
             AnimateMemo(t);
             AnimateSheen(t);
             AnimatePanels(t);
+            UpdateCaption();
 
             if (_phase == Phase.Loading)
             {
@@ -720,7 +735,7 @@ namespace CLASSIFIED
                 TypeChatter(t);
                 float fade = AdvanceFade(real);
                 AnimateOutro(fade);
-                if (fade >= 1f)
+                if (fade >= 1f && !LoopPreview())
                 {
                     Hide();
                 }
@@ -847,37 +862,18 @@ namespace CLASSIFIED
             float inset = Mathf.Round(48f * u);
             float arm = Mathf.Round(46f * u);
             float width = Mathf.Max(2f, Mathf.Round(2f * u));
-            float hx = Mathf.Round(size.x * 0.5f) - inset;
-            float hy = Mathf.Round(size.y * 0.5f) - inset;
-            _corners.Clear();
-            for (int sx = -1; sx <= 1; sx += 2)
-            {
-                for (int sy = -1; sy <= 1; sy += 2)
-                {
-                    var corner = new Vector2(sx * hx, sy * hy);
-                    var half = new Vector2(sx * width * 0.5f, sy * width * 0.5f);
-                    _corners.Line(corner + new Vector2(half.x, 0f), corner - new Vector2(sx * arm, 0f), width, Dim);
-                    _corners.Line(corner - new Vector2(0f, sy * width * 0.5f), corner - new Vector2(0f, sy * arm), width, Dim);
-                }
-            }
-            _corners.Commit();
+            DrawChrome(size, inset, arm, width);
 
             PlanLayout(size, inset, out Vector2 brand, out float bs,
                 out float rx, out float ry, out float barWidth, out Vector2 log, out Vector2 chatter);
 
-            // Emblem: the faction's insignia, in four pieces that fly together.
+            // Emblem: the faction's insignia, in pieces that fly together.
             _brandScale = bs;
             _emblem.anchoredPosition = new Vector2(Mathf.Round(brand.x), Mathf.Round(brand.y + 175f * u * bs));
             LayoutGlows(size, u);
             Place(_alertGlow.rectTransform, 0f, 0f, 520f * u, 520f * u);
-            float r = 64f * u;
-            for (int i = 0; i < _pieces.Length; i++)
-            {
-                _pieces[i].Clear();
-                Insignia.DrawPiece(_variant.Faction, i, _pieces[i], r, Primary, Text, Ink);
-                _pieces[i].Commit();
-                _pieceDirections[i] = Insignia.Direction(_variant.Faction, i);
-            }
+            // Its farthest corner 70 units out: clear of the innermost frame, at 86.
+            _insignia.Show(_variant.Faction, 70f * u, Primary);
 
             _ringTrack.Clear();
             _ringTrack.Arc(124f * u, 2f * u, 0f, 360f, Theme.WithAlpha(Accent, 32));
@@ -917,9 +913,9 @@ namespace CLASSIFIED
             SetText(_bottomLeft, -halfW + cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomRight, halfW - cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             string lastSync = StartupTracker.LastTotal > 0f
-                ? $"LAST SYNC <mspace=0.62em>{StartupTracker.LastTotal:0.0}</mspace>s"
-                : "LAST SYNC  --";
-            _bottomRight.text = $"CLIENT {Application.version}  //  {lastSync}";
+                ? Words("ПРЕД. СЕАНС", "LAST SYNC") + $" <mspace=0.62em>{StartupTracker.LastTotal:0.0}</mspace>" + Words("с", "s")
+                : Words("ПРЕД. СЕАНС  --", "LAST SYNC  --");
+            _bottomRight.text = Words("КЛИЕНТ", "CLIENT") + $" {Application.version}  //  {lastSync}";
 
             LayoutStyle(size, inset, halfH);
             CaptureTearBase();
@@ -984,13 +980,15 @@ namespace CLASSIFIED
 
         private void AnimateEmblem(float t, float elapsed)
         {
-            // The four pieces fly in from outside and lock together over the first second.
-            for (int i = 0; i < _pieces.Length; i++)
+            // The pieces fly in from outside, one after another, and lock together over the
+            // first second.
+            int count = _insignia.Count;
+            float stagger = count > 1 ? 0.36f / (count - 1) : 0f;
+            for (int i = 0; i < count; i++)
             {
-                float own = Mathf.Clamp01((elapsed - i * 0.08f) / 0.8f);
+                float own = Mathf.Clamp01((elapsed - i * stagger) / 0.7f);
                 float ease = 1f - Mathf.Pow(1f - own, 3f);
-                _pieces[i].rectTransform.anchoredPosition = _pieceDirections[i] * (70f * _u * (1f - ease));
-                _pieces[i].canvasRenderer.SetAlpha(ease);
+                _insignia.Place(i, 70f * _u * (1f - ease), ease);
             }
 
             float frame = 1f - Mathf.Pow(1f - Mathf.Clamp01(elapsed / 0.9f), 3f);
@@ -1052,14 +1050,14 @@ namespace CLASSIFIED
                     Beat(t);
                 }
                 int firstStep = StartupTracker.FirstStep;
-                _stepCounter.text = $"STEP <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.StepCount - firstStep:00}";
+                _stepCounter.text = Words("ЭТАП", "STEP") + $" <mspace=0.62em>{current - firstStep + 1:00}</mspace> / {StartupTracker.StepCount - firstStep:00}";
                 bool boot = current < (int)StepId.Connect;
                 if (boot != _bootSubtitle)
                 {
                     _bootSubtitle = boot;
                     _subtitle.text = Subtitle(boot);
                 }
-                _currentLabel.text = "> " + StartupTracker.Labels[current].ToUpperInvariant();
+                _currentLabel.text = "> " + StepName(current);
                 _currentLabel.color = Text;
                 _currentLabel.maxVisibleCharacters = 0;
                 RebuildLog(current);
@@ -1114,7 +1112,7 @@ namespace CLASSIFIED
             string warnHex = _variant.Theme.WarnHex;
             if (slow)
             {
-                string late = $"{_variant.Theme.SlowNote}  +{over:0.0}S";
+                string late = Cyr(Lang.Bear(_variant.Theme.SlowNote)) + $"  +{over:0.0}" + Words("С", "S");
                 _currentDetail.text = string.IsNullOrEmpty(detail)
                     ? $"  <color={warnHex}>{late}</color>"
                     : $"  {detail.ToUpperInvariant()}   <color={warnHex}>{late}</color>";
@@ -1134,7 +1132,7 @@ namespace CLASSIFIED
             }
             if (t >= _chatterNextAt)
             {
-                _chatter.text = _chatterSource.Next();
+                _chatter.text = Cyr(_chatterSource.Next());
                 _chatter.maxVisibleCharacters = 0;
                 _chatterShownAt = t;
                 _chatterNextAt = t + Range(1.2f, 2.6f);
@@ -1176,7 +1174,7 @@ namespace CLASSIFIED
                 lines++;
                 string open = $"<alpha=#{alpha:X2}>";
                 _builder.Append(open).Append("<color=").Append(_variant.Theme.AccentHex).Append('>')
-                    .Append(_variant.Theme.LogTag).Append("</color>   ").Append(StartupTracker.Labels[i].ToUpperInvariant());
+                    .Append(Cyr(Lang.Bear(_variant.Theme.LogTag))).Append("</color>   ").Append(StepName(i));
                 string detail = StartupTracker.Detail(i);
                 if (!string.IsNullOrEmpty(detail))
                 {
@@ -1197,7 +1195,7 @@ namespace CLASSIFIED
             if (tenths != _shownElapsedTenths)
             {
                 _shownElapsedTenths = tenths;
-                _bottomLeft.text = $"ELAPSED <mspace=0.62em>{tenths / 10f:0.0}</mspace>s";
+                _bottomLeft.text = Words("ПРОШЛО", "ELAPSED") + $" <mspace=0.62em>{tenths / 10f:0.0}</mspace>" + Words("с", "s");
             }
         }
 
