@@ -57,7 +57,7 @@ namespace CLASSIFIED
     /// <summary>Reticle, Gauge and Plate are BEAR's; Hud, Scope and Lock USEC's.</summary>
     public enum FrameKind { Random, Reticle, Gauge, Plate, Hud, Scope, Lock }
     /// <summary>Stamp is BEAR's, Boot USEC's; the rest either side's.</summary>
-    public enum IntroKind { Random, Fade, TitleCard, Wipe, Crt, Sheen, Doors, Stamp, Boot }
+    public enum IntroKind { Random, Fade, TitleCard, Wipe, Crt, Sheen, Doors, Boot }
     /// <summary>Lamps and Tape are BEAR's; Ruler and Segments USEC's.</summary>
     public enum BarKind { Random, Lamps, Tape, Ruler, Segments }
     public enum OutroKind { Random, Zoom, Lift, Sting, Slide, Flash }
@@ -162,7 +162,7 @@ namespace CLASSIFIED
             new Theme(ThemeChoice.BearCommand, Faction.Bear, "0A0303", "5A0E0E", "C4262A", "8E1C1F", "E8C35A", "F4E9D8", "A08A78", "FF7A3C", "3CC8FF")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Document }, Frames = new[] { FrameKind.Plate, FrameKind.Gauge },
-                Intros = new[] { IntroKind.Stamp, IntroKind.TitleCard }, Bars = new[] { BarKind.Lamps }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
+                Intros = new[] { IntroKind.TitleCard, IntroKind.Crt }, Bars = new[] { BarKind.Lamps }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
                 Division = "COMMAND POST", Native = "ШТАБ", TitleCard = "BATTLE ENCOUNTER ASSAULT REGIMENT", LogTag = "ВЫП",
                 SlowNote = "ЖДАТЬ ПРИКАЗА",
                 Headers = new[] { "BEAR  //  ШТАБ ГРУППИРОВКИ  //  СОВЕРШЕННО СЕКРЕТНО", "BEAR  //  КОМАНДНЫЙ ПУНКТ  //  ОСОБОЙ ВАЖНОСТИ", "BEAR  //  ОПЕРАТИВНЫЙ ОТДЕЛ" },
@@ -174,7 +174,7 @@ namespace CLASSIFIED
             new Theme(ThemeChoice.BearReconnaissance, Faction.Bear, "060803", "2E3A12", "7E9A2E", "5C7222", "C8E07A", "EEF5DC", "8E9A72", "FF8A3C", "C83CFF")
             {
                 Backdrops = new[] { BackdropKind.Imagery, BackdropKind.Map }, Frames = new[] { FrameKind.Reticle, FrameKind.Gauge },
-                Intros = new[] { IntroKind.Crt, IntroKind.Stamp }, Bars = new[] { BarKind.Tape, BarKind.Lamps }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
+                Intros = new[] { IntroKind.Crt, IntroKind.TitleCard }, Bars = new[] { BarKind.Tape, BarKind.Lamps }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
                 Division = "RECONNAISSANCE", Native = "РАЗВЕДКА", TitleCard = "ВИЖУ ВСЁ", LogTag = "НАБЛ",
                 SlowNote = "ДЕРЖАТЬ ПОЗИЦИЮ",
                 Headers = new[] { "BEAR  //  РАЗВЕДКА  //  СЕКРЕТНО", "BEAR  //  РАЗВЕДЫВАТЕЛЬНЫЙ ПУНКТ  //  СЕКРЕТНО", "BEAR  //  ОТДЕЛЬНЫЙ РАЗВЕДВЗВОД" },
@@ -199,7 +199,7 @@ namespace CLASSIFIED
             new Theme(ThemeChoice.BearCounterintelligence, Faction.Bear, "08060A", "3A1420", "A8303C", "7A2430", "E0A0A8", "F0E6EA", "9A8890", "FFC83C", "3CFFC8")
             {
                 Backdrops = new[] { BackdropKind.Document, BackdropKind.Imagery }, Frames = new[] { FrameKind.Plate, FrameKind.Reticle },
-                Intros = new[] { IntroKind.Stamp, IntroKind.TitleCard }, Bars = new[] { BarKind.Tape }, Outros = new[] { OutroKind.Sting, OutroKind.Lift },
+                Intros = new[] { IntroKind.TitleCard, IntroKind.Crt }, Bars = new[] { BarKind.Tape }, Outros = new[] { OutroKind.Sting, OutroKind.Lift },
                 Division = "COUNTERINTELLIGENCE", Native = "КОНТРРАЗВЕДКА", TitleCard = "ДОВЕРЯЙ, НО ПРОВЕРЯЙ", LogTag = "ПРОВ",
                 SlowNote = "НА ПРОВЕРКЕ",
                 Headers = new[] { "BEAR  //  ОСОБЫЙ ОТДЕЛ  //  СОВЕРШЕННО СЕКРЕТНО", "BEAR  //  ОСОБЫЙ ОТДЕЛ  //  ЛИЧНО В РУКИ", "BEAR  //  КОНТРРАЗВЕДКА" },
@@ -211,7 +211,7 @@ namespace CLASSIFIED
             new Theme(ThemeChoice.BearSupply, Faction.Bear, "0A0804", "4A3A1A", "B89A5A", "8A7240", "E8D4A0", "F8F0DE", "A89878", "FF5A3C", "4A8CFF")
             {
                 Backdrops = new[] { BackdropKind.Document, BackdropKind.Map }, Frames = new[] { FrameKind.Gauge, FrameKind.Plate },
-                Intros = new[] { IntroKind.Stamp, IntroKind.Crt }, Bars = new[] { BarKind.Lamps, BarKind.Tape }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
+                Intros = new[] { IntroKind.Crt, IntroKind.TitleCard }, Bars = new[] { BarKind.Lamps, BarKind.Tape }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
                 Division = "SUPPLY", Native = "ТЫЛ", TitleCard = "БЕЗ ТЫЛА НЕТ ФРОНТА", LogTag = "ВЫД",
                 SlowNote = "КОЛОННА ЗАДЕРЖИВАЕТСЯ",
                 Headers = new[] { "BEAR  //  СЛУЖБА ТЫЛА  //  ДСП", "BEAR  //  ТЫЛ  //  ДЛЯ СЛУЖЕБНОГО ПОЛЬЗОВАНИЯ", "BEAR  //  ВЕЩЕВОЙ СКЛАД" },
@@ -223,7 +223,7 @@ namespace CLASSIFIED
             new Theme(ThemeChoice.BearMedical, Faction.Bear, "05080A", "1A3A44", "5AB4C8", "3E8A9A", "B8E8F2", "F0FBFF", "7EA0A8", "FF4A4A", "FFB43C")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Document }, Frames = new[] { FrameKind.Plate, FrameKind.Gauge },
-                Intros = new[] { IntroKind.TitleCard, IntroKind.Stamp }, Bars = new[] { BarKind.Tape, BarKind.Lamps }, Outros = new[] { OutroKind.Zoom, OutroKind.Sting },
+                Intros = new[] { IntroKind.TitleCard, IntroKind.Crt }, Bars = new[] { BarKind.Tape, BarKind.Lamps }, Outros = new[] { OutroKind.Zoom, OutroKind.Sting },
                 Division = "MEDICAL SERVICE", Native = "МЕДСЛУЖБА", TitleCard = "СВОИХ НЕ БРОСАЕМ", LogTag = "СТАБ",
                 SlowNote = "ИДЁТ СОРТИРОВКА",
                 Headers = new[] { "BEAR  //  МЕДИЦИНСКИЙ ПУНКТ", "BEAR  //  МЕДИЦИНСКАЯ СЛУЖБА  //  ДЛЯ СЛУЖЕБНОГО ПОЛЬЗОВАНИЯ", "BEAR  //  МЕДСАНБАТ" },

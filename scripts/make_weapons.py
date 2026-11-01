@@ -22,6 +22,7 @@ import struct
 import sys
 
 import numpy as np
+from scipy.spatial import cKDTree
 import UnityPy
 from PIL import Image, ImageDraw
 from UnityPy.helpers.MeshHelper import MeshHandler
@@ -97,13 +98,81 @@ ITEMS = [
     ("hexgrid", "item_equipment_armor_custom_hexgrid", "armor"),
     ("medpack", "item_equipment_backpack_medpack", "backpack"),
     ("betav2", "item_equipment_backpack_betav2", "backpack"),
+    ("ak104", "weapon_izhmash_ak104_762x39", "weapon"),
+    ("ak74n", "weapon_izhmash_ak74n_545x39", "weapon"),
+    ("saiga12", "weapon_izhmash_saiga12k_10_12g", "weapon"),
+    ("ash12", "weapon_ckib_ash_12_127x55", "weapon"),
+    ("sks", "weapon_toz_sks_762x39", "weapon"),
+    ("mosin", "weapon_izhmash_mosin_rifle_762x54", "weapon"),
+    ("pkp", "weapon_zid_pkp_762x54r", "weapon"),
+    ("sr2m", "weapon_tochmash_sr2m_veresk_9x21", "weapon"),
+    ("vepr", "weapon_molot_vepr_km_vpo_136_762x39", "weapon"),
+    ("mdr", "weapon_dt_mdr_556x45", "weapon"),
+    ("mk17", "weapon_fn_mk17_762x51", "weapon"),
+    ("g28", "weapon_hk_g28_762x51", "weapon"),
+    ("ump", "weapon_hk_ump_1143x23", "weapon"),
+    ("vector", "weapon_tdi_kriss_vector_gen_2_1143x23", "weapon"),
+    ("rsass", "weapon_remington_r11_rsass_762x51", "weapon"),
+    ("tx15", "weapon_lone_star_tx15_designated_marksman_556x45", "weapon"),
+    ("mpx", "weapon_sig_mpx_9x19", "weapon"),
+    ("aug", "weapon_steyr_aug_a3_m1_556x45", "weapon"),
+    ("spear", "weapon_sig_mcx_spear_68x51", "weapon"),
+    # Sidearms and the rest.
+    ("pl15", "weapon_izhmash_pl15_9x19", "weapon"),
+    ("saiga9", "weapon_izhmash_saiga_9_9x19", "weapon"),
+    ("ks23", "weapon_toz_ks23m_23x75", "weapon"),
+    ("veprhunter", "weapon_molot_vepr_hunter_vpo-101_762x51", "weapon"),
+    ("m1911", "weapon_colt_m1911a1_1143x23", "weapon"),
+    ("m9a3", "weapon_beretta_m9a3_9x19", "weapon"),
+    ("fiveseven", "weapon_fn_five_seven_57x28", "weapon"),
+    ("usp", "weapon_hk_usp_45", "weapon"),
+    ("rfb", "weapon_kel_tec_rfb_762x51", "weapon"),
+    # More gear.
+    ("zsh12m", "helmet_zsh_1-2m_v1", "helmet"),
+    ("ulach", "item_equipment_helmet_ULACH_coyote", "helmet"),
+    ("redutm", "item_equipment_armor_redut_m", "armor"),
+    ("zhuk6a", "item_equipment_armor_zhuk6a", "armor"),
+    ("iotv", "item_equipment_armor_iotv_1", "armor"),
+    ("otv", "item_equipment_armor_otv_ucp", "armor"),
+    ("paca", "notHeavy", "armor"),
+    ("tv110", "item_equipment_rig_tv110", "armor"),
+    ("tarzan", "item_equipment_rig_tarzan", "rig"),
+    ("azimut", "item_equipment_rig_azimut_black", "rig"),
+    ("commando", "item_equipment_rig_commando", "rig"),
+    ("thunderbolt", "item_equipment_rig_thunderbolt", "rig"),
+    ("attack2", "backpack_sso_attack2", "backpack"),
+    ("pilgrim", "backpack_pilgrim", "backpack"),
+    ("berkut", "item_equipment_backpack_wartech", "backpack"),
+    ("paratus", "item_equipment_backpack_paratus", "backpack"),
+    ("sordin", "headphones_MSA", "headset"),
+    ("razor", "item_equipment_headset_walkers_razor", "headset"),
+    ("earmor", "item_equipment_headset_m32", "headset"),
+    ("n15", "nvg_armasight_n-15", "nvg"),
+    ("t7", "thermal_spi_t7", "nvg"),
+    ("ifak", "item_meds_medkit_ifak", "med"),
+    ("cms", "core_medical_surgical_kit", "med"),
+    ("propital", "Propital", "med"),
+    ("flash", "item_barter_info_militaryflash", "intel"),
+    ("vpx", "Item_barter_electr_flashstorage", "tech"),
+    ("virtex", "Item_barter_electr_virtexprocessor", "tech"),
+    ("gpu", "video_card", "tech"),
+    ("battery", "item_barter_energy_batterymilitary", "tech"),
+    ("gasan", "item_electr_gasanalyzer", "tech"),
+    ("tetriz", "item_barter_electr_tetriz", "tech"),
+    ("lion", "item_barter_valuable_lion", "valuable"),
 ]
 
-# A weapon is built three ways: its default preset, and two builds with attachments added at
-# random where its slots take them (an optic, on a mount if it needs one; a light or laser; a
-# foregrip; a suppressor), each from what the database says fits, nothing that conflicts.
-BUILDS = 3
-ATTACH = [("mod_scope", 0.9), ("mod_mount", 0.75), ("mod_tactical", 0.45), ("mod_foregrip", 0.55), ("mod_muzzle", 0.4)]
+# A weapon is built several ways: its default preset, and random builds. A random build swaps
+# parts for others that fit (handguard, stock, grip, muzzle device, dust cover, magazine...),
+# keeping what was on them where the new part takes it, then fits attachments wherever its
+# slots take them: an optic (on a mount if it needs one), lights and lasers, a foregrip, a
+# suppressor. Everything from what the database says fits; nothing that conflicts.
+BUILDS = 8
+REPLACE = {
+    "mod_handguard": 0.7, "mod_stock": 0.6, "mod_stock_000": 0.5, "mod_stock_001": 0.5, "mod_pistol_grip": 0.6,
+    "mod_pistolgrip": 0.6, "mod_muzzle": 0.6, "mod_reciever": 0.35, "mod_magazine": 0.4, "mod_charge": 0.35,
+}
+ATTACH = [("mod_scope", 0.97), ("mod_mount", 0.9), ("mod_tactical", 0.8), ("mod_foregrip", 0.85), ("mod_muzzle", 0.6)]
 
 # Parts that are never seen from outside, or are not part of the weapon.
 SKIP = ("patron", "shell", "bullet", "_hide", "collider", "camera", "fp_", "human")
@@ -161,7 +230,7 @@ def dependencies(streaming, prefab, depth=2):
 class Part:
     """One item's prefab: its transforms by name, and its visible meshes in its own space."""
 
-    def __init__(self, streaming, prefab, template, weapon=True):
+    def __init__(self, streaming, prefab, template, weapon=True, deps=False):
         self.weapon = weapon
         path = os.path.join(streaming, prefab.replace("/", os.sep))
         folder, name = os.path.split(path)
@@ -172,7 +241,21 @@ class Part:
             files.append(client)
         # And whatever the game's manifest says it needs that holds models: a variant (a colour
         # of a body armour, say) keeps its meshes in its base model's bundle or a shared one.
-        for dep in ([] if weapon else dependencies(streaming, prefab)):
+        if deps:
+            # A colour variant (_fde, _blk) keeps its meshes in its base model's bundle beside it.
+            own = os.path.join(folder, stem + "_textures.bundle")
+            if os.path.exists(own) and own not in files:
+                files.append(own)
+            base = stem
+            for _ in range(3):
+                if "_" not in base:
+                    break
+                base = base.rsplit("_", 1)[0]
+                # Its "_textures" bundle too, which for some parts holds the meshes as well.
+                for sibling in (os.path.join(folder, base + ".bundle"), os.path.join(folder, base + "_textures.bundle")):
+                    if os.path.exists(sibling) and sibling not in files:
+                        files.append(sibling)
+        for dep in (dependencies(streaming, prefab) if deps or not weapon else []):
             path_dep = os.path.join(streaming, dep.replace("/", os.sep))
             if path_dep not in files and os.path.exists(path_dep):
                 files.append(path_dep)
@@ -254,6 +337,7 @@ class Part:
             found.setdefault(base, {})[lod] = (mesh, key)
 
         out = []
+        heavy = []
         for base, lods in found.items():
             # LOD1 where there is one: the game's own simplification, fine at hologram size.
             lod = 1 if 1 in lods else min(lods)
@@ -266,18 +350,21 @@ class Part:
             tris = [t for sub in handler.get_triangles() for t in sub]
             if not tris:
                 continue
-            if self.weapon and lod == 0 and len(tris) > 1500:
-                # Only a detailed version, and a heavy one: an internal part, mostly.
-                continue
             idx = np.array(tris, dtype=np.int64)
             m = self.world[key]
             w = (np.c_[v, np.ones(len(v))] @ m.T)[:, :3]
+            if self.weapon and lod == 0 and len(tris) > 1500:
+                # Only a detailed version, and a heavy one: an internal part, mostly. Kept
+                # aside for a part that has nothing else (a handguard, a stock, an ACOG).
+                heavy.append((base, w[idx]))
+                continue
             out.append((base, w[idx]))
-        return out
+        return out or heavy
 
 
-def assemble(streaming, items, preset, weapon):
+def assemble(streaming, items, preset, weapon, problems=None):
     parts = []  # (slot, part name, triangles)
+    problems = [] if problems is None else problems
 
     def place(item, matrix):
         tpl = items[item["_tpl"]]
@@ -285,17 +372,38 @@ def assemble(streaming, items, preset, weapon):
         if not prefab:
             return
         part = Part(streaming, prefab, tpl["_name"], weapon)
+        # The callout it gets: an optic only for a real sight (not the rings or riser under it),
+        # and numbered slots (mod_tactical_001) under their kind.
+        label = item.get("slotId", "weapon")
+        if weapon and label != "weapon":
+            if sight_kind(items, item["_tpl"]):
+                label = "mod_scope"
+            elif label.startswith("mod_scope"):
+                label = "mount"
+            else:
+                for kind in ("mod_tactical", "mod_muzzle", "mod_foregrip"):
+                    if label.startswith(kind):
+                        label = kind
+        shown = part.meshes()
+        if not shown and weapon:
+            # Its meshes in another bundle, as some parts keep them: loaded with what the
+            # manifest says it needs (only then: doing it for every part broke the PKM).
+            part = Part(streaming, prefab, tpl["_name"], weapon, deps=True)
+            shown = part.meshes()
         if weapon and item.get("slotId") and part.y_up:
             matrix = matrix @ SEAT
-        for name, tris in part.meshes():
+        if not shown and item.get("slotId"):
+            problems.append(f"{tpl['_name']} shows nothing")
+        for name, tris in shown:
             flat = tris.reshape(-1, 3)
             w = (np.c_[flat, np.ones(len(flat))] @ matrix.T)[:, :3]
-            parts.append((item.get("slotId", "weapon"), name, w.reshape(-1, 3, 3)))
+            parts.append((label, name, w.reshape(-1, 3, 3)))
         for child in preset["_items"]:
             if child.get("parentId") == item["_id"]:
                 slot = part.slot(child["slotId"])
                 if slot is None:
                     print(f"   no slot {child['slotId']} on {tpl['_name']}")
+                    problems.append(f"no slot {child['slotId']}")
                     continue
                 place(child, matrix @ slot)
 
@@ -334,72 +442,380 @@ def leaves(items, ids):
     return out
 
 
+SIGHTS = {"Collimator": 1.0, "CompactCollimator": 1.0, "AssaultScope": 1.0, "OpticScope": 0.8, "SpecialScope": 0.25}
+
+
+def kinds_of(items, tpl):
+    """The names of the item's categories, nearest first."""
+    out = []
+    node = items.get(tpl, {}).get("_parent")
+    while node and node in items:
+        out.append(items[node]["_name"])
+        node = items[node].get("_parent")
+    return out
+
+
+def sight_kind(items, tpl):
+    return next((k for k in kinds_of(items, tpl) if k in SIGHTS), None)
+
+
+def is_mount(items, tpl):
+    return "Mount" in kinds_of(items, tpl)
+
+
 def random_build(items, preset, rng, streaming):
-    """The preset with attachments added at random where its slots take them."""
+    """The preset with parts swapped and attachments fitted at random, wherever they fit."""
     its = copy.deepcopy(preset["_items"])
-    occupied = {(it.get("parentId"), it.get("slotId")) for it in its}
-    parents = {it["_id"]: it.get("parentId") for it in its}
-    queue = list(its)
-    added = 0
-    has_scope = any(it.get("slotId", "").startswith("mod_scope") for it in its)
+    counter = [0]
+
+    def new_id():
+        counter[0] += 1
+        return f"r{counter[0]}"
+
+    def tpl_of(iid):
+        return next(it["_tpl"] for it in its if it["_id"] == iid)
+
+    def slot_def(iid, name):
+        for sl in items[tpl_of(iid)]["_props"].get("Slots", []):
+            if sl["_name"] == name:
+                return sl
+        return None
+
+    def children(iid):
+        return [it for it in its if it.get("parentId") == iid]
+
+    def subtree(iid):
+        out = [iid]
+        for c in children(iid):
+            out.extend(subtree(c["_id"]))
+        return out
 
     def depth(iid):
         d = 0
-        while parents.get(iid):
-            iid = parents[iid]
+        it = next(i for i in its if i["_id"] == iid)
+        while it.get("parentId"):
+            it = next(i for i in its if i["_id"] == it["parentId"])
             d += 1
         return d
 
-    def conflicts(tpl):
-        mine = set(items[tpl]["_props"].get("ConflictingItems", []))
+    def usable(tpl, ignore=()):
+        v = items.get(tpl)
+        if v is None:
+            return False
+        path = v["_props"].get("Prefab", {}).get("path", "")
+        name = v["_name"].lower()
+        if not path or "event" in name or "test" in name or "quest" in name:
+            return False
+        if not os.path.exists(os.path.join(streaming, path.replace("/", os.sep))):
+            return False
+        mine = set(v["_props"].get("ConflictingItems", []))
         for it in its:
+            if it["_id"] in ignore:
+                continue
             if it["_tpl"] in mine or tpl in items[it["_tpl"]]["_props"].get("ConflictingItems", []):
-                return True
+                return False
+        return True
+
+    def options(sl, ignore=()):
+        filters = sl["_props"].get("filters", [{}])
+        pool = leaves(items, filters[0].get("Filter", []) if filters else [])
+        return sorted(t for t in pool if usable(t, ignore))
+
+    def fill_required(iid, budget=6):
+        """Fills the slots a part cannot do without; False if one cannot be filled."""
+        for sl in items[tpl_of(iid)]["_props"].get("Slots", []):
+            # What the game requires, and what a weapon looks wrong without (a buffer tube with no
+            # stock on it, a receiver with no grip).
+            essential = sl.get("_required") or sl["_name"].startswith(("mod_stock", "mod_pistol_grip", "mod_pistolgrip", "mod_handguard", "mod_barrel"))
+            if not essential or any(c.get("slotId") == sl["_name"] for c in children(iid)):
+                continue
+            pool = options(sl)
+            if not pool or budget <= 0:
+                return False
+            child = {"_id": new_id(), "_tpl": rng.choice(pool), "parentId": iid, "slotId": sl["_name"]}
+            its.append(child)
+            if not fill_required(child["_id"], budget - 1):
+                return False
+        return True
+
+    # Swaps.
+    for it in list(its):
+        slot = it.get("slotId")
+        if not slot or slot not in REPLACE or it not in its or rng.random() > REPLACE[slot]:
+            continue
+        sl = slot_def(it["parentId"], slot)
+        if sl is None:
+            continue
+        old_tree = subtree(it["_id"])
+        pool = [t for t in options(sl, ignore=old_tree) if t != it["_tpl"]]
+        if not pool:
+            continue
+        saved = copy.deepcopy(its)
+        old_children = children(it["_id"])
+        # The part and everything on it go; the new part keeps what it can take of that.
+        keep = list(old_children)
+        removed = set(old_tree)
+        its[:] = [x for x in its if x["_id"] not in removed]
+        new_tpl = rng.choice(pool)
+        part = {"_id": it["_id"], "_tpl": new_tpl, "parentId": it["parentId"], "slotId": slot}
+        its.append(part)
+        for c in keep:
+            sl2 = slot_def(part["_id"], c["slotId"])
+            if sl2 is None:
+                continue
+            filters = sl2["_props"].get("filters", [{}])
+            if c["_tpl"] in leaves(items, filters[0].get("Filter", []) if filters else []):
+                # Back on, with everything that was on it.
+                for x in saved:
+                    if x["_id"] in subtree_of(saved, c["_id"]):
+                        its.append(x)
+        if not fill_required(part["_id"]):
+            its[:] = saved
+
+    def pick_sight(pool):
+        """A sight from the pool: its kind first, evenly, then one of that kind."""
+        by_kind = {}
+        for t in pool:
+            k = sight_kind(items, t)
+            if k:
+                by_kind.setdefault(k, []).append(t)
+        if not by_kind:
+            return None
+        kinds = sorted(by_kind)
+        k = rng.choices(kinds, weights=[SIGHTS[x] for x in kinds])[0]
+        return rng.choice(by_kind[k])
+
+    def scope_mounts(pool):
+        return [t for t in pool if is_mount(items, t) and any(s2["_name"].startswith("mod_scope") for s2 in items[t]["_props"].get("Slots", []))]
+
+    def fit_sight(it, sl):
+        """A sight in the slot, straight on, or on rings or a riser that take one. True if it went on."""
+        pool = options(sl)
+        sight = pick_sight(pool)
+        if sight is None or rng.random() < 0.3:
+            mounts = scope_mounts(pool)
+            if mounts:
+                mount = {"_id": new_id(), "_tpl": rng.choice(mounts), "parentId": it["_id"], "slotId": sl["_name"]}
+                its.append(mount)
+                for sl2 in items[mount["_tpl"]]["_props"].get("Slots", []):
+                    if sl2["_name"].startswith("mod_scope"):
+                        inner = pick_sight(options(sl2))
+                        if inner:
+                            its.append({"_id": new_id(), "_tpl": inner, "parentId": mount["_id"], "slotId": sl2["_name"]})
+                            if fill_required(mount["_id"], 3):
+                                return True
+                        break
+                its[:] = [x for x in its if x["_id"] not in subtree(mount["_id"])]
+        if sight is None:
+            return False
+        new = {"_id": new_id(), "_tpl": sight, "parentId": it["_id"], "slotId": sl["_name"]}
+        its.append(new)
+        if fill_required(new["_id"], 3):
+            return True
+        its[:] = [x for x in its if x["_id"] not in subtree(new["_id"])]
         return False
 
+    def has_sight():
+        return any(sight_kind(items, x["_tpl"]) for x in its)
+
+    def fit_device(it, sl, prefix):
+        """A light, laser or grip (by slot prefix) in the slot, or on a mount there that takes one."""
+        pool = options(sl)
+        direct = [t for t in pool if not is_mount(items, t)] if sl["_name"].startswith(prefix) else []
+        if direct:
+            new = {"_id": new_id(), "_tpl": rng.choice(direct), "parentId": it["_id"], "slotId": sl["_name"]}
+            its.append(new)
+            if fill_required(new["_id"], 3):
+                return True
+            its[:] = [x for x in its if x["_id"] not in subtree(new["_id"])]
+            return False
+        mounts = [t for t in pool if is_mount(items, t) and any(s2["_name"].startswith(prefix) for s2 in items[t]["_props"].get("Slots", []))]
+        if not mounts:
+            return False
+        mount = {"_id": new_id(), "_tpl": rng.choice(mounts), "parentId": it["_id"], "slotId": sl["_name"]}
+        its.append(mount)
+        for sl2 in items[mount["_tpl"]]["_props"].get("Slots", []):
+            if sl2["_name"].startswith(prefix):
+                devices = [t for t in options(sl2) if not is_mount(items, t)]
+                if devices:
+                    its.append({"_id": new_id(), "_tpl": rng.choice(devices), "parentId": mount["_id"], "slotId": sl2["_name"]})
+                    if fill_required(mount["_id"], 3):
+                        return True
+                break
+        its[:] = [x for x in its if x["_id"] not in subtree(mount["_id"])]
+        return False
+
+    def reach(it, sl, prefix, pick, depth=3):
+        """
+        Something of a kind (slot prefix) in the slot: straight in if the slot is that kind,
+        else through mounts, as deep as it takes (a Mosin's Kochetov mount takes a rail that
+        takes the scope). True if it went on.
+        """
+        pool = options(sl)
+        if sl["_name"].startswith(prefix):
+            chosen = pick([t for t in pool if not is_mount(items, t)])
+            if chosen:
+                new = {"_id": new_id(), "_tpl": chosen, "parentId": it["_id"], "slotId": sl["_name"]}
+                its.append(new)
+                if fill_required(new["_id"], 3):
+                    return True
+                its[:] = [x for x in its if x["_id"] not in subtree(new["_id"])]
+        if depth <= 0:
+            return False
+        mounts = [t for t in pool if is_mount(items, t) and any(s2["_name"].startswith((prefix, "mod_mount", "mod_scope"))
+                                                                for s2 in items[t]["_props"].get("Slots", []))]
+        rng.shuffle(mounts)
+        for tpl in mounts[:4]:
+            mount = {"_id": new_id(), "_tpl": tpl, "parentId": it["_id"], "slotId": sl["_name"]}
+            its.append(mount)
+            slots = sorted(items[tpl]["_props"].get("Slots", []), key=lambda x: 0 if x["_name"].startswith(prefix) else 1)
+            for sl2 in slots:
+                if sl2["_name"].startswith((prefix, "mod_mount", "mod_scope")) and reach(mount, sl2, prefix, pick, depth - 1):
+                    if fill_required(mount["_id"], 3):
+                        return True
+                    break
+            its[:] = [x for x in its if x["_id"] not in subtree(mount["_id"])]
+        return False
+
+    def swap_for(prefix, fit, slot_order):
+        """
+        Nothing on the weapon takes one (an AKS-74 has no dovetail): a part swapped for one that
+        does (a railed dust cover or gas tube, a railed handguard), keeping what it can of what
+        was on the old one, then fitted. The build as it was if none works.
+        """
+        for iid in [x["_id"] for x in its if x.get("parentId")]:
+            it = next((x for x in its if x["_id"] == iid), None)
+            if it is None:
+                continue
+            sl = slot_def(it["parentId"], it["slotId"])
+            if sl is None:
+                continue
+            cands = [t for t in options(sl, ignore=subtree(iid)) if t != it["_tpl"]
+                     and any(x["_name"].startswith((prefix, "mod_mount", "mod_scope")) for x in items[t]["_props"].get("Slots", []))]
+            rng.shuffle(cands)
+            for tpl in cands[:3]:
+                saved = copy.deepcopy(its)
+                it = next(x for x in its if x["_id"] == iid)
+                new_slots = {x["_name"]: x for x in items[tpl]["_props"].get("Slots", [])}
+                for c in children(iid):
+                    sl2 = new_slots.get(c["slotId"])
+                    filters = sl2["_props"].get("filters", [{}]) if sl2 else None
+                    if sl2 is None or c["_tpl"] not in leaves(items, filters[0].get("Filter", []) if filters else []):
+                        its[:] = [x for x in its if x["_id"] not in subtree(c["_id"])]
+                it["_tpl"] = tpl
+                if fill_required(iid) and ensure(prefix, fit, slot_order):
+                    return True
+                its[:] = saved
+        # Or an empty slot given a part that does (a PKM's handguard slot, empty as issued).
+        for iid in [x["_id"] for x in its]:
+            it = next(x for x in its if x["_id"] == iid)
+            for sl in items[it["_tpl"]]["_props"].get("Slots", []):
+                if any(c.get("slotId") == sl["_name"] for c in children(iid)):
+                    continue
+                cands = [t for t in options(sl) if any(x["_name"].startswith((prefix, "mod_mount", "mod_scope")) for x in items[t]["_props"].get("Slots", []))]
+                rng.shuffle(cands)
+                for tpl in cands[:3]:
+                    saved = copy.deepcopy(its)
+                    part = {"_id": new_id(), "_tpl": tpl, "parentId": iid, "slotId": sl["_name"]}
+                    its.append(part)
+                    if fill_required(part["_id"]) and ensure(prefix, fit, slot_order):
+                        return True
+                    its[:] = saved
+        return False
+
+    def any_of(pool):
+        return rng.choice(pool) if pool else None
+
+    def has_kind(prefix):
+        return any(x.get("slotId", "").startswith(prefix) and not is_mount(items, x["_tpl"]) for x in its)
+
+    def ensure(prefix, fit, slot_order):
+        """Fills the first free slot, in slot_order, where fit puts something on."""
+        for wanted in slot_order:
+            for it in list(its):
+                for sl in items[it["_tpl"]]["_props"].get("Slots", []):
+                    if sl["_name"].startswith(wanted) and not any(c.get("slotId") == sl["_name"] for c in children(it["_id"])):
+                        if fit(it, sl):
+                            return True
+        return False
+
+    # Attachments.
+    has_scope = has_sight()
+    queue = list(its)
+    added = 0
     while queue:
         it = queue.pop(0)
-        for slot in items[it["_tpl"]]["_props"].get("Slots", []):
-            name = slot["_name"]
-            if (it["_id"], name) in occupied:
+        if it not in its:
+            continue
+        for sl in items[it["_tpl"]]["_props"].get("Slots", []):
+            name = sl["_name"]
+            if any(c.get("slotId") == name for c in children(it["_id"])):
                 continue
             rule = next((r for r in ATTACH if name.startswith(r[0])), None)
-            if rule is None or depth(it["_id"]) > 5 or added >= 6:
+            if rule is None or depth(it["_id"]) > 6 or added >= 9:
                 continue
             kind, chance = rule
-            if kind == "mod_scope" and has_scope:
-                continue
-            if kind == "mod_mount" and has_scope and rng.random() < 0.7:
+            if kind == "mod_scope":
+                # The optic goes on whole: a sight, or rings with their scope on.
+                if not has_scope and fit_sight(it, sl):
+                    has_scope = True
+                    added += 1
+                    queue.extend(x for x in its if x not in queue)
                 continue
             if rng.random() > chance:
                 continue
-            filters = slot["_props"].get("filters", [{}])
-            pool = []
-            for tpl in leaves(items, filters[0].get("Filter", []) if filters else []):
-                v = items[tpl]
-                path = v["_props"].get("Prefab", {}).get("path", "")
-                name_lower = v["_name"].lower()
-                if not path or "event" in name_lower or "test" in name_lower or conflicts(tpl):
-                    continue
-                if not os.path.exists(os.path.join(streaming, path.replace("/", os.sep))):
-                    continue
-                if kind == "mod_mount" and not has_scope:
-                    # A mount is there to carry an optic.
-                    if not any(sl["_name"].startswith("mod_scope") for sl in v["_props"].get("Slots", [])):
-                        continue
-                pool.append(tpl)
+            pool = options(sl)
+            if kind == "mod_mount":
+                # A mount is there to carry something: an optic, a light, a grip.
+                pool = [t for t in pool if any(s2["_name"].startswith(("mod_scope", "mod_tactical", "mod_foregrip"))
+                                               for s2 in items[t]["_props"].get("Slots", []))]
+                if has_scope:
+                    pool = [t for t in pool if not any(s2["_name"].startswith("mod_scope") for s2 in items[t]["_props"].get("Slots", []))]
             if not pool:
                 continue
-            pick = rng.choice(sorted(pool))
-            new = {"_id": f"r{len(its)}", "_tpl": pick, "parentId": it["_id"], "slotId": name}
+            new = {"_id": new_id(), "_tpl": rng.choice(pool), "parentId": it["_id"], "slotId": name}
             its.append(new)
-            parents[new["_id"]] = it["_id"]
-            occupied.add((it["_id"], name))
+            if not fill_required(new["_id"], 3):
+                its[:] = [x for x in its if x["_id"] not in subtree(new["_id"])]
+                continue
             queue.append(new)
             added += 1
-            if kind == "mod_scope":
-                has_scope = True
+
+    # Every random build shows its attachments: an optic (in a scope slot, else on a mount: the
+    # dovetail of an AK, a pistol's slide plate), a light or laser, and most of the time a grip.
+    if not has_sight():
+        fit = lambda it, sl: reach(it, sl, "mod_scope", pick_sight)
+        if not ensure("mod_scope", fit, ("mod_scope", "mod_mount")):
+            swap_for("mod_scope", fit, ("mod_scope", "mod_mount"))
+    if not has_kind("mod_tactical"):
+        fit = lambda it, sl: reach(it, sl, "mod_tactical", any_of)
+        if not ensure("mod_tactical", fit, ("mod_tactical", "mod_mount", "mod_scope")):
+            swap_for("mod_tactical", fit, ("mod_tactical", "mod_mount"))
+    if not has_kind("mod_foregrip") and rng.random() < 0.75:
+        ensure("mod_foregrip", lambda it, sl: reach(it, sl, "mod_foregrip", any_of), ("mod_foregrip", "mod_mount"))
+
+    # No bare mounts: one added that ended up carrying nothing comes off again.
+    original = {x["_id"] for x in preset["_items"]}
+    changed = True
+    while changed:
+        changed = False
+        for x in list(its):
+            if x["_id"] not in original and is_mount(items, x["_tpl"]) and not children(x["_id"]):
+                its.remove(x)
+                changed = True
     return {"_parent": preset["_parent"], "_items": its}
+
+
+def subtree_of(items_list, iid):
+    out = {iid}
+    grew = True
+    while grew:
+        grew = False
+        for x in items_list:
+            if x.get("parentId") in out and x["_id"] not in out:
+                out.add(x["_id"])
+                grew = True
+    return out
 
 
 def single(items, template):
@@ -475,24 +891,19 @@ def orient(verts):
     return out, (long_axis, mid_axis, short_axis)
 
 
-def write(path, verts, faces, normals, edges, anchors):
+def write(path, verts, faces, anchors):
     """
-    Gzipped, little endian: "CLW1"; vertex, face, edge and anchor counts (int32); vertices as int16 x, y, z
-    over 32767; faces as uint16 x3; face normals as int8 x, y, z over 127; edges as uint16 a, b,
-    int16 face0, face1 (-1: none), byte crease; anchors as int16 x, y, z, then the slot's name as
-    a length byte and ASCII.
+    Gzipped, little endian: "CLW2"; vertex, face and anchor counts (int32); vertices as int16 x,
+    y, z over 32767; faces as uint16 x3, wound outward; anchors as int16 x, y, z, then the
+    slot's name as a length byte and ASCII. The terminal works out normals and edges itself.
     """
-
     s = 1.0 / np.abs(verts).max()
     q = np.round(verts * s * 32767).astype(np.int16)
     with gzip.open(path, "wb", compresslevel=9) as f:
-        f.write(b"CLW1")
-        f.write(struct.pack("<4i", len(q), len(faces), len(edges), len(anchors)))
+        f.write(b"CLW2")
+        f.write(struct.pack("<3i", len(q), len(faces), len(anchors)))
         f.write(q.tobytes())
         f.write(faces.astype(np.uint16).tobytes())
-        f.write(np.round(normals * 127).astype(np.int8).tobytes())
-        for a, b, f0, f1, crease in edges:
-            f.write(struct.pack("<HHhhB", a, b, f0, f1, 1 if crease else 0))
         for slot, p in anchors:
             ap = np.round(np.clip(p * s, -1, 1) * 32767).astype(np.int16)
             f.write(struct.pack("<3h", *ap))
@@ -519,6 +930,9 @@ KINDS = {
     "device": ("MEDICAL SUPPLY", "МЕДИЦИНСКОЕ ИМУЩЕСТВО"),
     "food": ("RATIONS", "ПРОДОВОЛЬСТВИЕ"),
     "intel": ("DOCUMENTS", "ДОКУМЕНТЫ"),
+    "rig": ("LOAD CARRIAGE", "СНАРЯЖЕНИЕ"),
+    "tech": ("RECOVERED HARDWARE", "ТРОФЕЙНАЯ ТЕХНИКА"),
+    "valuable": ("VALUABLES", "ЦЕННОСТИ"),
 }
 
 
@@ -533,6 +947,10 @@ def spec_lines(kind, key, items, preset):
         calibres = {
             "Caliber545x39": "5.45x39", "Caliber556x45NATO": "5.56x45 NATO", "Caliber762x54R": "7.62x54R",
             "Caliber762x51": "7.62x51 NATO", "Caliber762x35": ".300 BLK", "Caliber9x39": "9x39", "Caliber9x19PARA": "9x19 PARA",
+            "Caliber9x18PM": "9x18 PM", "Caliber762x25TT": "7.62x25 TT", "Caliber9x21": "9x21", "Caliber1143x23ACP": ".45 ACP",
+            "Caliber57x28": "5.7x28", "Caliber23x75": "23x75", "Caliber86x70": ".338 LM", "Caliber40x46": "40x46 MM",
+            "Caliber762x39": "7.62x39", "Caliber12g": "12 GA", "Caliber127x55": "12.7x55", "Caliber9x33R": ".357",
+            "Caliber68x51": "6.8x51",
         }
         calibre = calibres.get(p.get("ammoCaliber"), p.get("ammoCaliber", "").replace("Caliber", ""))
         modes = [m.upper() for m in p.get("weapFireType", [])]
@@ -552,7 +970,7 @@ def spec_lines(kind, key, items, preset):
             en += f"   {cells} SLOTS"
             ru += f"   {cells} ЯЧЕЕК"
         return en, ru
-    if kind == "backpack":
+    if kind in ("backpack", "rig"):
         cells = sum(g["_props"]["cellsH"] * g["_props"]["cellsV"] for g in p.get("Grids", []))
         return f"CAPACITY {cells} SLOTS   {weight[0]}", f"ВМЕСТИМОСТЬ {cells} ЯЧЕЕК   {weight[1]}"
     if kind == "med" and p.get("MaxHpResource"):
@@ -565,6 +983,8 @@ def spec_lines(kind, key, items, preset):
         "food": ("FIELD RATION", "ПОЛЕВОЙ ПАЁК"),
         "intel": ("HANDLE AS CLASSIFIED", "ОБРАЩАТЬСЯ КАК С СЕКРЕТНЫМИ"),
         "med": ("FIRST AID", "ПЕРВАЯ ПОМОЩЬ"),
+        "tech": ("SALVAGED ELECTRONICS", "ТРОФЕЙНАЯ ЭЛЕКТРОНИКА"),
+        "valuable": ("BARTER GOODS", "ТОВАР ДЛЯ ОБМЕНА"),
     }
     label = labels.get(kind, ("", ""))
     return f"{label[0]}   {weight[0]}", f"{label[1]}   {weight[1]}"
@@ -615,6 +1035,7 @@ def main():
     only = set(sys.argv[2:])
 
     specs = []
+    failed = []
     for iid, template, kind in ITEMS:
         weapon = kind == "weapon"
         preset = find_preset(globals_, items, template) or single(items, template)
@@ -624,22 +1045,123 @@ def main():
                       ru.get(key + " ShortName", en[key + " ShortName"]), ru.get(key + " Name", en[key + " Name"]), line_en, line_ru))
         if only and iid not in only:
             continue
-        builds = [preset]
-        if weapon:
-            for k in range(1, BUILDS):
-                builds.append(random_build(items, preset, random.Random(f"{iid}-{k}"), streaming))
-        for k, build in enumerate(builds):
-            make(iid if k == 0 else f"{iid}_{k}", kind, build, items, streaming, weapon)
+        for k in range(BUILDS if weapon else 1):
+            name = iid if k == 0 else f"{iid}_{k}"
+            try:
+                if k == 0:
+                    make(name, kind, preset, items, streaming, weapon, stock=True)
+                    continue
+                # A random build that came out with a part missing or loose is thrown away and
+                # another tried; the last try stands if none comes out whole.
+                for attempt in range(24):
+                    check = []
+                    build = random_build(items, preset, random.Random(f"{iid}-{k}-{attempt}"), streaming)
+                    if sorted(x["_tpl"] for x in build["_items"]) == sorted(x["_tpl"] for x in preset["_items"]) and attempt < 23:
+                        print(f"   {name} try {attempt + 1} rejected: same as the stock build")
+                        continue
+                    make(name, kind, build, items, streaming, weapon, check if attempt < 23 else None)
+                    if not check:
+                        break
+                    print(f"   {name} try {attempt + 1} rejected: {'; '.join(check)}")
+            except Exception as e:  # one item the game builds differently should not stop the rest
+                failed.append(name)
+                print(f"{name}: FAILED ({e})")
     write_specs(specs)
+    if failed:
+        print("FAILED: " + " ".join(failed))
 
 
-def make(iid, kind, preset, items, streaming, weapon):
-    """One model: assembled, cut down, turned the right way up, written."""
-    parts = assemble(streaming, items, preset, weapon)
+def attached(parts, gap=0.015, problems=None):
+    """
+    Drops any part with clear air all round it: one whose box does not come within gap
+    (metres) of another part's. A part seated wrong floats; a real one always touches.
+    """
+    boxes = [(t.reshape(-1, 3).min(axis=0) - gap, t.reshape(-1, 3).max(axis=0) + gap) for _, _, t in parts]
+    keep = []
+    for i, part in enumerate(parts):
+        if part[0] == "weapon":
+            keep.append(part)
+            continue
+        lo, hi = boxes[i]
+        near = [j for j in range(len(parts)) if j != i and np.all(lo <= boxes[j][1]) and np.all(boxes[j][0] <= hi)]
+        touches = False
+        if near:
+            # Boxes overlap easily (a sight's box takes in the air above a rail); the points must
+            # come within a centimetre of another part's.
+            mine = part[2].reshape(-1, 3)
+            tree = cKDTree(np.concatenate([parts[j][2].reshape(-1, 3) for j in near]))
+            touches = float(tree.query(mine, k=1)[0].min()) < 0.02
+        if touches:
+            keep.append(part)
+        else:
+            print(f"   dropped floating part {part[1]}")
+            if problems is not None:
+                problems.append(f"floating {part[1]}")
+    return keep
+
+
+def plated(items, preset):
+    """Whether the carrier takes front and back plates."""
+    root = next(it for it in preset["_items"] if it["_id"] == preset["_parent"])
+    names = [sl["_name"].lower() for sl in items[root["_tpl"]]["_props"].get("Slots", [])]
+    return "front_plate" in names and "back_plate" in names
+
+
+def plates(tris):
+    """
+    Front and back plates inside a carrier, which the game keeps as separate items with no place
+    in the model: SAPI-cut slabs (top corners cut away), in the chest and back of the vest as it
+    is stored, z up and y through it.
+    """
+    pts = tris.reshape(-1, 3)
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    size = hi - lo
+    w, h, t = size[0] * 0.5, size[2] * 0.42, max(size[1] * 0.06, 0.008)
+    cx, cz = (lo[0] + hi[0]) / 2, lo[2] + size[2] * 0.6
+    cut = w * 0.22
+    outline = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2 - cut), (w / 2 - cut, h / 2), (-w / 2 + cut, h / 2), (-w / 2, h / 2 - cut)]
+    out = []
+    for y in (lo[1] + size[1] * 0.12, hi[1] - size[1] * 0.12 - t):
+        front = [np.array([cx + x, y, cz + z]) for x, z in outline]
+        back = [p + np.array([0.0, t, 0.0]) for p in front]
+        n = len(outline)
+        for i in range(1, n - 1):
+            out.append([front[0], front[i + 1], front[i]])
+            out.append([back[0], back[i], back[i + 1]])
+        for i in range(n):
+            j = (i + 1) % n
+            out.append([front[i], front[j], back[j]])
+            out.append([front[i], back[j], back[i]])
+    return np.array(out)
+
+
+STOCK_PROBLEMS = set()
+
+
+def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
+    """
+    One model: assembled, cut down, turned the right way up, written. With check (a random
+    build), what went wrong putting it together is listed there and nothing is written if
+    anything did, so another build can be tried.
+    """
+    problems = []
+    parts = assemble(streaming, items, preset, weapon, problems)
     if not parts:
         print(f"{iid}: no meshes")
         return
+    if weapon:
+        parts = attached(parts, problems=problems)
+    if check is not None:
+        # What the stock build has wrong too (a part the game models loose) is no reason to throw a build away.
+        check.extend(x for x in problems if x not in STOCK_PROBLEMS)
+        if check:
+            return
+    elif stock:
+        STOCK_PROBLEMS.clear()
+        STOCK_PROBLEMS.update(problems)
     tris = np.concatenate([p[2] for p in parts])
+    if kind in ("armor", "rig") and plated(items, preset):
+        tris = np.concatenate([tris, plates(tris)])
     raw = len(tris)
     verts, faces, grid = cut_down(tris, (BUDGET + 400) if weapon else BUDGET * 3 // 4)
 
@@ -650,7 +1172,7 @@ def make(iid, kind, preset, items, streaming, weapon):
         verts, axes = orient(verts)
     else:
         verts, axes = verts - c, (0, 1, 2)
-        if kind in ("armor", "backpack"):
+        if kind in ("armor", "backpack", "rig"):
             # Body armour and packs are character meshes, z-up: stood up a quarter turn.
             verts = np.c_[verts[:, 0], verts[:, 2], -verts[:, 1]]
 
@@ -658,8 +1180,11 @@ def make(iid, kind, preset, items, streaming, weapon):
     # The anchor is on the part itself: of its points, the one nearest the middle of its
     # box (the middle of a skeleton stock is air).
     by_slot = {}
+    each = []
     for slot, name, t in parts:
-        by_slot.setdefault(slot, []).append((t.reshape(-1, 3) - c)[:, list(axes)])
+        pts = (t.reshape(-1, 3) - c)[:, list(axes)]
+        by_slot.setdefault(slot, []).append(pts)
+        each.append((slot, name, pts))
     anchor_list = []
     if weapon:
         for slot, chunks in by_slot.items():
@@ -691,6 +1216,24 @@ def make(iid, kind, preset, items, streaming, weapon):
         if flip_x != flip_y:
             faces = faces[:, [0, 2, 1]]
 
+        # Barrel along +x, top up now. A light or laser that stands up in front of the optic,
+        # in line with it, blocks the sight picture: no one would build that.
+        if check is not None and by_slot.get("mod_scope"):
+            sight = np.concatenate(by_slot["mod_scope"]) * sign
+            s_lo, s_hi = sight.min(axis=0), sight.max(axis=0)
+            for slot, name, pts in each:
+                if slot != "mod_tactical":
+                    continue
+                q = pts * sign
+                q_lo, q_hi = q.min(axis=0), q.max(axis=0)
+                ahead = (q_lo[0] + q_hi[0]) / 2 > s_lo[0]
+                tall = q_hi[1] > s_lo[1] + 0.3 * (s_hi[1] - s_lo[1])
+                in_line = s_lo[2] - 0.004 <= (q_lo[2] + q_hi[2]) / 2 <= s_hi[2] + 0.004
+                if ahead and tall and in_line:
+                    check.append(f"{name} blocks the optic")
+            if check:
+                return
+
     # Into a unit box; the anchors with it.
     scale = 1.0 / np.abs(verts).max()
     verts = verts * scale
@@ -705,7 +1248,7 @@ def make(iid, kind, preset, items, streaming, weapon):
     normals, edges = edges_of(verts, faces)
     creases = sum(1 for e in edges if e[4])
     path = os.path.join(OUT, f"item_{iid}.bin")
-    write(path, verts, faces, normals, edges, anchor_list)
+    write(path, verts, faces, anchor_list)
     side_view(os.path.join(PREVIEW, f"{iid}.png"), verts, faces, edges)
     print(f"{iid}: {len(parts)} meshes, {raw} -> {len(faces)} triangles, {len(verts)} vertices, "
           f"{len(edges)} edges ({creases} creases), {os.path.getsize(path) // 1024} KB")

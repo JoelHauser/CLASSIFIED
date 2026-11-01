@@ -63,6 +63,8 @@ namespace CLASSIFIED
 
             // Map conventions: Soviet maps draw own forces red and the enemy blue, NATO the
             // other way round.
+            private Vector2 _danger = new Vector2(-9999f, -9999f);
+
             private Color32 Own => Bear ? new Color32(226, 58, 44, 255) : new Color32(82, 160, 255, 255);
             private Color32 Enemy => Bear ? new Color32(64, 140, 255, 255) : new Color32(240, 70, 64, 255);
 
@@ -116,6 +118,17 @@ namespace CLASSIFIED
             private float _flickerUntil;
             private float _rowTop;
             private float _rowBottom;
+            private float _wordsShown = -1f;
+            private readonly List<Callout> _above = new List<Callout>();
+            private readonly List<Callout> _below = new List<Callout>();
+
+            private static void SetAlpha(TextMeshProUGUI label, float alpha)
+            {
+                if (label != null)
+                {
+                    label.alpha = alpha;
+                }
+            }
 
             private TextMeshProUGUI _kindLabel;
             private TextMeshProUGUI _counter;
@@ -129,6 +142,7 @@ namespace CLASSIFIED
             private sealed class Callout
             {
                 internal Vector3 At;
+                internal Vector2 Screen;
                 internal bool Below;
                 internal TextMeshProUGUI Label;
                 internal float Width;
@@ -140,7 +154,7 @@ namespace CLASSIFIED
             private void BuildArmory(Rect zone)
             {
                 // This launch's table, the same however many times the screen is laid out.
-                _kit = Kit.Draw(T.Id, Rng);
+                _kit = Kit.Draw(T.Id, T.Faction, Rng);
                 if (_kit == null)
                 {
                     return;
@@ -194,7 +208,8 @@ namespace CLASSIFIED
                 _item = index;
                 _spec = Kit.Get(_kit[index]);
                 _itemAt = now;
-                WeaponModel model = WeaponModel.Load(_spec.Id);
+                // The drawn build (ak74m_3), not the stock weapon its figures come from.
+                WeaponModel model = WeaponModel.Load(_kit[index]);
                 _holo.Model = model;
                 _holo.Reveal = 0f;
 
@@ -334,12 +349,14 @@ namespace CLASSIFIED
 
                 // The words come in with the item and go with it.
                 float words = Mathf.Clamp01(age / 0.5f) * (_dissolving ? 1f - Mathf.Clamp01((age - dissolveAt) / (DissolveTime * 0.6f)) : 1f);
-                foreach (TextMeshProUGUI label in new[] { _kindLabel, _counter, _nameLabel, _fullLabel, _lineLabel })
+                if (!Mathf.Approximately(words, _wordsShown))
                 {
-                    if (label != null)
-                    {
-                        label.alpha = words;
-                    }
+                    _wordsShown = words;
+                    SetAlpha(_kindLabel, words);
+                    SetAlpha(_counter, words);
+                    SetAlpha(_nameLabel, words);
+                    SetAlpha(_fullLabel, words);
+                    SetAlpha(_lineLabel, words);
                 }
                 if (_counter != null)
                 {
@@ -365,14 +382,16 @@ namespace CLASSIFIED
                 float show = built ? Mathf.Clamp01((side - 0.7f) / 0.2f) : 0f;
                 if (_callouts.Count > 0)
                 {
-                    var anchors = new Dictionary<Callout, Vector2>();
+                    _above.Clear();
+                    _below.Clear();
                     foreach (Callout c in _callouts)
                     {
-                        anchors[c] = _holo.Project(c.At, out _);
+                        c.Screen = _holo.Project(c.At, out _);
+                        (c.Below ? _below : _above).Add(c);
                     }
                     float limit = _zone.width * 0.5f * U - 4f * U;
-                    LayoutRow(_callouts.FindAll(c => !c.Below), anchors, limit);
-                    LayoutRow(_callouts.FindAll(c => c.Below), anchors, limit);
+                    LayoutRow(_above, limit);
+                    LayoutRow(_below, limit);
                     foreach (Callout c in _callouts)
                     {
                         c.Shown = Mathf.MoveTowards(c.Shown, show, Dt * 3f);
@@ -381,7 +400,7 @@ namespace CLASSIFIED
                             c.Label.gameObject.SetActive(false);
                             continue;
                         }
-                        Vector2 at = anchors[c];
+                        Vector2 at = c.Screen;
                         float y = c.Below ? _rowBottom : _rowTop;
                         float dir = c.Below ? -1f : 1f;
                         float knee = y - dir * 10f * U;
@@ -400,18 +419,21 @@ namespace CLASSIFIED
             }
 
             /// <summary>Labels in a row: each over its part where it can be, in order, apart, and inside the zone.</summary>
-            private void LayoutRow(List<Callout> row, Dictionary<Callout, Vector2> anchors, float limit)
+            private readonly float[] _rowX = new float[8];
+            private static readonly System.Comparison<Callout> ByScreenX = (p, q) => p.Screen.x.CompareTo(q.Screen.x);
+
+            private void LayoutRow(List<Callout> row, float limit)
             {
                 if (row.Count == 0)
                 {
                     return;
                 }
-                row.Sort((p, q) => anchors[p].x.CompareTo(anchors[q].x));
+                row.Sort(ByScreenX);
                 float gap = 12f * U;
-                var x = new float[row.Count];
+                float[] x = _rowX;
                 for (int i = 0; i < row.Count; i++)
                 {
-                    x[i] = anchors[row[i]].x;
+                    x[i] = row[i].Screen.x;
                     if (i > 0)
                     {
                         x[i] = Mathf.Max(x[i], x[i - 1] + (row[i - 1].Width + row[i].Width) * 0.5f * U + gap);
@@ -550,10 +572,31 @@ namespace CLASSIFIED
                 frame.Commit();
                 string sheet = $"{(char)('K' + Rng.Next(6))}-{Rng.Next(30, 44)}-{Rng.Next(1, 145)}";
                 float clockWidth = 96f;
-                Fit(Label(Ru($"КАРТА ОБСТАНОВКИ  //  ЛИСТ {sheet}  //  1:50 000", $"OPERATIONAL GRAPHICS  //  SHEET {Rng.Next(4000, 9999)} {(char)('I' + Rng.Next(4))}  //  1:50,000"),
+                Fit(Label(MapTitle(sheet),
                     _map.xMin + (_map.width - clockWidth) * 0.5f, _map.yMax + 13f, _map.width - clockWidth - 8f, 10f, A(T.Dim, 220), TextAlignmentOptions.Left), 10f);
                 _clock = Label("", _map.xMax - clockWidth * 0.5f, _map.yMax + 13f, clockWidth, 10f, A(T.Accent, 220), TextAlignmentOptions.Right);
                 Fit(Label(OperationTitle(), _map.center.x, _map.yMin + 10f, _map.width - 12f, 9f, A(T.Text, 170), TextAlignmentOptions.Right), 9f);
+            }
+
+            /// <summary>The map's header: the document it is, by the operation, as each army would title it.</summary>
+            private string MapTitle(string sheet)
+            {
+                string order = $"{Rng.Next(1, 30):00}-{Rng.Next(1, 99):00}";
+                switch (_op)
+                {
+                    case Operation.Recon:
+                        return Ru($"СХЕМА РАЗВЕДКИ  //  ЛИСТ {sheet}  //  1:50 000", $"R&S OVERLAY  //  OPORD {order}  //  1:50,000");
+                    case Operation.Signals:
+                        return Ru($"СХЕМА ОРГАНИЗАЦИИ СВЯЗИ  //  ЛИСТ {sheet}", $"SIGNAL SITE OVERLAY  //  ANNEX H  //  1:50,000");
+                    case Operation.Convoy:
+                        return Ru($"СХЕМА МАРША КОЛОННЫ  //  ЛИСТ {sheet}  //  1:50 000", $"ROUTE OVERLAY  //  MOVEMENT ORDER {order}  //  1:50,000");
+                    case Operation.Casevac:
+                        return Ru($"СХЕМА ЭВАКУАЦИИ РАНЕНЫХ  //  ЛИСТ {sheet}", $"CASEVAC OVERLAY  //  ANNEX F  //  1:50,000");
+                    case Operation.Surveillance:
+                        return Ru($"СХЕМА НАБЛЮДЕНИЯ  //  ЛИСТ {sheet}  //  1:50 000", $"SURVEILLANCE OVERLAY  //  OPORD {order}  //  1:50,000");
+                    default:
+                        return Ru($"РАБОЧАЯ КАРТА КОМАНДИРА  //  ЛИСТ {sheet}  //  1:50 000", $"OPORD {order}  //  ANNEX C  //  OPERATION OVERLAY  //  1:50,000");
+                }
             }
 
             private string OperationTitle()
@@ -717,6 +760,15 @@ namespace CLASSIFIED
                         _path = Curve(M(0.08f, Range(0.15f, 0.35f)), M(0.45f, Range(0.2f, 0.5f)), _target, 20);
                         Vector2[] second = Curve(M(0.1f, Range(0.6f, 0.85f)), M(0.4f, Range(0.75f, 0.9f)), _target + new Vector2(-12f, 14f), 20);
                         Polyline(s, second, 1.5f, A(Own, 60), dash: true);
+                        // Both axes stay clear: no unit or label on them.
+                        foreach (Vector2 point in _path)
+                        {
+                            Reserve(point, 30f, 30f);
+                        }
+                        foreach (Vector2 point in second)
+                        {
+                            Reserve(point, 20f, 20f);
+                        }
                         DefenceLine(s, M(0.55f, 0.15f), M(0.6f, 0.92f));
                         Objective(s, _target, Ru("ЦЕЛЬ 1", "OBJ RAVEN"));
                         Units(s, 3, 0.08f, 0.25f, true);
@@ -753,12 +805,29 @@ namespace CLASSIFIED
                     }
                     case Operation.Convoy:
                     {
-                        // Along the road, checkpoints on the way.
+                        // A movement overlay: the column's start and release points on the road, its
+                        // checkpoints with the times it is due at them, the route's name, and an
+                        // alternate round the stretch where an ambush is expected.
+                        Flag(s, Along(_path, 0.06f), Ru("ИП", "SP"));
+                        Flag(s, Along(_path, 0.94f), Ru("РС", "RP"));
+                        int hour = Rng.Next(4, 8), minute = Rng.Next(0, 4) * 10;
                         for (int i = 1; i < 4; i++)
                         {
-                            Checkpoint(s, Along(_path, i / 4f), Ru($"КПП {i}", $"CP {i}"));
+                            minute += Rng.Next(18, 32);
+                            Checkpoint(s, Along(_path, 0.08f + i * 0.21f), Ru($"КПП {i}  {hour + minute / 60:00}:{minute % 60:00}", $"CP {i}  {hour + minute / 60:00}{minute % 60:00}"));
                         }
-                        Ambush(s, Along(_path, Range(0.55f, 0.7f)) + new Vector2(30f, 10f));
+                        float at = Range(0.55f, 0.68f);
+                        Vector2 road = Along(_path, at);
+                        Vector2 dir = (Along(_path, at + 0.02f) - road).normalized;
+                        Vector2 side = new Vector2(-dir.y, dir.x);
+                        _danger = road + side * 14f;
+                        DangerArea(s, _danger, 26f, Ru("ВЕРОЯТНАЯ ЗАСАДА", "DANGER AREA  //  AMBUSH"));
+                        // The alternate: off the road before the danger, round it on the far side, back after.
+                        Vector2 from = Along(_path, at - 0.18f), to = Along(_path, Mathf.Min(0.92f, at + 0.16f));
+                        Vector2[] alt = Curve(from, road - side * 70f, to, 14);
+                        Polyline(s, alt, 1.2f, A(Own, 120), dash: true);
+                        MapLabel(Ru("ЗАПАСНОЙ", "ALT ROUTE"), alt[7] - side * 10f, 8f, A(Own, 190), centred: true);
+                        MapLabel(Ru("МАРШРУТ «ВОЛГА»", "MSR TAMPA"), Along(_path, 0.2f) + new Vector2(16f, 0f), 9f, A(Own, 210));
                         break;
                     }
                     case Operation.Casevac:
@@ -868,10 +937,35 @@ namespace CLASSIFIED
                         break;
                     case Operation.Convoy:
                     {
-                        Vector2 at = Along(_path, p);
-                        Vector2 ahead = Along(_path, Mathf.Min(1f, p + 0.02f)) - at;
-                        Place(at, Mathf.Atan2(ahead.y, ahead.x) * Mathf.Rad2Deg - 90f);
-                        Redraw(p, () => Polyline(_live, Part(_path, p), 6f, A(Own, 60)));
+                        // Each vehicle is put on the road where it has got to, turned along it there,
+                        // so the column bends with the road instead of cutting its corners. The
+                        // danger area pulses while the head of the column is in it.
+                        _mover.gameObject.SetActive(false);
+                        float head = Mathf.Lerp(0.06f, 0.94f, p);
+                        bool inDanger = (Along(_path, head) - _danger).magnitude < 34f;
+                        Redraw(inDanger ? 10f + Mathf.Floor(t * 12f) * 0.001f : p, () =>
+                        {
+                            if (inDanger)
+                            {
+                                _live.Disc(P(_danger.x, _danger.y), 26f * U, A(Enemy, (byte)(30 + 30 * Mathf.Abs(Mathf.Sin(t * 5f)))));
+                            }
+                            Polyline(_live, Part(_path, head), 3f, A(Own, 70));
+                            for (int k = 0; k < 4; k++)
+                            {
+                                float f = head - k * 0.03f;
+                                if (f <= 0f)
+                                {
+                                    break;
+                                }
+                                Vector2 at = Along(_path, f);
+                                Vector2 dir = (at - Along(_path, Mathf.Max(0f, f - 0.01f))).normalized;
+                                Vector2 side = new Vector2(-dir.y, dir.x);
+                                Vector2 front = at + dir * 6.5f;
+                                Vector2 back = at - dir * 6.5f;
+                                _live.Polygon(new[] { P(front.x + side.x * 4.5f, front.y + side.y * 4.5f), P(front.x - side.x * 4.5f, front.y - side.y * 4.5f),
+                                    P(back.x - side.x * 4.5f, back.y - side.y * 4.5f), P(back.x + side.x * 4.5f, back.y + side.y * 4.5f) }, A(Own, (byte)(245 - k * 40)));
+                            }
+                        });
                         break;
                     }
                     case Operation.Casevac:
@@ -1094,6 +1188,40 @@ namespace CLASSIFIED
                 MapLabel(name, at + new Vector2(6f, 0f), 8f, c);
             }
 
+            /// <summary>A start or release point: a flag on a staff, its letters beside it.</summary>
+            private void Flag(Shape s, Vector2 at, string name)
+            {
+                Color32 c = A(Own, 220);
+                s.Disc(P(at.x, at.y), 2.5f * U, c);
+                s.Line(P(at.x, at.y), P(at.x, at.y + 20f), 1.6f * U, c);
+                s.Polygon(new[] { P(at.x, at.y + 20f), P(at.x + 13f, at.y + 16f), P(at.x, at.y + 12f) }, c);
+                Reserve(at + new Vector2(8f, 10f), 26f, 26f);
+                MapLabel(name, at + new Vector2(16f, 16f), 9f, c);
+            }
+
+            /// <summary>A danger area: a dashed ring, hatched inside, the ambush symbol at its middle.</summary>
+            private void DangerArea(Shape s, Vector2 at, float radius, string name)
+            {
+                Color32 c = A(Enemy, 200);
+                const int Steps = 32;
+                for (int k = 0; k < Steps; k += 2)
+                {
+                    float a0 = k * Mathf.PI * 2f / Steps, a1 = (k + 1) * Mathf.PI * 2f / Steps;
+                    s.Line(P(at.x + Mathf.Cos(a0) * radius, at.y + Mathf.Sin(a0) * radius), P(at.x + Mathf.Cos(a1) * radius, at.y + Mathf.Sin(a1) * radius), 1.4f * U, c);
+                }
+                for (float o = -radius + 6f; o < radius; o += 7f)
+                {
+                    // Diagonal hatching, each line cut at the ring.
+                    float half = Mathf.Sqrt(radius * radius - o * o) - 2f;
+                    Vector2 mid = at + new Vector2(o, o) * 0.7071f;
+                    Vector2 along = new Vector2(1f, -1f) * 0.7071f * half;
+                    s.Line(P(mid.x - along.x, mid.y - along.y), P(mid.x + along.x, mid.y + along.y), U, A(Enemy, 70));
+                }
+                Ambush(s, at + new Vector2(0f, 6f));
+                Reserve(at, radius * 2f, radius * 2f);
+                MapLabel(name, at + new Vector2(0f, -radius - 10f), 8f, c, centred: true);
+            }
+
             private void Ambush(Shape s, Vector2 at)
             {
                 Color32 c = A(Enemy, 200);
@@ -1140,10 +1268,18 @@ namespace CLASSIFIED
                 {
                     return;
                 }
-                for (int i = 0; i + 1 < path.Length - 1; i++)
+                // The band runs right up to the base of the head, so the head never runs ahead of it.
+                Vector2 tipAt = path[path.Length - 1];
+                Vector2 heads = heading.sqrMagnitude > 0.0001f ? heading.normalized : (tipAt - path[path.Length - 2]).normalized;
+                Vector2 headBase = tipAt - heads * width * 1.6f;
+                for (int i = 0; i + 1 < path.Length; i++)
                 {
                     Vector2 a = path[i];
-                    Vector2 b = path[i + 1];
+                    Vector2 b = i + 2 == path.Length ? headBase : path[i + 1];
+                    if ((b - a).sqrMagnitude < 0.25f)
+                    {
+                        continue;
+                    }
                     s.Line(P(a.x, a.y), P(b.x, b.y), width * U, A(color, 46));
                     Vector2 d = (b - a).normalized;
                     Vector2 n = new Vector2(-d.y, d.x) * width * 0.5f;

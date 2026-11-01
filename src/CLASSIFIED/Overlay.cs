@@ -724,6 +724,12 @@ namespace CLASSIFIED
             AnimateSheen(t);
             AnimatePanels(t);
             UpdateCaption();
+            if (_previewing && !_showreel)
+            {
+                // Up while the preview loops; off as soon as looping is switched off, so the
+                // ending then fades to the menu as a real one does.
+                ShowCurtain(_previewLoop);
+            }
 
             if (_phase == Phase.Loading)
             {
@@ -743,6 +749,7 @@ namespace CLASSIFIED
                 TypeChatter(t);
                 float fade = AdvanceFade(real);
                 AnimateOutro(fade);
+                // A looping preview plays its ending without fading off the menu, then starts again.
                 if (fade >= 1f && !LoopPreview())
                 {
                     Hide();

@@ -13,7 +13,7 @@ namespace CLASSIFIED
     ///
     /// BEAR is Soviet hardware: a staff map, aerial film or typed orders behind; a PSO-1 scope's
     /// reticle, an instrument gauge or a stamped, riveted plate round the insignia; a row of panel
-    /// lamps or a punched tape for the bar; a riveted border with a red secrecy stamp across it.
+    /// lamps or a punched tape for the bar; a riveted border.
     /// USEC is a modern tactical display: an MGRS map, satellite imagery or an operation order
     /// behind; a holographic HUD, a mil-dot scope or a target lock; a ruler or clean segments; a
     /// chamfered frame under classification banners.
@@ -66,7 +66,7 @@ namespace CLASSIFIED
                             return null;
                         }
                         // A quarter of the memory, and these are only ever faint.
-                        texture.Compress(true);
+                        texture.Compress(false);
                         texture.Apply(false, true);
                         texture.wrapMode = TextureWrapMode.Clamp;
                         texture.filterMode = FilterMode.Bilinear;
@@ -145,8 +145,6 @@ namespace CLASSIFIED
 
         private Image[] _banners;
         private TextMeshProUGUI[] _bannerTexts;
-        private TextMeshProUGUI _stamp;
-        private Shape _stampBox;
 
         private void BuildFaction(Transform content, Transform readout)
         {
@@ -170,13 +168,11 @@ namespace CLASSIFIED
                 _bannerTexts[i] = MakeText("BannerText" + i, _banners[i].transform, TextAlignmentOptions.Center, Ink);
                 Stretch(_bannerTexts[i].rectTransform);
             }
-            _stampBox = Shape.Create("StampBox", content);
-            _stamp = MakeText("Stamp", _stampBox.transform, TextAlignmentOptions.Center, Warn);
         }
 
         // ---- chrome -------------------------------------------------------------------------
 
-        /// <summary>The screen's edge: BEAR's riveted border and stamp, USEC's chamfered frame and banners, plain brackets before either.</summary>
+        /// <summary>The screen's edge: BEAR's riveted border, USEC's chamfered frame and banners, plain brackets before either.</summary>
         private void DrawChrome(Vector2 size, float inset, float arm, float width)
         {
             float u = _u;
@@ -188,7 +184,6 @@ namespace CLASSIFIED
             {
                 banner.gameObject.SetActive(false);
             }
-            _stampBox.gameObject.SetActive(false);
 
             if (faction == Faction.Bear)
             {
@@ -210,21 +205,6 @@ namespace CLASSIFIED
                         Rivet(_corners, at, 4f * u);
                     }
                 }
-                // The secrecy stamp, struck across the top border, a little crooked.
-                _stampBox.gameObject.SetActive(true);
-                Color32 ink = new Color32(214, 48, 36, 150);
-                _stampBox.rectTransform.anchoredPosition = new Vector2(Mathf.Round(hx * 0.42f), hy);
-                _stampBox.rectTransform.localEulerAngles = new Vector3(0f, 0f, -4f);
-                _stampBox.Clear();
-                float sw = 300f * u;
-                float sh = 38f * u;
-                Rectangle(_stampBox, sw * 0.5f, sh * 0.5f, 2.5f * u, ink);
-                Rectangle(_stampBox, sw * 0.5f - 5f * u, sh * 0.5f - 5f * u, Mathf.Max(1f, u), Theme.WithAlpha(ink, 100));
-                _stampBox.Commit();
-                _stamp.text = Words("СОВЕРШЕННО СЕКРЕТНО", "TOP SECRET");
-                _stamp.color = ink;
-                SetText(_stamp, 0f, 0f, sw, sh, 17f * u, 8f);
-                _stamp.fontStyle = FontStyles.Bold;
             }
             else if (faction == Faction.Usec)
             {
@@ -570,25 +550,18 @@ namespace CLASSIFIED
 
         // ---- intros ---------------------------------------------------------------------------
 
-        private TextMeshProUGUI _stampText;
         private TextMeshProUGUI _bootText;
 
         /// <summary>Over the intro's covers: created after them.</summary>
         private void BuildIntros()
         {
-            _stampText = MakeText("IntroStamp", transform, TextAlignmentOptions.Center, Warn);
-            _stampText.fontStyle = FontStyles.Bold;
             _bootText = MakeText("IntroBoot", transform, TextAlignmentOptions.TopLeft, Accent);
             _bootText.enableWordWrapping = false;
-            _stampText.gameObject.SetActive(false);
             _bootText.gameObject.SetActive(false);
         }
 
         private void ApplyIntroText()
         {
-            string unitName = BearRussian ? Cyr(_variant.Theme.Native ?? string.Empty) : _variant.Theme.Division;
-            _stampText.text = $"<size=40%>{Words("ЧВК «BEAR»  //  ЭКЗ. № 1", "BEAR PMC  //  COPY NO. 1")}</size>\n{Words("СОВЕРШЕННО СЕКРЕТНО", "TOP SECRET")}\n<size=40%>{unitName}</size>";
-            _stampText.color = new Color32(214, 48, 36, 255);
             string unit = _variant.Theme.Division;
             int session = StartupTracker.Launches;
             _bootText.text =
@@ -605,34 +578,9 @@ namespace CLASSIFIED
         private void LayoutIntros(Vector2 size)
         {
             float u = _u;
-            SetText(_stampText, 0f, 0f, 900f * u, 220f * u, 58f * u, 10f);
-            _stampText.lineSpacing = -10f;
             // A block of console lines, left-aligned, the block itself centred.
             SetText(_bootText, 0f, 20f * u, 640f * u, 220f * u, 15f * u, 4f);
             _bootText.lineSpacing = 18f;
-        }
-
-        /// <summary>BEAR's opening: on black, the secrecy stamp comes down hard, crooked, and the terminal comes up behind it.</summary>
-        private void AnimateStamp(float clock, float w, float h)
-        {
-            // Hold the black a beat, slam, settle, then lift the black and the stamp together.
-            const float Slam = 0.18f;
-            const float Hit = 0.24f;
-            float down = Mathf.Clamp01((clock - Slam + 0.12f) / 0.12f);
-            float scale = Mathf.Lerp(2.4f, 1f, down * down);
-            float shake = clock > Slam && clock < Slam + 0.12f ? Mathf.Sin(clock * 140f) * 4f * _u * (1f - (clock - Slam) / 0.12f) : 0f;
-            float lift = Mathf.Clamp01((clock - 0.75f) / 0.45f);
-            float liftEase = lift * lift * (3f - 2f * lift);
-            PlaceShutters(0f, w, h, 1f - liftEase);
-            _stampText.rectTransform.localScale = new Vector3(scale, scale, 1f);
-            _stampText.rectTransform.localEulerAngles = new Vector3(0f, 0f, -7f);
-            _stampText.rectTransform.anchoredPosition = new Vector2(shake, -shake * 0.5f);
-            _stampText.canvasRenderer.SetAlpha(down * (1f - liftEase) * (clock < Hit + 0.05f ? 1f : 0.92f));
-            // The ink's flash as it lands.
-            float flash = clock > Slam - 0.02f ? Mathf.Clamp01(1f - (clock - Slam) / 0.25f) : 0f;
-            Place(_powerLine.rectTransform, 0f, 0f, w, h);
-            _powerLine.color = new Color32(214, 48, 36, 255);
-            _powerLine.canvasRenderer.SetAlpha(flash * 0.12f * (1f - liftEase));
         }
 
         /// <summary>USEC's opening: a secure-boot console checks its keys and joins the net, then a scan line opens the picture.</summary>

@@ -12,8 +12,8 @@ namespace CLASSIFIED
     ///   Map        the operation, drawn in the faction's conventions (Overlay.Debrief.cs).
     ///   Dossier    a personal file on someone wanted: a photo being matched, the record redacted.
     ///   Intercept  a radio spectrum and its waterfall, the transcript typing out under it.
-    ///   Imagery    a reconnaissance photo, enhanced step by step onto its target as the load runs.
-    ///   Readiness  the unit's state in bars: strength, ammunition, fuel, stores.
+    ///   Imagery    an aerial picture, drawn, enhanced step by step onto the objective as the load runs.
+    ///   Readiness  a fighting unit's PERSTAT (its teams reporting in), a supply unit's LOGSTAT (classes of supply).
     ///   Tasking    the operator's own tasks under way, when the profile is known.
     /// </summary>
     internal partial class Overlay
@@ -183,14 +183,6 @@ namespace CLASSIFIED
                 }
                 bars.Commit();
 
-                // A rubber stamp across the corner.
-                TextMeshProUGUI stamp = Label(Ru("РОЗЫСК", "WANTED"), a.xMax - 70f, a.yMin + 26f, 140f, 18f, new Color32(214, 48, 36, 170), TextAlignmentOptions.Center);
-                stamp.fontStyle = FontStyles.Bold;
-                stamp.rectTransform.localEulerAngles = new Vector3(0f, 0f, 12f);
-                Shape box = Draw(a.xMax - 70f, a.yMin + 26f);
-                box.rectTransform.localEulerAngles = new Vector3(0f, 0f, 12f);
-                Outline(box, 0f, 0f, 130f, 30f, 2f, new Color32(214, 48, 36, 150));
-                box.Commit();
             }
 
             private void AnimateDossier(float t)
@@ -332,12 +324,12 @@ namespace CLASSIFIED
                     var earlier = new System.Text.StringBuilder("<alpha=#70>");
                     for (int k = Mathf.Max(0, _line - 2); k < _line; k++)
                     {
-                        earlier.Append("> ").Append(Lore.Fill(_lines[k % _lines.Length], Rng)).Append("\n");
+                        earlier.Append("> ").Append(O.Cyr(Lore.Fill(_lines[k % _lines.Length], Rng))).Append("\n");
                     }
                     _transcript.text = earlier.ToString();
                     _transcript.ForceMeshUpdate();
                     _typedFrom = _transcript.textInfo.characterCount;
-                    _transcript.text = earlier + "<alpha=#FF><color=" + T.AccentHex + ">> </color>" + Lore.Fill(_lines[_line % _lines.Length], Rng);
+                    _transcript.text = earlier + "<alpha=#FF><color=" + T.AccentHex + ">> </color>" + O.Cyr(Lore.Fill(_lines[_line % _lines.Length], Rng));
                     _transcript.ForceMeshUpdate();
                     _interceptReading.text = Ru("ЗАПИСЬ", "REC") + $" {_line + 1:000}";
                 }
@@ -346,77 +338,1020 @@ namespace CLASSIFIED
 
             // ==== Imagery ========================================================================
 
-            private RawImage _image;
+            /// <summary>A piece of the aerial scene, in metres, with its bounds so what is out of view is skipped.</summary>
+            private struct Patch
+            {
+                internal Vector2[] Points;
+                internal Color32 Color;
+                internal Rect Bounds;
+
+                /// <summary>How warm it shows in infrared, 0 to 1; Cold for a shadow, Hidden for what infrared sees through.</summary>
+                internal float Heat;
+            }
+
+            private const float Cold = -2f;
+            private const float Hidden = -1f;
+
+            /// <summary>Someone on the ground: a guard standing (A = B) or a patrol walking between A and B.</summary>
+            private struct Walker
+            {
+                internal Vector2 A;
+                internal Vector2 B;
+                internal float Speed;
+                internal float Phase;
+            }
+
+            private struct Vehicle
+            {
+                internal Vector2 Centre;
+                internal Vector2 Forward;
+                internal float Length;
+                internal float Width;
+                internal bool Armoured;
+                internal bool Netted;
+            }
+
+            // Drawn bottom to top: ground cover, tracks and water, roads, shadows, trees, buildings, vehicles.
+            private const int SceneLayers = 7;
+            private const int Traffic = -1;
+            private readonly List<Patch>[] _layers = new List<Patch>[SceneLayers];
+            private readonly List<Patch> _scene = new List<Patch>();
+            private readonly List<Vehicle> _parked = new List<Vehicle>();
+            private readonly Vector2[][] _scratch = new Vector2[65][];
+            private readonly TextMeshProUGUI[] _tags = new TextMeshProUGUI[6];
+            private readonly Vector2[] _moverAt = new Vector2[2];
+            private Shape _world;
+            private Shape _traffic;
             private Shape _reticle;
             private TextMeshProUGUI _imageReading;
-            private Vector2 _focus;
+            private TextMeshProUGUI _imageData;
+            private TextMeshProUGUI _scaleLabel;
+            private TextMeshProUGUI _targetLabel;
+            private Vector2[] _road;
+            private float[] _roadAt;
+            private Vector2 _site;
+            private Vector2 _siteX;
+            private Vector2 _siteY;
+            private Vector2 _worldSize;
+            private Vector2 _sun;
+            private float _metre;
+            private float _drawnScale;
+            private Vector2 _drawnCentre;
+            private float _viewScale;
+            private Vector2 _viewCentre;
+            private float _moverStart;
+            private string _gridRef;
             private int _shownZoom = -1;
+            private int _shownScale = -1;
+            private float _heat;
+            private bool _infrared;
+            private bool _drawnInfrared;
+            private float _infraredAt = -1f;
+            private Image _groundBox;
+            private readonly List<Walker> _walkers = new List<Walker>();
+            private readonly List<Vector2> _noteAt = new List<Vector2>();
+            private readonly List<TextMeshProUGUI> _notes = new List<TextMeshProUGUI>();
+
+            private Color32 Ground => A(Color32.Lerp(T.Ink, new Color32(0, 0, 0, 255), 0.35f), 255);
+
+            /// <summary>An opaque colour <paramref name="k"/> of the way from the ground to <paramref name="c"/>: overlaps never show.</summary>
+            private Color32 Mix(Color32 c, float k) => A(Color32.Lerp(Ground, A(c, 255), k), 255);
+
+            private static readonly Color32 Shadow = new Color32(0, 0, 0, 150);
+
+            private Color32 Pit => A(Color32.Lerp(Ground, new Color32(0, 0, 0, 255), 0.55f), 255);
+
+            /// <summary>White-hot: the warmer, the whiter, with a breath of the unit's colour.</summary>
+            private Color32 HeatColour(float heat)
+            {
+                byte v = (byte)(Mathf.Clamp01(heat) * 255f);
+                return A(Color32.Lerp(new Color32(v, v, v, 255), A(T.Accent, 255), 0.14f), 255);
+            }
 
             private void BuildImagery(Rect zone)
             {
-                _panel = PanelFrame(zone, Ru($"АЭРОФОТОСНИМОК  //  КАДР {Code(4)}", $"IMAGERY  //  FRAME {Code(5)}  //  GSD 0.3 M"), out _imageReading);
+                _panel = PanelFrame(zone, Ru($"АЭРОФОТОСНИМОК  //  КАДР {Code(4)}", $"IMAGERY  //  FRAME {Code(5)}  //  MQ-9"), out _imageReading);
                 Rect a = _panel;
+                _groundBox = Box(a.center.x, a.center.y, a.width, a.height, Ground);
                 RectTransform clip = Clip(a);
-                _image = MakeRaw("Image", clip, Backdrops.Get(T.Faction, BackdropKind.Imagery), A(T.Accent, 150));
-                _image.rectTransform.anchorMin = Vector2.zero;
-                _image.rectTransform.anchorMax = Vector2.one;
-                _image.rectTransform.offsetMin = _image.rectTransform.offsetMax = Vector2.zero;
-                _focus = new Vector2(Range(0.3f, 0.7f), Range(0.3f, 0.7f));
+
+                // The scene, half a kilometre or so across, the panel's shape.
+                float wide = Range(520f, 660f);
+                _worldSize = new Vector2(wide, wide * a.height / a.width);
+                _metre = a.width / wide;
+                _sun = new Vector2(Range(0.5f, 0.8f), -Range(0.4f, 0.7f)).normalized;
+                for (int i = 0; i < SceneLayers; i++)
+                {
+                    _layers[i] = new List<Patch>();
+                }
+                Scene();
+                _scene.Clear();
+                foreach (List<Patch> layer in _layers)
+                {
+                    _scene.AddRange(layer);
+                    layer.Clear();
+                }
+                _world = Draw(-a.center.x, -a.center.y, clip);
+                _traffic = Draw(-a.center.x, -a.center.y, clip);
+                _moverStart = Range(0f, 400f);
+                _drawnScale = 0f;
+
+                // The frame's fixed marks: fiducial crosses in the corners, ticks along the edges, north.
+                Shape marks = Draw();
+                Color32 mark = A(T.Text, 120);
+                foreach (var corner in new[] { new Vector2(a.xMin + 14f, a.yMin + 14f), new Vector2(a.xMax - 14f, a.yMin + 14f), new Vector2(a.xMin + 14f, a.yMax - 14f), new Vector2(a.xMax - 14f, a.yMax - 14f) })
+                {
+                    marks.Line(P(corner.x - 5f, corner.y), P(corner.x + 5f, corner.y), U, mark);
+                    marks.Line(P(corner.x, corner.y - 5f), P(corner.x, corner.y + 5f), U, mark);
+                }
+                for (int k = 1; k < 10; k++)
+                {
+                    float x = Mathf.Lerp(a.xMin, a.xMax, k / 10f);
+                    float y = Mathf.Lerp(a.yMin, a.yMax, k / 10f);
+                    float len = k == 5 ? 8f : 4f;
+                    marks.Line(P(x, a.yMin), P(x, a.yMin + len), U, mark);
+                    marks.Line(P(x, a.yMax), P(x, a.yMax - len), U, mark);
+                    marks.Line(P(a.xMin, y), P(a.xMin + len, y), U, mark);
+                    marks.Line(P(a.xMax, y), P(a.xMax - len, y), U, mark);
+                }
+                Vector2 north = new Vector2(a.xMax - 26f, a.yMax - 34f);
+                marks.Tri(P(north.x, north.y + 9f), P(north.x - 4.5f, north.y - 6f), P(north.x, north.y - 3f), A(T.Text, 210));
+                marks.Tri(P(north.x, north.y + 9f), P(north.x, north.y - 3f), P(north.x + 4.5f, north.y - 6f), A(T.Text, 110));
+                marks.Commit();
+                Label(Ru("С", "N"), north.x, north.y + 17f, 20f, 8f, A(T.Text, 210), TextAlignmentOptions.Center);
+
+                // The analyst's readings, on dark strips so the picture never swallows them.
+                _gridRef = $"{Rng.Next(30, 40)}U {(char)('C' + Rng.Next(20))}{(char)('M' + Rng.Next(12))} {Rng.Next(10000, 99999)} {Rng.Next(10000, 99999)}";
+                float dataW = Mathf.Min(a.width * 0.62f, 300f);
+                Box(a.xMin + 6f + dataW * 0.5f, a.yMin + 12f, dataW, 14f, A(Dark, 200));
+                _imageData = Label("", a.xMin + 10f + dataW * 0.5f, a.yMin + 12f, dataW - 8f, 8f, A(T.Text, 210), TextAlignmentOptions.Left);
+                _scaleLabel = Label("", a.xMax - 44f, a.yMin + 26f, 60f, 8f, A(T.Text, 210), TextAlignmentOptions.Right);
                 _reticle = Draw();
+                _targetLabel = Label(Ru($"ОБЪЕКТ {Code(3)}", $"OBJECTIVE {Code(3)}"), 0f, 0f, 120f, 8f, A(T.Text, 220), TextAlignmentOptions.Left);
+                for (int i = 0; i < _tags.Length; i++)
+                {
+                    bool mover = i >= 4;
+                    string text = mover
+                        ? Ru($"ДВИЖ {i - 3:00}", $"MOVER {i - 3:00}")
+                        : i >= _parked.Count ? ""
+                        : _parked[i].Netted ? Ru($"{i + 1:00} МАСКСЕТЬ", $"{i + 1:00} CAMO NET")
+                        : _parked[i].Armoured ? Ru($"{i + 1:00} БТР", $"{i + 1:00} APC") : Ru($"{i + 1:00} ГРУЗ", $"{i + 1:00} TRUCK");
+                    _tags[i] = Label(text, 0f, 0f, 80f, 7f, A(mover ? T.Accent : T.Warn, 230), TextAlignmentOptions.Left);
+                    _tags[i].gameObject.SetActive(false);
+                }
+                // The analyst's notes on the objective, for the last, closest look.
+                string[] notes =
+                {
+                    Ru("КАЗАРМА", "BARRACKS"), Ru("БОКС ТЕХНИКИ", "VEHICLE SHED"), Ru("СКЛАД", "STORES"),
+                    Ru($"Л/С: {_walkers.Count}", $"PAX: {_walkers.Count}"), Ru("АНТЕННА", "ANTENNA MAST")
+                };
+                for (int i = 0; i < _noteAt.Count && i < notes.Length; i++)
+                {
+                    TextMeshProUGUI note = Label(notes[i], 0f, 0f, 90f, 7f, A(T.Text, 230), TextAlignmentOptions.Left);
+                    note.gameObject.SetActive(false);
+                    _notes.Add(note);
+                }
             }
+
+            /// <summary>The scene: fields, hedges and a wood, a river, a road through a village, and the objective, a wired compound with its vehicles.</summary>
+            private void Scene()
+            {
+                float W = _worldSize.x, H = _worldSize.y;
+                _site = new Vector2(W * Range(0.38f, 0.62f), H * Range(0.4f, 0.6f));
+                float turn = Range(-28f, 28f) * Mathf.Deg2Rad;
+                _siteX = new Vector2(Mathf.Cos(turn), Mathf.Sin(turn));
+                _siteY = new Vector2(-_siteX.y, _siteX.x);
+                float side = Rng.Next(2) == 0 ? -1f : 1f;
+
+                // The road, passing the compound a little way off.
+                _road = Wander(new Vector2(-20f, _site.y + side * Range(60f, 85f) + Range(-25f, 25f)), new Vector2(W + 20f, _site.y + side * Range(60f, 85f) + Range(-25f, 25f)), 0.05f, 28);
+                float off = PathDistance(_road, _site);
+                if (off < 58f)
+                {
+                    for (int i = 0; i < _road.Length; i++)
+                    {
+                        _road[i].y += side * (58f - off);
+                    }
+                }
+                _roadAt = new float[_road.Length];
+                for (int i = 1; i < _road.Length; i++)
+                {
+                    _roadAt[i] = _roadAt[i - 1] + (_road[i] - _road[i - 1]).magnitude;
+                }
+
+                // A river on the far side from the compound, most of the time.
+                Vector2[] river = null;
+                if (Rng.Next(100) < 75)
+                {
+                    float rx = _site.x < W * 0.5f ? Range(0.78f, 0.92f) * W : Range(0.08f, 0.22f) * W;
+                    river = Wander(new Vector2(rx + Range(-40f, 40f), H + 20f), new Vector2(rx + Range(-40f, 40f), -20f), 0.1f, 22);
+                }
+
+                // Fields on a rough lattice, with tracks between them; bare ground round the compound.
+                int nx = Mathf.Max(3, Mathf.RoundToInt(W / 95f));
+                int ny = Mathf.Max(2, Mathf.RoundToInt(H / 95f));
+                var corners = new Vector2[nx + 1, ny + 1];
+                for (int i = 0; i <= nx; i++)
+                {
+                    for (int j = 0; j <= ny; j++)
+                    {
+                        float x = i == 0 ? -20f : i == nx ? W + 20f : i * W / nx + Range(-22f, 22f);
+                        float y = j == 0 ? -20f : j == ny ? H + 20f : j * H / ny + Range(-22f, 22f);
+                        corners[i, j] = new Vector2(x, y);
+                    }
+                }
+                for (int i = 0; i < nx; i++)
+                {
+                    for (int j = 0; j < ny; j++)
+                    {
+                        Vector2[] q = { corners[i, j], corners[i + 1, j], corners[i + 1, j + 1], corners[i, j + 1] };
+                        Vector2 m = (q[0] + q[1] + q[2] + q[3]) * 0.25f;
+                        for (int k = 0; k < 4; k++)
+                        {
+                            q[k] = Vector2.MoveTowards(q[k], m, 4f);
+                        }
+                        if ((m - _site).magnitude < 70f)
+                        {
+                            // Churned ground round the objective, crossed by tyre tracks.
+                            _heat = 0.27f;
+                            Add(0, q, Mix(T.Text, Range(0.09f, 0.13f)));
+                            _heat = 0.31f;
+                            for (int k = Rng.Next(1, 3); k > 0; k--)
+                            {
+                                Vector2 from = Vector2.Lerp(q[0], q[3], Range(0.2f, 0.8f));
+                                Vector2 to = Vector2.Lerp(q[1], q[2], Range(0.2f, 0.8f));
+                                Vector2 n = new Vector2(-(to - from).y, (to - from).x).normalized * 1.1f;
+                                Vector2[] path = Wander(from, to, 0.06f, 8);
+                                for (int e = 0; e < path.Length; e++)
+                                {
+                                    path[e] += n;
+                                }
+                                AddPath(0, path, 0.45f, Mix(T.Text, 0.2f));
+                                for (int e = 0; e < path.Length; e++)
+                                {
+                                    path[e] -= n * 2f;
+                                }
+                                AddPath(0, path, 0.45f, Mix(T.Text, 0.2f));
+                            }
+                            continue;
+                        }
+                        float tone = Range(0.07f, 0.2f);
+                        Color32 field = Rng.Next(5) == 0 ? Mix(T.Text, tone * 0.6f) : Mix(T.Accent, tone);
+                        _heat = Range(0.17f, 0.3f);
+                        Add(0, q, field);
+                        if (Rng.Next(100) < 50)
+                        {
+                            // Furrows or tramlines, one way or the other across the field.
+                            bool across = Rng.Next(2) == 0;
+                            Vector2 a0 = q[0], a1 = across ? q[1] : q[3], b0 = across ? q[3] : q[1], b1 = q[2];
+                            int n = Mathf.Clamp(Mathf.RoundToInt((b0 - a0).magnitude / 6f), 4, 16);
+                            Color32 furrow = Mix(T.Accent, tone + 0.05f);
+                            _heat += 0.04f;
+                            for (int k = 1; k < n; k++)
+                            {
+                                AddLine(0, Vector2.Lerp(a0, b0, k / (float)n), Vector2.Lerp(a1, b1, k / (float)n), 0.5f, furrow);
+                            }
+                        }
+                    }
+                }
+
+                // Hedgerows along some of the field edges.
+                for (int i = 0; i <= nx; i++)
+                {
+                    for (int j = 0; j <= ny; j++)
+                    {
+                        if (i < nx && Rng.Next(100) < 22)
+                        {
+                            Hedge(corners[i, j], corners[i + 1, j], river);
+                        }
+                        if (j < ny && Rng.Next(100) < 22)
+                        {
+                            Hedge(corners[i, j], corners[i, j + 1], river);
+                        }
+                    }
+                }
+
+                // A wood, away from the compound.
+                Vector2 wood = new Vector2(_site.x < W * 0.5f ? W * Range(0.6f, 0.85f) : W * Range(0.15f, 0.4f), _site.y < H * 0.5f ? H * Range(0.72f, 0.95f) : H * Range(0.05f, 0.28f));
+                for (int k = 0; k < 140; k++)
+                {
+                    float r = Mathf.Sqrt((float)Rng.NextDouble());
+                    float angle = Range(0f, Mathf.PI * 2f);
+                    Vector2 p = wood + new Vector2(Mathf.Cos(angle) * 90f, Mathf.Sin(angle) * 60f) * r;
+                    if (PathDistance(_road, p) > 8f && (river == null || PathDistance(river, p) > 15f) && (p - _site).magnitude > 60f)
+                    {
+                        Tree(p, Range(2.8f, 5f));
+                    }
+                }
+
+                // Dirt tracks from the road out into the fields.
+                for (int k = Rng.Next(2, 4); k > 0; k--)
+                {
+                    Vector2 from = _road[Rng.Next(3, _road.Length - 3)];
+                    Vector2 to = new Vector2(Range(0.05f, 0.95f) * W, from.y < _site.y ? Range(-10f, H * 0.2f) : Range(H * 0.8f, H + 10f));
+                    if (PathDistance(new[] { from, to }, _site) > 40f)
+                    {
+                        _heat = 0.27f;
+                        AddPath(1, Wander(from, to, 0.08f, 10), 3.2f, Mix(T.Text, 0.16f));
+                    }
+                }
+
+                // The river and its banks, a bridge where the road crosses.
+                if (river != null)
+                {
+                    _heat = 0.16f;
+                    AddPath(1, river, 23f, Mix(T.Accent, 0.24f));
+                    _heat = 0.05f;
+                    AddPath(1, river, 17f, Pit);
+                    for (int i = 0; i + 1 < _road.Length; i++)
+                    {
+                        for (int j = 0; j + 1 < river.Length; j++)
+                        {
+                            if (Crossing(_road[i], _road[i + 1], river[j], river[j + 1], out Vector2 at))
+                            {
+                                Vector2 dir = (_road[i + 1] - _road[i]).normalized;
+                                Vector2 n = new Vector2(-dir.y, dir.x);
+                                _heat = 0.4f;
+                                AddLine(2, at - dir * 15f, at + dir * 15f, 10f, Mix(T.Text, 0.45f));
+                                AddLine(2, at - dir * 15f + n * 4.6f, at + dir * 15f + n * 4.6f, 0.7f, Mix(T.Text, 0.85f));
+                                AddLine(2, at - dir * 15f - n * 4.6f, at + dir * 15f - n * 4.6f, 0.7f, Mix(T.Text, 0.85f));
+                            }
+                        }
+                    }
+                }
+
+                // The road, its centre line dashed.
+                _heat = 0.36f;
+                AddPath(2, _road, 8f, Mix(T.Text, 0.34f));
+                _heat = 0.42f;
+                Color32 dash = Mix(T.Text, 0.7f);
+                for (float d = 4f; d + 3.5f < _roadAt[_roadAt.Length - 1]; d += 9f)
+                {
+                    RoadPoint(d, out Vector2 p0, out _);
+                    RoadPoint(d + 3.5f, out Vector2 p1, out _);
+                    AddLine(2, p0, p1, 0.3f, dash);
+                }
+
+                Village(river);
+                Compound(side);
+
+                // Old shell craters round the objective.
+                if (Rng.Next(100) < 60)
+                {
+                    for (int k = Rng.Next(8, 15); k > 0; k--)
+                    {
+                        float angle = Range(0f, Mathf.PI * 2f);
+                        Vector2 p = _site + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * Range(42f, 120f);
+                        if (PathDistance(_road, p) < 9f || (river != null && PathDistance(river, p) < 16f))
+                        {
+                            continue;
+                        }
+                        float r = Range(1.8f, 4.2f);
+                        _heat = 0.24f;
+                        Add(1, Disc(p, r * 1.5f, 10), Mix(T.Text, 0.22f));
+                        _heat = 0.1f;
+                        Add(1, Disc(p + _sun * r * 0.15f, r, 10), Pit);
+                    }
+                }
+            }
+
+            private void Hedge(Vector2 from, Vector2 to, Vector2[] river)
+            {
+                if (((from + to) * 0.5f - _site).magnitude < 75f)
+                {
+                    return;
+                }
+                int count = Mathf.FloorToInt((to - from).magnitude / 6.5f);
+                for (int k = 0; k <= count; k++)
+                {
+                    Vector2 p = Vector2.Lerp(from, to, k / (float)Mathf.Max(1, count)) + new Vector2(Range(-1.6f, 1.6f), Range(-1.6f, 1.6f));
+                    if (Rng.Next(100) < 80 && PathDistance(_road, p) > 7f && (river == null || PathDistance(river, p) > 14f))
+                    {
+                        Tree(p, Range(2f, 3.6f));
+                    }
+                }
+            }
+
+            /// <summary>A tree from above: its shadow, its crown, and the sunlit side of the crown.</summary>
+            private void Tree(Vector2 p, float r)
+            {
+                _heat = Cold;
+                Add(3, Disc(p + _sun * r * 0.9f, r, 8), Shadow);
+                _heat = 0.12f;
+                Add(4, Disc(p, r, 8), Mix(T.Accent, Range(0.3f, 0.42f)));
+                _heat = 0.15f;
+                Add(4, Disc(p - _sun * r * 0.3f, r * 0.55f, 7), Mix(T.Accent, Range(0.5f, 0.62f)));
+            }
+
+            /// <summary>A handful of houses with their gardens along the road, somewhere away from the compound.</summary>
+            private void Village(Vector2[] river)
+            {
+                for (int attempt = 0; attempt < 14; attempt++)
+                {
+                    float at = Range(60f, _roadAt[_roadAt.Length - 1] - 60f);
+                    RoadPoint(at, out Vector2 p, out _);
+                    if ((p - _site).magnitude < 170f || (river != null && PathDistance(river, p) < 60f) || p.x < 30f || p.x > _worldSize.x - 30f)
+                    {
+                        continue;
+                    }
+                    for (int k = Rng.Next(5, 9); k > 0; k--)
+                    {
+                        RoadPoint(at + Range(-70f, 70f), out Vector2 q, out Vector2 dir);
+                        Vector2 n = new Vector2(-dir.y, dir.x) * (Rng.Next(2) == 0 ? 1f : -1f);
+                        float back = Range(14f, 22f);
+                        Vector2 house = q + n * back;
+                        if (river != null && PathDistance(river, house) < 22f)
+                        {
+                            continue;
+                        }
+                        _heat = 0.22f;
+                        Add(0, Footprint(house + n * 9f, dir, Range(14f, 18f), Range(12f, 16f)), Mix(T.Accent, Range(0.2f, 0.3f)));
+                        Building(house, dir, Range(8.5f, 12f), Range(6.5f, 8.5f), true);
+                        if (Rng.Next(100) < 50)
+                        {
+                            Building(house + n * 9f + dir * Range(-4f, 4f), dir, Range(3f, 5f), Range(3f, 4f), false);
+                        }
+                    }
+                    return;
+                }
+            }
+
+            /// <summary>The objective: a fenced, gravelled yard with a barracks, a garage, containers, a guard hut, and a row of vehicles facing the gate.</summary>
+            private void Compound(float side)
+            {
+                // Its own frame: x along the compound, y toward the road side; the gate in the road side.
+                Vector2 L(float x, float y) => _site + _siteX * x + _siteY * (y * side);
+                Vector2 up = _siteY * side;
+                _heat = 0.3f;
+                Add(1, Footprint(_site, _siteX, 52f, 38f), Mix(T.Text, 0.15f));
+
+                // The track in from the road to the gate.
+                Vector2 gate = L(0f, 16f);
+                Vector2 near = NearestOnPath(_road, gate);
+                Vector2 bend = Vector2.Lerp(near, gate, 0.5f) + _siteX * Range(-12f, 12f);
+                AddPath(1, Curve(near, bend, gate + up * -4f, 12), 5.5f, Mix(T.Text, 0.26f));
+
+                // Wire, with the gate's gap.
+                Color32 wire = Mix(T.Text, 0.75f);
+                _heat = 0.35f;
+                AddLine(5, L(-23f, -16f), L(23f, -16f), 0.5f, wire);
+                AddLine(5, L(-23f, -16f), L(-23f, 16f), 0.5f, wire);
+                AddLine(5, L(23f, -16f), L(23f, 16f), 0.5f, wire);
+                AddLine(5, L(-23f, 16f), L(-3.5f, 16f), 0.5f, wire);
+                AddLine(5, L(3.5f, 16f), L(23f, 16f), 0.5f, wire);
+                Building(L(-21f, -14f), _siteX, 2.6f, 2.6f, false);
+                Building(L(21f, 14f), _siteX, 2.6f, 2.6f, false);
+
+                // Buildings at the back, a hut by the gate.
+                Vector2 barracks = L(Range(-11f, -9f), -10.5f);
+                Vector2 shed = L(Range(10f, 12f), -9.5f);
+                Building(barracks, _siteX, Range(17f, 20f), 7f, true);
+                Building(shed, _siteX, 11f, 9f, false);
+                Building(L(-8f, 12.5f), _siteX, 4f, 3f, false);
+                _noteAt.Clear();
+                _noteAt.Add(barracks);
+                _noteAt.Add(shed);
+                _noteAt.Add(L(14f, 6f));
+
+                // Outside the wire: a trench along the back, sandbagged posts at two corners.
+                Vector2[] trench = new Vector2[12];
+                for (int k = 0; k < trench.Length; k++)
+                {
+                    trench[k] = L(-26f + k * 52f / (trench.Length - 1), -20.5f + (k % 2 == 0 ? -1.6f : 1.6f));
+                }
+                _heat = 0.14f;
+                AddPath(1, trench, 1.3f, Pit);
+                foreach (Vector2 post in new[] { L(-27f, 19f), L(27f, 19f) })
+                {
+                    _heat = 0.32f;
+                    Add(1, Disc(post, 2.6f, 12), Mix(T.Text, 0.42f));
+                    _heat = 0.15f;
+                    Add(1, Disc(post, 1.5f, 10), Pit);
+                }
+
+                // USEC fly in: a helipad. BEAR dig in: mortar pits, tubes toward the road.
+                Vector2 beyond = L(Range(-6f, 6f), -36f);
+                if (T.Faction == Faction.Usec)
+                {
+                    _heat = 0.34f;
+                    Add(1, Disc(beyond, 9f, 24), Mix(T.Text, 0.36f));
+                    _heat = 0.3f;
+                    Add(1, Disc(beyond, 8.2f, 24), Mix(T.Text, 0.2f));
+                    _heat = 0.45f;
+                    AddLine(1, beyond + _siteX * -2.6f + _siteY * -3.4f, beyond + _siteX * -2.6f + _siteY * 3.4f, 1f, Mix(T.Text, 0.8f));
+                    AddLine(1, beyond + _siteX * 2.6f + _siteY * -3.4f, beyond + _siteX * 2.6f + _siteY * 3.4f, 1f, Mix(T.Text, 0.8f));
+                    AddLine(1, beyond + _siteX * -2.6f, beyond + _siteX * 2.6f, 1f, Mix(T.Text, 0.8f));
+                }
+                else
+                {
+                    for (int k = -1; k <= 1; k++)
+                    {
+                        Vector2 pit = beyond + _siteX * (k * 9f);
+                        _heat = 0.3f;
+                        Add(1, Disc(pit, 3.2f, 14), Mix(T.Text, 0.4f));
+                        _heat = 0.12f;
+                        Add(1, Disc(pit, 2.2f, 12), Pit);
+                        _heat = 0.5f;
+                        AddLine(5, pit, pit + up * 1.4f, 0.35f, Mix(T.Text, 0.85f));
+                    }
+                }
+
+                // An antenna mast in the yard: from above, a dot and a long, thin shadow.
+                Vector2 mast = L(-1f, -4f);
+                _heat = Cold;
+                AddLine(3, mast, mast + _sun * 16f, 0.3f, Shadow);
+                _heat = 0.35f;
+                for (int k = 0; k < 3; k++)
+                {
+                    float angle = k * Mathf.PI * 2f / 3f + 0.4f;
+                    AddLine(5, mast, mast + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 5f, 0.12f, Mix(T.Text, 0.55f));
+                }
+                _heat = 0.5f;
+                Add(5, Disc(mast, 0.6f, 8), Mix(T.Text, 0.9f));
+
+                // Shipping containers in a stack, side by side.
+                for (int k = Rng.Next(2, 4); k > 0; k--)
+                {
+                    Vector2 c = L(14f, 2f + k * 3.1f);
+                    _heat = Cold;
+                    Add(3, Footprint(c + _sun * 1.6f, _siteX, 6f, 2.4f), Shadow);
+                    _heat = 0.42f;
+                    Add(5, Footprint(c, _siteX, 6f, 2.4f), Mix(Rng.Next(2) == 0 ? T.Accent : T.Text, Range(0.45f, 0.65f)));
+                }
+
+                // The vehicles, nose to the gate.
+                _parked.Clear();
+                int count = Rng.Next(3, 6);
+                bool armoured = Rng.Next(2) == 0;
+                int netted = Rng.Next(100) < 60 ? Rng.Next(count) : -1;
+                for (int k = 0; k < count; k++)
+                {
+                    var v = new Vehicle
+                    {
+                        Centre = L(-18f + k * 5.2f, 5f),
+                        Forward = up,
+                        Armoured = armoured ? Rng.Next(100) < 70 : Rng.Next(100) < 25,
+                        Netted = k == netted
+                    };
+                    v.Length = v.Armoured ? 7f : 7.4f;
+                    v.Width = v.Armoured ? 3f : 2.5f;
+                    _parked.Add(v);
+                    AddVehicle(3, 6, v);
+                    if (v.Netted)
+                    {
+                        // A camouflage net over it: in the visible a shapeless patch; infrared sees the engine through it.
+                        var net = new Vector2[10];
+                        for (int e = 0; e < net.Length; e++)
+                        {
+                            float angle = e * Mathf.PI * 2f / net.Length;
+                            net[e] = v.Centre + new Vector2(Mathf.Cos(angle) * Range(4.6f, 5.2f), Mathf.Sin(angle) * Range(4.6f, 5.2f));
+                        }
+                        _heat = Hidden;
+                        Add(6, net, Mix(T.Accent, 0.36f));
+                        for (int e = 0; e < 6; e++)
+                        {
+                            Add(6, Disc(v.Centre + new Vector2(Range(-3f, 3f), Range(-3f, 3f)), Range(0.8f, 1.6f), 7), Mix(T.Accent, Range(0.45f, 0.55f)));
+                        }
+                    }
+                }
+
+                // Its people: guards at the gate, a patrol along the wire, a crew at the vehicles.
+                _walkers.Clear();
+                _walkers.Add(new Walker { A = L(-2.5f, 17.5f), B = L(-2.5f, 17.5f) });
+                _walkers.Add(new Walker { A = L(2.5f, 17.5f), B = L(2.5f, 17.5f) });
+                _walkers.Add(new Walker { A = L(-21f, -13.5f), B = L(21f, -13.5f), Speed = 1.3f, Phase = Range(0f, 10f) });
+                _walkers.Add(new Walker { A = L(-21f, -12.6f), B = L(21f, -12.6f), Speed = 1.3f, Phase = Range(0f, 10f) });
+                for (int k = Rng.Next(1, 4); k > 0; k--)
+                {
+                    Vector2 at = L(Range(-18f, 4f), Range(0f, 1.5f));
+                    _walkers.Add(new Walker { A = at, B = at + _siteX * Range(-6f, 6f), Speed = 0.9f, Phase = Range(0f, 10f) });
+                }
+                _noteAt.Add(L(-12f, 2f));
+                _noteAt.Add(mast);
+            }
+
+            /// <summary>A building from above: its shadow, then a pitched roof (one slope in the sun) or a flat one with its parapet.</summary>
+            private void Building(Vector2 centre, Vector2 along, float length, float width, bool pitched)
+            {
+                Vector2 across = new Vector2(-along.y, along.x);
+                _heat = Cold;
+                Add(3, Footprint(centre + _sun * Mathf.Min(length, width) * 0.4f, along, length, width), Shadow);
+                _heat = 0.46f;
+                if (pitched)
+                {
+                    bool firstLit = Vector2.Dot(across, -_sun) > 0f;
+                    Add(5, Footprint(centre + across * width * 0.25f, along, length, width * 0.5f), Mix(T.Text, firstLit ? 0.72f : 0.42f));
+                    Add(5, Footprint(centre - across * width * 0.25f, along, length, width * 0.5f), Mix(T.Text, firstLit ? 0.42f : 0.72f));
+                    AddLine(5, centre - along * length * 0.5f, centre + along * length * 0.5f, 0.35f, Mix(T.Text, 0.9f));
+                }
+                else
+                {
+                    _heat = 0.5f;
+                    Add(5, Footprint(centre, along, length, width), Mix(T.Text, 0.62f));
+                    _heat = 0.56f;
+                    Add(5, Footprint(centre, along, length - 1f, width - 1f), Mix(T.Text, 0.5f));
+                }
+            }
+
+            /// <summary>A truck (cab, tarpaulin) or an armoured carrier (hull, turret, gun), its shadow on <paramref name="shadowLayer"/>.</summary>
+            private void AddVehicle(int shadowLayer, int layer, Vehicle v)
+            {
+                Vector2 f = v.Forward;
+                _heat = Cold;
+                Add(shadowLayer, Footprint(v.Centre + _sun * 1.4f, f, v.Length, v.Width), Shadow);
+                if (v.Armoured)
+                {
+                    _heat = 0.58f;
+                    Add(layer, Footprint(v.Centre, f, v.Length, v.Width), Mix(T.Text, 0.55f));
+                    // The engine deck at the back: the hottest thing in the picture.
+                    _heat = 0.97f;
+                    Add(layer, Footprint(v.Centre - f * (v.Length * 0.5f - 1.1f), f, 2f, v.Width - 0.8f), Mix(T.Text, 0.48f));
+                    _heat = 0.62f;
+                    Add(layer, Footprint(v.Centre + f * (v.Length * 0.5f - 0.6f), f, 1.2f, v.Width - 0.6f), Mix(T.Text, 0.42f));
+                    Add(layer, Disc(v.Centre + f * 0.3f, 1f, 8), Mix(T.Text, 0.85f));
+                    AddLine(layer, v.Centre + f * 0.3f, v.Centre + f * 3.8f, 0.25f, Mix(T.Text, 0.85f));
+                }
+                else
+                {
+                    _heat = 0.48f;
+                    Add(layer, Footprint(v.Centre - f * 0.9f, f, v.Length - 2.2f, v.Width), Mix(T.Accent, 0.55f));
+                    _heat = 0.95f;
+                    Add(layer, Footprint(v.Centre + f * (v.Length * 0.5f - 1.1f), f, 2f, v.Width * 0.92f), Mix(T.Text, 0.85f));
+                }
+            }
+
+            // -- the scene's geometry, in metres ---------------------------------------------------
+
+            /// <summary>A rectangle centred on <paramref name="centre"/>, <paramref name="length"/> along <paramref name="along"/>.</summary>
+            private static Vector2[] Footprint(Vector2 centre, Vector2 along, float length, float width)
+            {
+                Vector2 a = along * (length * 0.5f);
+                Vector2 b = new Vector2(-along.y, along.x) * (width * 0.5f);
+                return new[] { centre - a - b, centre + a - b, centre + a + b, centre - a + b };
+            }
+
+            private static Vector2[] Disc(Vector2 centre, float radius, int sides)
+            {
+                var points = new Vector2[sides];
+                for (int i = 0; i < sides; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / sides;
+                    points[i] = centre + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                }
+                return points;
+            }
+
+            private void AddLine(int layer, Vector2 a, Vector2 b, float width, Color32 color)
+            {
+                Vector2 d = b - a;
+                if (d.sqrMagnitude < 1e-6f)
+                {
+                    return;
+                }
+                Vector2 side = new Vector2(-d.y, d.x).normalized * (width * 0.5f);
+                Add(layer, new[] { a - side, b - side, b + side, a + side }, color);
+            }
+
+            /// <summary>A path of even width; the colours here are opaque, so its joints are round discs that never show.</summary>
+            private void AddPath(int layer, Vector2[] path, float width, Color32 color)
+            {
+                for (int i = 0; i + 1 < path.Length; i++)
+                {
+                    AddLine(layer, path[i], path[i + 1], width, color);
+                    if (i > 0)
+                    {
+                        Add(layer, Disc(path[i], width * 0.5f, 10), color);
+                    }
+                }
+            }
+
+            /// <summary>Into the scene, or with <see cref="Traffic"/> straight onto the moving traffic in the current view.</summary>
+            private void Add(int layer, Vector2[] points, Color32 color)
+            {
+                if (layer == Traffic)
+                {
+                    if (!_infrared || _heat != Hidden)
+                    {
+                        _traffic.Polygon(Project(points, _viewCentre, _viewScale), Shade(color, _heat));
+                    }
+                    return;
+                }
+                Vector2 min = points[0], max = points[0];
+                foreach (Vector2 p in points)
+                {
+                    min = Vector2.Min(min, p);
+                    max = Vector2.Max(max, p);
+                }
+                _layers[layer].Add(new Patch { Points = points, Color = color, Heat = _heat, Bounds = Rect.MinMaxRect(min.x, min.y, max.x, max.y) });
+            }
+
+            /// <summary>The colour to draw in the current sensor: as seen, or by heat in infrared.</summary>
+            private Color32 Shade(Color32 color, float heat) =>
+                !_infrared ? color : heat == Cold ? new Color32(0, 0, 0, 90) : HeatColour(heat);
+
+            /// <summary>Scene metres to the shape's units for a view centred on <paramref name="centre"/> at <paramref name="scale"/> panel units a metre.</summary>
+            private Vector2[] Project(Vector2[] points, Vector2 centre, float scale)
+            {
+                Vector2[] out_ = _scratch[points.Length] ?? (_scratch[points.Length] = new Vector2[points.Length]);
+                Vector2 middle = _panel.center;
+                for (int i = 0; i < points.Length; i++)
+                {
+                    out_[i] = (middle + (points[i] - centre) * scale) * U;
+                }
+                return out_;
+            }
+
+            private Vector2 ToPanel(Vector2 p) => _panel.center + (p - _viewCentre) * _viewScale;
+
+            private void RoadPoint(float distance, out Vector2 point, out Vector2 direction)
+            {
+                int i = 1;
+                while (i < _roadAt.Length - 1 && _roadAt[i] < distance)
+                {
+                    i++;
+                }
+                float span = Mathf.Max(0.001f, _roadAt[i] - _roadAt[i - 1]);
+                direction = (_road[i] - _road[i - 1]) / span;
+                point = Vector2.Lerp(_road[i - 1], _road[i], Mathf.Clamp01((distance - _roadAt[i - 1]) / span));
+            }
+
+            private static Vector2 NearestOnPath(Vector2[] path, Vector2 p)
+            {
+                Vector2 best = path[0];
+                float bestD = float.MaxValue;
+                for (int i = 0; i + 1 < path.Length; i++)
+                {
+                    Vector2 d = path[i + 1] - path[i];
+                    float f = Mathf.Clamp01(Vector2.Dot(p - path[i], d) / Mathf.Max(1e-6f, d.sqrMagnitude));
+                    Vector2 q = path[i] + d * f;
+                    float dist = (q - p).sqrMagnitude;
+                    if (dist < bestD)
+                    {
+                        bestD = dist;
+                        best = q;
+                    }
+                }
+                return best;
+            }
+
+            private static float PathDistance(Vector2[] path, Vector2 p) => (NearestOnPath(path, p) - p).magnitude;
+
+            private static bool Crossing(Vector2 a, Vector2 b, Vector2 c, Vector2 d, out Vector2 at)
+            {
+                at = default;
+                Vector2 r = b - a, s = d - c;
+                float den = r.x * s.y - r.y * s.x;
+                if (Mathf.Abs(den) < 1e-6f)
+                {
+                    return false;
+                }
+                float t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / den;
+                float u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / den;
+                if (t < 0f || t > 1f || u < 0f || u > 1f)
+                {
+                    return false;
+                }
+                at = a + r * t;
+                return true;
+            }
+
+            /// <summary>The scene for a view, crisp at its scale; only what is near the view.</summary>
+            private void DrawWorld(Vector2 centre, float scale)
+            {
+                Rect a = _panel;
+                Vector2 half = new Vector2(a.width, a.height) * (0.6f / scale);
+                Rect view = Rect.MinMaxRect(centre.x - half.x, centre.y - half.y, centre.x + half.x, centre.y + half.y);
+                _world.Clear();
+                foreach (Patch patch in _scene)
+                {
+                    if (patch.Bounds.Overlaps(view) && !(_infrared && patch.Heat == Hidden))
+                    {
+                        _world.Polygon(Project(patch.Points, centre, scale), Shade(patch.Color, patch.Heat));
+                    }
+                }
+                _world.Commit();
+                _drawnInfrared = _infrared;
+                _groundBox.color = _infrared ? HeatColour(0.2f) : Ground;
+                _world.rectTransform.localScale = Vector3.one;
+                _drawnScale = scale;
+                _drawnCentre = centre;
+            }
+
+            private static readonly int[] ScaleBars = { 5, 10, 20, 25, 50, 100, 200, 250 };
 
             private void AnimateImagery(float t)
             {
                 Rect a = _panel;
-                Texture texture = _image.texture;
-                if (texture == null)
-                {
-                    return;
-                }
-                // Zoom in on the target in steps: each step a quick ease, then a hold, like an analyst's "enhance".
+                // Zoom in on the objective in steps: each step a quick ease, then a hold, like an analyst's "enhance".
                 float p = Progress;
-                int steps = 4;
-                float raw = p * steps;
-                int step = Mathf.Min(steps - 1, Mathf.FloorToInt(raw));
+                const int Steps = 4;
+                float raw = p * Steps;
+                int step = Mathf.Min(Steps - 1, Mathf.FloorToInt(raw));
                 float within = Mathf.Clamp01((raw - step) * 4f);
                 float ease = within * within * (3f - 2f * within);
                 float zoom = Mathf.Pow(1.7f, step + ease);
-                float aspect = (a.width / a.height) / (texture.width / (float)texture.height);
-                float h = 0.9f / zoom;
-                float w = h * aspect;
-                Vector2 drift = new Vector2(Mathf.Sin(t * 0.13f), Mathf.Cos(t * 0.11f)) * 0.004f;
-                _image.uvRect = new Rect(_focus.x - w * 0.5f + drift.x, _focus.y - h * 0.5f + drift.y, w, h);
+                float scale = _metre * zoom;
+                // The view slides toward the objective as it closes, never past the scene's edges.
+                Vector2 half = new Vector2(a.width, a.height) * (0.5f / scale);
+                _viewScale = scale;
+                _viewCentre = new Vector2(Mathf.Clamp(_site.x, half.x, _worldSize.x - half.x), Mathf.Clamp(_site.y, half.y, _worldSize.y - half.y));
 
-                // The analyst's box on the target, with its crosshair and grid.
-                _reticle.Clear();
-                Vector2 c = a.center;
-                float box = Mathf.Min(a.width, a.height) * 0.28f;
-                for (int sx = -1; sx <= 1; sx += 2)
+                // The last, closest step goes over to infrared, white-hot, with a flash as the sensor changes.
+                bool infrared = step >= Steps - 1;
+                if (infrared != _infrared)
                 {
-                    for (int sy = -1; sy <= 1; sy += 2)
+                    _infrared = infrared;
+                    _infraredAt = infrared ? t : -1f;
+                }
+
+                // Drawn crisp whenever a step settles; while it eases the last drawing is scaled, which nobody can see.
+                float k = _drawnScale > 0f ? scale / _drawnScale : 0f;
+                if (_drawnScale <= 0f || k < 0.97f || _infrared != _drawnInfrared || (within >= 1f && (Mathf.Abs(k - 1f) > 0.001f || (_viewCentre - _drawnCentre).sqrMagnitude > 0.01f)))
+                {
+                    DrawWorld(_viewCentre, scale);
+                    k = 1f;
+                }
+                _world.rectTransform.localScale = new Vector3(k, k, 1f);
+                _world.rectTransform.anchoredPosition = (-a.center * k + (_drawnCentre - _viewCentre) * scale) * U;
+
+                // Traffic on the road, one each way, keeping right.
+                _traffic.Clear();
+                float length = _roadAt[_roadAt.Length - 1];
+                for (int m = 0; m < 2; m++)
+                {
+                    float d = m == 0 ? Mathf.Repeat(_moverStart + t * 9f, length) : length - Mathf.Repeat(_moverStart * 1.7f + t * 7f, length);
+                    RoadPoint(d, out Vector2 at, out Vector2 dir);
+                    Vector2 forward = m == 0 ? dir : -dir;
+                    var v = new Vehicle { Centre = at + new Vector2(forward.y, -forward.x) * 1.9f, Forward = forward, Length = 7f, Width = 2.5f, Armoured = m == 1 && _parked.Count > 0 && _parked[0].Armoured };
+                    _moverAt[m] = v.Centre;
+                    AddVehicle(Traffic, Traffic, v);
+                }
+                // People, too small to see until the picture closes in.
+                if (step >= 2)
+                {
+                    foreach (Walker w in _walkers)
                     {
-                        Vector2 corner = c + new Vector2(sx, sy) * box * 0.5f;
-                        _reticle.Line(P(corner.x, corner.y), P(corner.x - sx * 12f, corner.y), 1.6f * U, A(T.Text, 220));
-                        _reticle.Line(P(corner.x, corner.y), P(corner.x, corner.y - sy * 12f), 1.6f * U, A(T.Text, 220));
+                        float along = w.Speed > 0f ? Mathf.PingPong((t + w.Phase) * w.Speed / Mathf.Max(1f, (w.B - w.A).magnitude), 1f) : 0f;
+                        Vector2 at = Vector2.Lerp(w.A, w.B, along);
+                        _heat = Cold;
+                        Add(Traffic, Disc(at + _sun * 0.7f, 0.4f, 6), Shadow);
+                        _heat = 1f;
+                        Add(Traffic, Disc(at, 0.42f, 6), Mix(T.Text, 0.95f));
                     }
                 }
-                _reticle.Line(P(c.x - 6f, c.y), P(c.x + 6f, c.y), U, A(T.Text, 200));
-                _reticle.Line(P(c.x, c.y - 6f), P(c.x, c.y + 6f), U, A(T.Text, 200));
+                _traffic.Commit();
+
+                // The analyst's marks: the objective boxed, its vehicles and the traffic tagged as the picture closes.
+                _reticle.Clear();
+                Vector2 lo = new Vector2(float.MaxValue, float.MaxValue), hi = -lo;
+                foreach (Vector2 corner in new[] { _site + _siteX * 23f + _siteY * 16f, _site - _siteX * 23f + _siteY * 16f, _site + _siteX * 23f - _siteY * 16f, _site - _siteX * 23f - _siteY * 16f })
+                {
+                    Vector2 q = ToPanel(corner);
+                    lo = Vector2.Min(lo, q);
+                    hi = Vector2.Max(hi, q);
+                }
+                Vector2 mid = (lo + hi) * 0.5f;
+                Vector2 size = Vector2.Max(hi - lo + new Vector2(12f, 12f), new Vector2(30f, 30f));
+                size = Vector2.Min(size, new Vector2(a.width - 24f, a.height - 24f));
+                Brackets(mid, size, Mathf.Min(12f, size.x * 0.25f), 1.6f, A(T.Text, 220));
+                _reticle.Line(P(mid.x - 5f, mid.y), P(mid.x + 5f, mid.y), U, A(T.Text, 160));
+                _reticle.Line(P(mid.x, mid.y - 5f), P(mid.x, mid.y + 5f), U, A(T.Text, 160));
+                Vector2 tagAt = new Vector2(mid.x - size.x * 0.5f + 60f, mid.y + size.y * 0.5f + 9f);
+                if (tagAt.y > a.yMax - 30f)
+                {
+                    tagAt.y = mid.y - size.y * 0.5f - 9f;
+                }
+                PlaceAt(_targetLabel, tagAt);
+                for (int i = 0; i < _tags.Length; i++)
+                {
+                    bool show;
+                    Vector2 q;
+                    float box;
+                    if (i < 4)
+                    {
+                        show = step >= 2 && i < _parked.Count;
+                        q = show ? ToPanel(_parked[i].Centre) : Vector2.zero;
+                        box = show ? _parked[i].Length * scale + 4f : 0f;
+                    }
+                    else
+                    {
+                        show = step >= 1;
+                        q = ToPanel(_moverAt[i - 4]);
+                        box = Mathf.Max(10f, 7f * scale + 4f);
+                    }
+                    show &= q.x > a.xMin + 10f && q.x < a.xMax - 10f && q.y > a.yMin + 10f && q.y < a.yMax - 30f;
+                    if (_tags[i].gameObject.activeSelf != show)
+                    {
+                        _tags[i].gameObject.SetActive(show);
+                    }
+                    if (!show)
+                    {
+                        continue;
+                    }
+                    Brackets(q, new Vector2(box, box), Mathf.Max(3f, box * 0.25f), 1.1f, A(i < 4 ? T.Warn : T.Accent, 220));
+                    PlaceAt(_tags[i], new Vector2(q.x + box * 0.5f + 42f, q.y + box * 0.5f));
+                }
+
+                // The notes on the objective at the closest look, each on a short leader.
+                for (int i = 0; i < _notes.Count; i++)
+                {
+                    Vector2 q = ToPanel(_noteAt[i]);
+                    Vector2 label = q + new Vector2(16f, 14f);
+                    bool show = step >= Steps - 1 && within >= 1f && label.x < a.xMax - 60f && q.x > a.xMin + 8f && q.y > a.yMin + 20f && label.y < a.yMax - 24f;
+                    if (_notes[i].gameObject.activeSelf != show)
+                    {
+                        _notes[i].gameObject.SetActive(show);
+                    }
+                    if (show)
+                    {
+                        _reticle.Disc(P(q.x, q.y), 1.6f * U, A(T.Text, 230));
+                        _reticle.Line(P(q.x, q.y), P(label.x - 2f, label.y - 5f), U, A(T.Text, 200));
+                        PlaceAt(_notes[i], label + new Vector2(45f, 0f));
+                    }
+                }
+
+                // A scale bar, as long as fits.
+                int metres = ScaleBars[0];
+                foreach (int candidate in ScaleBars)
+                {
+                    if (candidate * scale <= 80f)
+                    {
+                        metres = candidate;
+                    }
+                }
+                float barRight = a.xMax - 14f, barLeft = barRight - metres * scale, barY = a.yMin + 16f;
+                _reticle.RoundedRect(P((barLeft + barRight) * 0.5f, barY), (barRight - barLeft + 8f) * U, 8f * U, 0f, A(Dark, 200));
+                _reticle.Line(P(barLeft, barY), P(barRight, barY), 1.4f * U, A(T.Text, 220));
+                _reticle.Line(P(barLeft, barY - 3f), P(barLeft, barY + 3f), U, A(T.Text, 220));
+                _reticle.Line(P(barRight, barY - 3f), P(barRight, barY + 3f), U, A(T.Text, 220));
+                _reticle.Line(P((barLeft + barRight) * 0.5f, barY), P((barLeft + barRight) * 0.5f, barY + 2f), U, A(T.Text, 220));
                 if (within < 1f)
                 {
-                    // The flash of a step.
-                    _reticle.Line(P(a.xMin, Mathf.Lerp(a.yMax, a.yMin, within)), P(a.xMax, Mathf.Lerp(a.yMax, a.yMin, within)), 1.4f * U, A(T.Accent, 160));
+                    // The sweep of a step.
+                    float y = Mathf.Lerp(a.yMax, a.yMin, within);
+                    _reticle.Line(P(a.xMin, y), P(a.xMax, y), 1.4f * U, A(T.Accent, 160));
+                }
+                if (_infraredAt >= 0f && t - _infraredAt < 0.4f)
+                {
+                    // The sensor changing over: a white flash, gone in a moment.
+                    float flash = 1f - (t - _infraredAt) / 0.4f;
+                    _reticle.RoundedRect(P(a.center.x, a.center.y), a.width * U, a.height * U, 0f, new Color32(255, 255, 255, (byte)(200f * flash * flash)));
                 }
                 _reticle.Commit();
-                int shown = step * 10 + Mathf.RoundToInt(ease * 9f);
+
+                if (metres != _shownScale)
+                {
+                    _shownScale = metres;
+                    _scaleLabel.text = metres + Ru(" М", " M");
+                }
+                int shown = step * 10 + Mathf.RoundToInt(ease * 9f) + (_infrared ? 1000 : 0);
                 if (shown != _shownZoom)
                 {
                     _shownZoom = shown;
                     _imageReading.text = (within < 1f ? Ru("УВЕЛИЧЕНИЕ", "ENHANCE") : "") + $"  x{zoom:0.0}";
+                    float gsd = 1f / (scale * U);
+                    string sensor = _infrared ? Ru("ТПВ", "IR WHT") : Ru("ТВ", "EO");
+                    _imageData.text = Ru($"{sensor}  //  {_gridRef}  //  РАЗРЕШ. {gsd:0.00} М".Replace('.', ','), $"{sensor}  //  {_gridRef}  //  GSD {gsd:0.00} M");
+                }
+            }
+
+            private void Brackets(Vector2 centre, Vector2 size, float arm, float width, Color32 color)
+            {
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    for (int sy = -1; sy <= 1; sy += 2)
+                    {
+                        Vector2 corner = centre + new Vector2(sx * size.x, sy * size.y) * 0.5f;
+                        _reticle.Line(P(corner.x, corner.y), P(corner.x - sx * arm, corner.y), width * U, color);
+                        _reticle.Line(P(corner.x, corner.y), P(corner.x, corner.y - sy * arm), width * U, color);
+                    }
+                }
+            }
+
+            private void PlaceAt(TextMeshProUGUI label, Vector2 at)
+            {
+                Vector2 to = P(at.x, at.y);
+                if ((label.rectTransform.anchoredPosition - to).sqrMagnitude > 0.25f)
+                {
+                    label.rectTransform.anchoredPosition = to;
                 }
             }
 
             // ==== Readiness ======================================================================
+            //
+            // A fighting unit's PERSTAT (строевая записка): its teams by callsign, a pip a soldier,
+            // reporting in one after another as the load runs. A supply or medical unit's LOGSTAT:
+            // the classes of supply on hand, in the quantities each army counts them in.
+
+            private struct Team
+            {
+                internal Image[] Pips;
+                internal int[] States;      // 0 fit, 1 wounded, 2 not present
+                internal TextMeshProUGUI Count;
+                internal TextMeshProUGUI Status;
+                internal string StatusText;
+                internal int Shown;
+            }
 
             private struct Gauge
             {
@@ -425,73 +1360,214 @@ namespace CLASSIFIED
                 internal float From;
                 internal float To;
                 internal float Width;
+                internal float Full;
+                internal string Unit;
+                internal bool Decimal;
+                internal string Shown;
             }
 
+            private readonly List<Team> _teams = new List<Team>();
             private readonly List<Gauge> _gauges = new List<Gauge>();
             private TextMeshProUGUI _readyReading;
+            private bool _stores;
 
             private void BuildReadiness(Rect zone)
             {
-                bool stores = T.Id == ThemeChoice.BearSupply || T.Id == ThemeChoice.UsecLogistics || T.Id == ThemeChoice.BearMedical || T.Id == ThemeChoice.UsecMedical;
-                _panel = PanelFrame(zone, stores ? Ru("ОБЕСПЕЧЕННОСТЬ  //  СВОДКА", "SUSTAINMENT  //  STATUS") : Ru("БОЕВОЙ СОСТАВ  //  СТРОЕВАЯ ЗАПИСКА", "ORDER OF BATTLE  //  READINESS"), out _readyReading);
+                _stores = T.Id == ThemeChoice.BearSupply || T.Id == ThemeChoice.UsecLogistics || T.Id == ThemeChoice.BearMedical || T.Id == ThemeChoice.UsecMedical;
+                if (_stores)
+                {
+                    BuildLogstat(zone);
+                }
+                else
+                {
+                    BuildPerstat(zone);
+                }
+            }
+
+            private void BuildPerstat(Rect zone)
+            {
+                _panel = PanelFrame(zone, Ru($"СТРОЕВАЯ ЗАПИСКА  //  НА {Rng.Next(4, 8):00}:00", $"PERSTAT  //  PERSONNEL STATUS  //  {Rng.Next(4, 8):00}00"), out _readyReading);
                 Rect a = _panel;
-                string[] names = stores
-                    ? new[] { Ru("БОЕПРИПАСЫ", "AMMUNITION"), Ru("ГОРЮЧЕЕ", "FUEL"), Ru("ПРОДОВОЛЬСТВИЕ", "RATIONS"), Ru("МЕДИКАМЕНТЫ", "MEDICAL"), Ru("ВОДА", "WATER"), Ru("ЗАПЧАСТИ", "SPARES") }
-                    : new[] { Ru("1 ГРУППА", "TEAM 1"), Ru("2 ГРУППА", "TEAM 2"), Ru("3 ГРУППА", "TEAM 3"), Ru("РЕЗЕРВ", "RESERVE"), Ru("РАЗВЕДКА", "RECON"), Ru("ОГНЕВАЯ ПОДДЕРЖКА", "FIRE SUPPORT") };
-                int rows = Mathf.Clamp(Mathf.FloorToInt((a.height - 20f) / 28f), 2, names.Length);
-                float labelW = Mathf.Min(150f, a.width * 0.36f);
-                float barX = a.xMin + 14f + labelW;
-                float barW = a.xMax - 60f - barX;
+                bool bear = T.Faction == Faction.Bear;
+                string[] calls = bear
+                    ? new[] { "ГРАНИТ-1", "ГРАНИТ-2", "ГРАНИТ-3", "БЕРЕГ", "ВОЛНА", "КЕДР" }
+                    : new[] { "ALPHA 1-1", "BRAVO 1-2", "CHARLIE 1-3", "DELTA / QRF", "OVERWATCH", "HQ 6" };
+                string[] roles = bear
+                    ? new[] { "ШТУРМ", "ШТУРМ", "ОГН. ГРУППА", "РЕЗЕРВ", "РАЗВЕДКА", "УПРАВЛЕНИЕ" }
+                    : new[] { "ASSAULT", "ASSAULT", "SUPPORT", "QRF", "RECON", "COMMAND" };
+                string[] statuses = bear
+                    ? new[] { "НА РУБЕЖЕ", "ВЫДВИГАЕТСЯ", "ПОПОЛНЕНИЕ", "ЭВАКУАЦИЯ", "В РЕЗЕРВЕ", "НА ПОЗИЦИИ" }
+                    : new[] { "IN POSITION", "MOVING", "RESUPPLY", "CASEVAC", "STANDBY", "OVERWATCH" };
+                int rows = Mathf.Clamp(Mathf.FloorToInt((a.height - 22f) / 26f), 2, calls.Length);
+                float rowH = (a.height - 22f) / rows;
+                float symbolX = a.xMin + 22f;
+                float nameX = a.xMin + 40f;
+                float nameW = Mathf.Min(120f, a.width * 0.26f);
+                float pipX = nameX + nameW + 6f;
+                float statusW = Mathf.Min(110f, a.width * 0.22f);
+                float pipRoom = a.xMax - 14f - statusW - 40f - pipX;
+                Shape symbols = Draw();
                 for (int i = 0; i < rows; i++)
                 {
-                    float y = a.yMax - 22f - i * ((a.height - 30f) / rows);
-                    Fit(Label(names[i], a.xMin + 14f + labelW * 0.5f, y, labelW, 9f, A(T.Text, 210), TextAlignmentOptions.Left), 9f);
-                    Image track = Box(barX + barW * 0.5f, y, barW, 8f, A(T.Accent, 26));
-                    // Ticks along the track at the quarters.
-                    Shape ticks = Draw();
-                    for (int k = 1; k < 4; k++)
+                    float y = a.yMax - 14f - rowH * (i + 0.5f);
+                    // The team's symbol, in its army's convention: a framed box with its branch inside.
+                    Color32 ink = A(T.Accent, 200);
+                    Outline(symbols, symbolX, y, 18f, 12f, 1.2f, ink);
+                    if (i == 5)
                     {
-                        ticks.Line(P(barX + barW * k / 4f, y - 6f), P(barX + barW * k / 4f, y + 6f), U, A(T.Accent, 50));
+                        symbols.Line(P(symbolX - 9f, y + 6f), P(symbolX - 9f, y + 12f), 1.2f * U, ink);
                     }
-                    ticks.Commit();
-                    Image fill = Box(barX, y, 0f, 8f, A(T.Accent, 200));
+                    else if (i == 4)
+                    {
+                        symbols.Line(P(symbolX - 9f, y - 6f), P(symbolX + 9f, y + 6f), 1.2f * U, ink);
+                    }
+                    else
+                    {
+                        symbols.Line(P(symbolX - 9f, y - 6f), P(symbolX + 9f, y + 6f), 1.2f * U, ink);
+                        symbols.Line(P(symbolX - 9f, y + 6f), P(symbolX + 9f, y - 6f), 1.2f * U, ink);
+                    }
+                    Fit(Label(calls[i], nameX + nameW * 0.5f, y + 4f, nameW, 9f, A(T.Text, 225), TextAlignmentOptions.Left), 9f);
+                    Fit(Label(roles[i], nameX + nameW * 0.5f, y - 7f, nameW, 7f, A(T.Dim, 200), TextAlignmentOptions.Left), 7f);
+
+                    // A pip a soldier: most fit, now and then one wounded or not there.
+                    int size = i == 5 ? 4 : i == 4 ? 4 : Rng.Next(7, 10);
+                    float pitch = Mathf.Min(11f, pipRoom / 10f);
+                    var team = new Team { Pips = new Image[size], States = new int[size], Shown = -1 };
+                    int present = 0;
+                    for (int k = 0; k < size; k++)
+                    {
+                        int roll = Rng.Next(100);
+                        team.States[k] = roll < 8 ? 2 : roll < 18 ? 1 : 0;
+                        present += team.States[k] == 2 ? 0 : 1;
+                        team.Pips[k] = Box(pipX + k * pitch + pitch * 0.5f, y, pitch - 3f, 9f, A(T.Accent, 30));
+                    }
+                    team.Count = Label("", pipX + 10f * pitch + 20f, y, 40f, 8f, A(T.Text, 210), TextAlignmentOptions.Left);
+                    team.StatusText = team.States[0] == 2 ? statuses[2] : statuses[Rng.Next(statuses.Length)];
+                    if (System.Array.IndexOf(team.States, 1) >= 0 && Rng.Next(100) < 50)
+                    {
+                        team.StatusText = statuses[3];
+                    }
+                    team.Status = Label("", a.xMax - 10f - statusW * 0.5f, y, statusW, 8f, A(T.Accent, 220), TextAlignmentOptions.Right);
+                    _teams.Add(team);
+                    symbols.Line(P(a.xMin + 10f, y - rowH * 0.5f), P(a.xMax - 10f, y - rowH * 0.5f), U, A(T.Accent, 22));
+                }
+                symbols.Commit();
+            }
+
+            private void BuildLogstat(Rect zone)
+            {
+                bool bear = T.Faction == Faction.Bear;
+                _panel = PanelFrame(zone, Ru("ОБЕСПЕЧЕННОСТЬ МАТЕРИАЛЬНЫМИ СРЕДСТВАМИ", "LOGSTAT  //  CLASSES OF SUPPLY ON HAND"), out _readyReading);
+                Rect a = _panel;
+                // Name, full holding, unit, decimal: each army counts in its own measures.
+                var rows = bear
+                    ? new[]
+                    {
+                        ("БОЕПРИПАСЫ", 2f, " Б/К", true), ("ГСМ", 1.5f, " ЗАПР.", true), ("ПРОДОВОЛЬСТВИЕ", 5f, " СУТ/Д", true),
+                        ("МЕДИМУЩЕСТВО", 1f, " КОМПЛ.", true), ("ВОДА", 3000f, " Л", false), ("ЗИП", 40f, " ЯЩ.", false)
+                    }
+                    : new[]
+                    {
+                        ("CL V  AMMUNITION", 60f, " CASES", false), ("CL III  FUEL", 3000f, " L", false), ("CL I  RATIONS", 5f, " DOS", true),
+                        ("CL VIII  MEDICAL", 24f, " KITS", false), ("WATER", 2400f, " L", false), ("CL IX  SPARES", 40f, " CRATES", false)
+                    };
+                int count = Mathf.Clamp(Mathf.FloorToInt((a.height - 20f) / 26f), 2, rows.Length);
+                float labelW = Mathf.Min(150f, a.width * 0.32f);
+                float barX = a.xMin + 14f + labelW;
+                float valueW = 96f;
+                float barW = a.xMax - 14f - valueW - barX;
+                for (int i = 0; i < count; i++)
+                {
+                    float y = a.yMax - 22f - i * ((a.height - 30f) / count);
+                    Fit(Label(rows[i].Item1, a.xMin + 14f + labelW * 0.5f, y, labelW, 9f, A(T.Text, 210), TextAlignmentOptions.Left), 9f);
+                    // A segmented gauge, ten cells, like a fuel state board.
+                    Shape cells = Draw();
+                    for (int k = 0; k < 10; k++)
+                    {
+                        float x = barX + barW * (k + 0.5f) / 10f;
+                        Outline(cells, x, y, barW / 10f - 3f, 9f, 1f, A(T.Accent, 50));
+                    }
+                    cells.Commit();
+                    Image fill = Box(barX, y, 0f, 7f, A(T.Accent, 200));
                     fill.rectTransform.pivot = new Vector2(0f, 0.5f);
                     fill.rectTransform.anchoredPosition = P(barX, y);
-                    TextMeshProUGUI value = Label("", a.xMax - 30f, y, 50f, 9f, A(T.Text, 220), TextAlignmentOptions.Right);
-                    float to = Range(0.35f, 0.98f);
-                    _gauges.Add(new Gauge { Fill = fill, Value = value, From = Range(0.1f, 0.3f), To = to, Width = barW });
-                    track.transform.SetAsFirstSibling();
+                    TextMeshProUGUI value = Label("", a.xMax - 12f - valueW * 0.5f, y, valueW, 9f, A(T.Text, 220), TextAlignmentOptions.Right);
+                    _gauges.Add(new Gauge
+                    {
+                        Fill = fill, Value = value, From = Range(0.1f, 0.3f), To = Range(0.3f, 0.95f), Width = barW,
+                        Full = rows[i].Item2, Unit = rows[i].Item3, Decimal = rows[i].Item4
+                    });
                 }
             }
 
             private void AnimateReadiness(float t)
             {
                 float p = Progress;
-                int ready = 0;
+                if (!_stores)
+                {
+                    // The teams report in one after another, a pip at a time, then give their status.
+                    int reported = 0, fit = 0, total = 0;
+                    for (int i = 0; i < _teams.Count; i++)
+                    {
+                        Team team = _teams[i];
+                        float f = Mathf.Clamp01(p * 1.25f - i * 0.12f);
+                        int shown = Mathf.FloorToInt(f * team.Pips.Length + 0.0001f);
+                        total += team.Pips.Length;
+                        if (shown != team.Shown)
+                        {
+                            team.Shown = shown;
+                            int up = 0;
+                            for (int k = 0; k < team.Pips.Length; k++)
+                            {
+                                int state = team.States[k];
+                                bool known = k < shown;
+                                team.Pips[k].color = !known ? A(T.Accent, 30) : state == 0 ? A(T.Accent, 210) : state == 1 ? A(T.Warn, 220) : A(T.Accent, 12);
+                                up += known && state != 2 ? 1 : 0;
+                            }
+                            team.Count.text = shown > 0 ? $"<mspace=0.6em>{up}/{team.Pips.Length}</mspace>" : "";
+                            team.Status.text = shown >= team.Pips.Length ? team.StatusText : shown > 0 ? Ru("ДОКЛАД...", "REPORTING") : "";
+                            team.Status.color = team.StatusText == Ru("ЭВАКУАЦИЯ", "CASEVAC") && shown >= team.Pips.Length ? A(T.Warn, 230) : A(T.Accent, 220);
+                            _teams[i] = team;
+                        }
+                        reported += shown >= team.Pips.Length ? 1 : 0;
+                        for (int k = 0; k < shown; k++)
+                        {
+                            fit += team.States[k] == 2 ? 0 : 1;
+                        }
+                    }
+                    string reading = Ru($"Л/С {fit}/{total}", $"PAX {fit}/{total}") + "  " + Ru($"ДОЛОЖИЛИ {reported}/{_teams.Count}", $"{reported}/{_teams.Count} UP");
+                    if (_readyReading.text != reading)
+                    {
+                        _readyReading.text = reading;
+                    }
+                    return;
+                }
+
+                int low = 0;
                 for (int i = 0; i < _gauges.Count; i++)
                 {
                     Gauge g = _gauges[i];
-                    // Each fills toward its figure as the load runs, a little behind the one above.
                     float f = Mathf.Clamp01(p * 1.3f - i * 0.06f);
-                    float v = Mathf.Lerp(g.From, g.To, f * f * (3f - 2f * f)) + 0.006f * Mathf.Sin(t * 2f + i);
-                    g.Fill.rectTransform.sizeDelta = new Vector2(Mathf.Round(g.Width * v * U), Mathf.Round(8f * U));
-                    bool low = v < 0.4f;
-                    g.Fill.color = A(low ? T.Warn : T.Accent, 200);
-                    int pct = Mathf.RoundToInt(v * 100f);
-                    string text = $"<mspace=0.62em>{pct:00}</mspace>%";
-                    if (g.Value.text != text)
+                    float v = Mathf.Lerp(g.From, g.To, f * f * (3f - 2f * f));
+                    // The fill steps a cell at a time, as such boards do.
+                    float cells = Mathf.Ceil(v * 10f) / 10f;
+                    g.Fill.rectTransform.sizeDelta = new Vector2(Mathf.Round((g.Width * cells - 3f) * U), Mathf.Round(7f * U));
+                    bool short_ = v < 0.35f;
+                    g.Fill.color = A(short_ ? T.Warn : T.Accent, 200);
+                    float amount = v * g.Full;
+                    string text = (g.Decimal ? amount.ToString(T.Faction == Faction.Bear ? "0.0" : "0.0").Replace('.', T.Faction == Faction.Bear ? ',' : '.') : Mathf.RoundToInt(amount).ToString("N0")) + g.Unit;
+                    if (text != g.Shown)
                     {
+                        g.Shown = text;
                         g.Value.text = text;
                     }
-                    if (!low)
-                    {
-                        ready++;
-                    }
+                    _gauges[i] = g;
+                    low += short_ ? 1 : 0;
                 }
-                string reading = Ru("ГОТОВНОСТЬ", "READY") + $" {ready}/{_gauges.Count}";
-                if (_readyReading.text != reading)
+                string board = low == 0 ? Ru("ОБЕСПЕЧЕНЫ", "GREEN") : Ru($"НЕХВАТКА {low}", $"AMBER  {low} SHORT");
+                if (_readyReading.text != board)
                 {
-                    _readyReading.text = reading;
+                    _readyReading.text = board;
                 }
             }
 

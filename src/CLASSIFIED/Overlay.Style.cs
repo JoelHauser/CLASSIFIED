@@ -91,7 +91,6 @@ namespace CLASSIFIED
                     case IntroKind.Wipe: return 0.5f;
                     case IntroKind.Crt: return 0.55f;
                     case IntroKind.Doors: return 0.75f;
-                    case IntroKind.Stamp: return 1.25f;
                     case IntroKind.Boot: return 1.7f;
                     default: return 0.35f;
                 }
@@ -434,7 +433,6 @@ namespace CLASSIFIED
             SetActive(_powerLine.gameObject, covers);
             SetActive(_introTitle.gameObject, covers && kind == IntroKind.TitleCard);
             SetActive(_introSub.gameObject, covers && kind == IntroKind.TitleCard);
-            SetActive(_stampText.gameObject, covers && kind == IntroKind.Stamp);
             SetActive(_bootText.gameObject, covers && kind == IntroKind.Boot);
             if (!covers)
             {
@@ -484,9 +482,6 @@ namespace CLASSIFIED
                     _powerLine.canvasRenderer.SetAlpha(1f);
                     break;
                 }
-                case IntroKind.Stamp:
-                    AnimateStamp(clock, w, h);
-                    break;
                 case IntroKind.Boot:
                     AnimateBoot(clock, w, h);
                     break;
@@ -587,7 +582,7 @@ namespace CLASSIFIED
                 _memoTitle.text = kind + "  //  " + Cyr(notice.From);
                 _memoTitle.color = tone;
                 _memoStripe.color = tone;
-                _memoBody.text = Lore.Fill(notice.Body, _random)
+                _memoBody.text = Cyr(Lore.Fill(notice.Body, _random))
                     + (string.IsNullOrEmpty(notice.Signature) ? string.Empty : "\n<alpha=#80><size=80%>" + notice.Signature + "</size>");
                 _memo.gameObject.SetActive(true);
                 FitMemo();
@@ -613,6 +608,8 @@ namespace CLASSIFIED
         private void AnimateOutro(float fade)
         {
             float ease = fade * fade * (3f - 2f * fade);
+            // Smoother at both ends, for the endings that move the whole picture.
+            float glide = fade * fade * fade * (fade * (fade * 6f - 15f) + 10f);
             Vector2 offset = Vector2.zero;
             float emblemScale = 1f;
             float everything = 1f - ease;
@@ -621,13 +618,23 @@ namespace CLASSIFIED
             switch (outro)
             {
                 case OutroKind.Lift:
-                    // The picture slides up and away, like a security shutter going up.
-                    offset = new Vector2(0f, Mathf.Round(ease * ease * _laidOutSize.y * 0.45f));
+                {
+                    // The picture goes up and away like a security shutter, all the way off the
+                    // screen, fading only as it clears the top.
+                    offset = new Vector2(0f, Mathf.Round(glide * _laidOutSize.y * 1.02f));
+                    float late = Mathf.Clamp01((fade - 0.7f) / 0.3f);
+                    everything = 1f - late * late;
                     break;
+                }
                 case OutroKind.Slide:
-                    // Off to the left, like the next slide of a presentation.
-                    offset = new Vector2(-Mathf.Round(ease * ease * _laidOutSize.x * 0.35f), 0f);
+                {
+                    // Off to the left like the next slide of a presentation, all the way, fading
+                    // only as it leaves.
+                    offset = new Vector2(-Mathf.Round(glide * _laidOutSize.x * 1.02f), 0f);
+                    float late = Mathf.Clamp01((fade - 0.7f) / 0.3f);
+                    everything = 1f - late * late;
                     break;
+                }
                 case OutroKind.Sting:
                 {
                     // Everything but the logo and wordmark fades first; they hold a beat, then go.
@@ -660,7 +667,8 @@ namespace CLASSIFIED
             }
         }
 
-        /// <summary>How long the fade-out takes; the sting holds on the logo, so it runs longer.</summary>
-        private float OutroTime => Mathf.Min(Deploying ? DeployOutroTime : float.MaxValue, _variant.Outro == OutroKind.Sting ? 1f : FadeTime);
+        /// <summary>How long the ending takes: the sting holds on the logo and the shutters travel the whole screen, so they run longer.</summary>
+        private float OutroTime => Mathf.Min(Deploying ? DeployOutroTime : float.MaxValue,
+            _variant.Outro == OutroKind.Sting ? 1f : _variant.Outro == OutroKind.Lift || _variant.Outro == OutroKind.Slide ? 1.05f : FadeTime);
     }
 }

@@ -169,6 +169,7 @@ namespace CLASSIFIED
 
         private void Update()
         {
+            Overlay.RestoreOther();
             if (PreviewKey.Value.IsDown())
             {
                 Overlay.StartPreview();

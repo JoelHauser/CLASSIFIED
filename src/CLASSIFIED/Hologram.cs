@@ -64,26 +64,54 @@ namespace CLASSIFIED
             return All[0];
         }
 
-        /// <summary>How many builds each weapon has: its default (no suffix) and _1, _2 with random attachments.</summary>
-        private const int Builds = 3;
+        /// <summary>How many builds each weapon has: its default (no suffix) and _1 to _7, put together at random.</summary>
+        private const int Builds = 8;
 
-        /// <summary>Each unit's weapons and its gear, to draw a table from. Null for none.</summary>
+        private static readonly string[] BearWeapons =
+        {
+            "ak12", "ak105", "ak74m", "ak74n", "aks74", "aks74u", "ak103", "ak104", "svds", "sv98", "vss", "val", "vityaz",
+            "pkm", "pkp", "saiga12", "ash12", "sks", "mosin", "sr2m", "vepr", "pl15", "saiga9", "ks23", "veprhunter"
+        };
+
+        private static readonly string[] UsecWeapons =
+        {
+            "m4a1", "hk416", "mk16", "mk17", "mcx", "spear", "mk47", "sr25", "g28", "rsass", "m1a", "rem700", "tx15", "mdr",
+            "aug", "m60", "mp5", "mp5k", "mpx", "ump", "vector", "m1911", "m9a3", "fiveseven", "usp", "rfb"
+        };
+
+        private static readonly string[] BearGear =
+        {
+            "6b47", "altyn", "ssh68", "kiver", "lshz2dtm", "vulkan5", "6b43", "6b13", "gzhel", "korundvm", "defender2", "6b3",
+            "kirasa", "pnv10t", "gssh01", "6sh118", "salewa", "grizzly", "tushonka", "iskra", "intel", "cofdm",
+            "zsh12m", "ulach", "redutm", "zhuk6a", "tv110", "tarzan", "azimut", "attack2", "berkut", "ifak", "cms", "propital",
+            "flash", "vpx", "virtex", "gpu", "battery", "gasan", "tetriz", "lion"
+        };
+
+        private static readonly string[] UsecGear =
+        {
+            "fast", "airframe", "exfil", "mich2001", "bastion", "avs", "slick", "cpc", "hexgrid", "gpnvg", "pvs14", "comtac",
+            "blackjack", "nicecomm", "medpack", "betav2", "surv12", "ledx", "grizzly", "intel", "cofdm",
+            "caiman", "iotv", "otv", "paca", "commando", "thunderbolt", "pilgrim", "paratus", "sordin", "razor", "earmor", "n15",
+            "t7", "ifak", "cms", "propital", "flash", "vpx", "virtex", "gpu", "battery", "tetriz", "lion"
+        };
+
+        /// <summary>Each unit's own weapons and gear, which it shows more often than the rest of its side's. Null for none.</summary>
         private static string[][] Pools(ThemeChoice unit)
         {
             switch (unit)
             {
-                case ThemeChoice.BearCommand: return new[] { new[] { "ak12", "ak105" }, new[] { "6b47", "6b43", "gssh01", "korundvm", "vulkan5", "intel" } };
-                case ThemeChoice.BearReconnaissance: return new[] { new[] { "svds", "sv98", "vss" }, new[] { "pnv10t", "6sh118", "6b47", "kirasa", "gssh01" } };
-                case ThemeChoice.BearSignals: return new[] { new[] { "aks74u", "aks74" }, new[] { "gssh01", "cofdm", "iskra", "6b3", "lshz2dtm" } };
-                case ThemeChoice.BearCounterintelligence: return new[] { new[] { "val", "vss", "vityaz" }, new[] { "altyn", "intel", "6b13", "kiver", "defender2" } };
-                case ThemeChoice.BearSupply: return new[] { new[] { "pkm", "ak103" }, new[] { "tushonka", "iskra", "6sh118", "gzhel", "6b3" } };
-                case ThemeChoice.BearMedical: return new[] { new[] { "ak74m", "aks74" }, new[] { "salewa", "grizzly", "ssh68", "medpack", "kirasa" } };
-                case ThemeChoice.UsecOperations: return new[] { new[] { "m4a1", "mk16" }, new[] { "fast", "avs", "pvs14", "cpc", "comtac" } };
-                case ThemeChoice.UsecIntelligence: return new[] { new[] { "sr25", "m1a", "rem700" }, new[] { "gpnvg", "intel", "exfil", "hexgrid", "bastion" } };
-                case ThemeChoice.UsecSignals: return new[] { new[] { "mcx", "mk47" }, new[] { "comtac", "cofdm", "nicecomm", "mich2001", "slick" } };
-                case ThemeChoice.UsecLogistics: return new[] { new[] { "m60", "mk47" }, new[] { "blackjack", "slick", "comtac", "betav2", "cpc" } };
-                case ThemeChoice.UsecMedical: return new[] { new[] { "mp5", "mp5k" }, new[] { "surv12", "ledx", "grizzly", "medpack", "mich2001" } };
-                case ThemeChoice.UsecCommand: return new[] { new[] { "hk416", "mk16" }, new[] { "airframe", "slick", "gpnvg", "bastion", "hexgrid" } };
+                case ThemeChoice.BearCommand: return new[] { new[] { "ak12", "ak105", "ash12", "pl15" }, new[] { "6b47", "6b43", "gssh01", "korundvm", "vulkan5", "intel", "zhuk6a", "redutm", "flash" } };
+                case ThemeChoice.BearReconnaissance: return new[] { new[] { "svds", "sv98", "vss", "mosin", "veprhunter" }, new[] { "pnv10t", "6sh118", "6b47", "kirasa", "gssh01", "tarzan", "berkut" } };
+                case ThemeChoice.BearSignals: return new[] { new[] { "aks74u", "aks74", "sr2m", "saiga9" }, new[] { "gssh01", "cofdm", "iskra", "6b3", "lshz2dtm", "vpx", "virtex", "battery", "gasan" } };
+                case ThemeChoice.BearCounterintelligence: return new[] { new[] { "val", "vss", "vityaz", "sr2m", "pl15" }, new[] { "altyn", "intel", "6b13", "kiver", "defender2", "flash", "tetriz", "ulach" } };
+                case ThemeChoice.BearSupply: return new[] { new[] { "pkm", "pkp", "ak103", "sks", "ks23" }, new[] { "tushonka", "iskra", "6sh118", "gzhel", "6b3", "attack2", "azimut", "gpu", "lion" } };
+                case ThemeChoice.BearMedical: return new[] { new[] { "ak74m", "aks74", "ak74n", "saiga12" }, new[] { "salewa", "grizzly", "ssh68", "medpack", "kirasa", "cms", "ifak", "propital" } };
+                case ThemeChoice.UsecOperations: return new[] { new[] { "m4a1", "mk16", "mdr", "aug", "usp", "rfb" }, new[] { "fast", "avs", "pvs14", "cpc", "comtac", "caiman", "iotv", "earmor" } };
+                case ThemeChoice.UsecIntelligence: return new[] { new[] { "sr25", "m1a", "rem700", "g28", "rsass" }, new[] { "gpnvg", "intel", "exfil", "hexgrid", "bastion", "t7", "flash", "thunderbolt" } };
+                case ThemeChoice.UsecSignals: return new[] { new[] { "mcx", "mk47", "mpx", "fiveseven" }, new[] { "comtac", "cofdm", "nicecomm", "mich2001", "slick", "battery", "vpx", "razor", "gpu" } };
+                case ThemeChoice.UsecLogistics: return new[] { new[] { "m60", "mk47", "mk17", "rfb" }, new[] { "blackjack", "slick", "comtac", "betav2", "cpc", "pilgrim", "paratus", "commando", "tetriz" } };
+                case ThemeChoice.UsecMedical: return new[] { new[] { "mp5", "mp5k", "ump", "vector", "m9a3" }, new[] { "surv12", "ledx", "grizzly", "medpack", "mich2001", "cms", "ifak", "propital" } };
+                case ThemeChoice.UsecCommand: return new[] { new[] { "hk416", "mk16", "spear", "tx15", "m1911" }, new[] { "airframe", "slick", "gpnvg", "bastion", "hexgrid", "otv", "sordin", "n15" } };
                 default: return null;
             }
         }
@@ -92,27 +120,41 @@ namespace CLASSIFIED
         internal static bool Has(ThemeChoice unit) => Pools(unit) != null;
 
         /// <summary>
-        /// This launch's table for the unit: one of its weapons, in one of its builds, then three
-        /// of its gear in some order. The same <paramref name="random"/> draws the same table, so
-        /// laying the screen out again keeps it.
+        /// This launch's table for the unit: a weapon in one of its builds, then three pieces of
+        /// gear. The weapon is the unit's own about half the time, else any of its side's, and
+        /// over launches its side's whole armoury comes round before any repeats (Archive). Each
+        /// build is put together at random; the stock one is rare. The same
+        /// <paramref name="random"/> draws the same table, so laying the screen out again keeps it.
         /// </summary>
-        internal static string[] Draw(ThemeChoice unit, System.Random random)
+        internal static string[] Draw(ThemeChoice unit, Faction faction, System.Random random)
         {
             string[][] pools = Pools(unit);
             if (pools == null)
             {
                 return null;
             }
-            string weapon = pools[0][random.Next(pools[0].Length)];
-            int build = random.Next(Builds);
-            var gear = new List<string>(pools[1]);
-            for (int i = gear.Count - 1; i > 0; i--)
+            string[] side = faction == Faction.Usec ? UsecWeapons : BearWeapons;
+            string weapon = random.Next(100) < 45
+                ? pools[0][random.Next(pools[0].Length)]
+                : side[Archive.PickShuffled("kit.weapon." + faction, new List<string>(side), random)];
+            int build = random.Next(100) < 10 ? 0 : 1 + random.Next(Builds - 1);
+
+            // Gear: the unit's own first, then its side's, three different pieces.
+            var gear = new List<string>();
+            var own = new List<string>(pools[1]);
+            var all = new List<string>(faction == Faction.Usec ? UsecGear : BearGear);
+            while (gear.Count < 3 && (own.Count > 0 || all.Count > 0))
             {
-                int j = random.Next(i + 1);
-                (gear[i], gear[j]) = (gear[j], gear[i]);
+                List<string> from = own.Count > 0 && (random.Next(100) < 60 || all.Count == 0) ? own : all;
+                string pick = from[random.Next(from.Count)];
+                from.Remove(pick);
+                if (!gear.Contains(pick))
+                {
+                    gear.Add(pick);
+                }
             }
             var table = new List<string> { build == 0 ? weapon : weapon + "_" + build };
-            table.AddRange(gear.GetRange(0, Math.Min(3, gear.Count)));
+            table.AddRange(gear);
             return table.ToArray();
         }
     }
@@ -189,26 +231,23 @@ namespace CLASSIFIED
             return model;
         }
 
+        /// <summary>A surface turning by more than this across an edge makes the edge a crease, drawn whichever way it faces.</summary>
+        private const float CreaseDegrees = 32f;
+
         private static WeaponModel Read(BinaryReader r)
         {
-            if (new string(r.ReadChars(4)) != "CLW1")
+            if (new string(r.ReadChars(4)) != "CLW2")
             {
-                throw new InvalidDataException("not a weapon model");
+                throw new InvalidDataException("not a model in the current format");
             }
             int vertices = r.ReadInt32();
             int faces = r.ReadInt32();
-            int edges = r.ReadInt32();
             int anchors = r.ReadInt32();
             var m = new WeaponModel
             {
                 Vertices = new Vector3[vertices],
                 Faces = new int[faces * 3],
                 Normals = new Vector3[faces],
-                EdgeA = new int[edges],
-                EdgeB = new int[edges],
-                EdgeF0 = new int[edges],
-                EdgeF1 = new int[edges],
-                Crease = new bool[edges],
                 AnchorSlots = new string[anchors],
                 Anchors = new Vector3[anchors],
                 Floor = float.MaxValue,
@@ -231,23 +270,64 @@ namespace CLASSIFIED
             {
                 m.Faces[i] = r.ReadUInt16();
             }
-            for (int i = 0; i < faces; i++)
-            {
-                m.Normals[i] = new Vector3(r.ReadSByte(), r.ReadSByte(), r.ReadSByte()) / 127f;
-            }
-            for (int i = 0; i < edges; i++)
-            {
-                m.EdgeA[i] = r.ReadUInt16();
-                m.EdgeB[i] = r.ReadUInt16();
-                m.EdgeF0[i] = r.ReadInt16();
-                m.EdgeF1[i] = r.ReadInt16();
-                m.Crease[i] = r.ReadByte() != 0;
-            }
             for (int i = 0; i < anchors; i++)
             {
                 m.Anchors[i] = new Vector3(r.ReadInt16() * Q, r.ReadInt16() * Q, r.ReadInt16() * Q);
                 int length = r.ReadByte();
                 m.AnchorSlots[i] = new string(r.ReadChars(length));
+            }
+
+            // Face normals (the faces come wound outward), then every edge with the faces either
+            // side, and whether it is a crease.
+            for (int f = 0; f < faces; f++)
+            {
+                Vector3 a = m.Vertices[m.Faces[f * 3]];
+                Vector3 b = m.Vertices[m.Faces[f * 3 + 1]];
+                Vector3 c = m.Vertices[m.Faces[f * 3 + 2]];
+                m.Normals[f] = Vector3.Cross(b - a, c - a).normalized;
+            }
+            var table = new Dictionary<long, int>(faces * 2);
+            var edgeA = new List<int>(faces * 2);
+            var edgeB = new List<int>(faces * 2);
+            var face0 = new List<int>(faces * 2);
+            var face1 = new List<int>(faces * 2);
+            var shared = new List<int>(faces * 2);
+            for (int f = 0; f < faces; f++)
+            {
+                for (int k = 0; k < 3; k++)
+                {
+                    int u = m.Faces[f * 3 + k];
+                    int v = m.Faces[f * 3 + (k + 1) % 3];
+                    long key = Math.Min(u, v) * 65536L + Math.Max(u, v);
+                    if (table.TryGetValue(key, out int e))
+                    {
+                        if (face1[e] < 0)
+                        {
+                            face1[e] = f;
+                        }
+                        shared[e]++;
+                    }
+                    else
+                    {
+                        table[key] = edgeA.Count;
+                        edgeA.Add(Math.Min(u, v));
+                        edgeB.Add(Math.Max(u, v));
+                        face0.Add(f);
+                        face1.Add(-1);
+                        shared.Add(1);
+                    }
+                }
+            }
+            int edges = edgeA.Count;
+            m.EdgeA = edgeA.ToArray();
+            m.EdgeB = edgeB.ToArray();
+            m.EdgeF0 = face0.ToArray();
+            m.EdgeF1 = face1.ToArray();
+            m.Crease = new bool[edges];
+            float cos = Mathf.Cos(CreaseDegrees * Mathf.Deg2Rad);
+            for (int e = 0; e < edges; e++)
+            {
+                m.Crease[e] = m.EdgeF1[e] < 0 || shared[e] > 2 || Vector3.Dot(m.Normals[m.EdgeF0[e]], m.Normals[m.EdgeF1[e]]) < cos;
             }
             return m;
         }
@@ -267,8 +347,9 @@ namespace CLASSIFIED
     /// </summary>
     internal sealed class Hologram : MaskableGraphic
     {
-        /// <summary>Rebuilds a second, at most.</summary>
+        /// <summary>Rebuilds a second, at most, while it builds in; once whole, it turns slowly enough for fewer.</summary>
         private const float Rate = 60f;
+        private const float SettledRate = 40f;
         private const float Perspective = 0.14f;
 
         /// <summary>How far behind the build line a part takes to come to full strength, in model units.</summary>
@@ -353,7 +434,7 @@ namespace CLASSIFIED
         internal void Tick(float now)
         {
             _rotation = Matrix4x4.Rotate(Quaternion.Euler(Pitch * Mathf.Rad2Deg, 0f, 0f) * Quaternion.Euler(0f, Yaw * Mathf.Rad2Deg, 0f));
-            if (Model == null || now - _builtAt < 1f / Rate)
+            if (Model == null || now - _builtAt < 1f / (Reveal < 1f ? Rate : SettledRate))
             {
                 return;
             }
@@ -381,9 +462,54 @@ namespace CLASSIFIED
             bottom = TableHeight * c - TableRadius * s;
         }
 
+        // The mesh, built straight into these lists and handed to the canvas renderer: the UI's
+        // own VertexHelper keeps eight lists per vertex and was most of the cost.
+        private Mesh _mesh;
+        private readonly List<Vector3> _positions = new List<Vector3>(16384);
+        private readonly List<Color32> _colors = new List<Color32>(16384);
+        private readonly List<Vector2> _uvs = new List<Vector2>(16384);
+        private readonly List<int> _indices = new List<int>(24576);
+        private Vector3[] _turned = new Vector3[0];
+        private static readonly Vector2 Solid = new Vector2(0.5f, 0.5f);
+        private static readonly Vector2 EdgeLow = new Vector2(0.5f, 0f);
+        private static readonly Vector2 EdgeHigh = new Vector2(0.5f, 1f);
+
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
+        }
+
+        protected override void UpdateGeometry()
+        {
+            if (_mesh == null)
+            {
+                _mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
+                _mesh.MarkDynamic();
+            }
+            _positions.Clear();
+            _colors.Clear();
+            _uvs.Clear();
+            _indices.Clear();
+            Build();
+            _mesh.Clear();
+            _mesh.SetVertices(_positions);
+            _mesh.SetColors(_colors);
+            _mesh.SetUVs(0, _uvs);
+            _mesh.SetTriangles(_indices, 0, false);
+            canvasRenderer.SetMesh(_mesh);
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            if (_mesh != null)
+            {
+                Destroy(_mesh);
+            }
+        }
+
+        private void Build()
+        {
             WeaponModel m = Model;
             if (m == null || Strength <= 0.01f || Reveal <= 0f)
             {
@@ -403,17 +529,32 @@ namespace CLASSIFIED
             if (_front.Length != faces)
             {
                 _front = new bool[faces];
+                _turned = new Vector3[faces];
             }
             for (int f = 0; f < faces; f++)
             {
-                _front[f] = _rotation.MultiplyVector(m.Normals[f]).z > 0f;
+                _turned[f] = _rotation.MultiplyVector(m.Normals[f]);
+                _front[f] = _turned[f].z > -Grazing;
             }
 
             // The build line runs along x from one end to the other, with room for the soft edge.
             float cut = Mathf.Lerp(m.MinX - 0.02f, m.MaxX + Soft, Reveal);
-            DrawTable(vh);
-            DrawFaces(vh, m, cut);
-            DrawEdges(vh, m, cut);
+            DrawTable();
+            DrawFaces(m, cut);
+            DrawEdges(m, cut);
+        }
+
+        /// <summary>
+        /// Faces and edges turning past the viewer fade over this much of a turn instead of popping:
+        /// on a small, finely faceted part (a light, an optic) dozens cross at once and flickered.
+        /// </summary>
+        private const float Grazing = 0.12f;
+
+        /// <summary>How much a face turned <paramref name="z"/> toward the viewer shows: none edge-on or away, all once it is turned well toward.</summary>
+        private static float Facing(float z)
+        {
+            float k = Mathf.Clamp01((z + Grazing) / (2f * Grazing));
+            return k * k * (3f - 2f * k);
         }
 
         /// <summary>How built a point is: 0 past the build line, coming to 1 a little behind it.</summary>
@@ -431,10 +572,9 @@ namespace CLASSIFIED
         }
 
         /// <summary>The faces turned to the viewer, faint, brighter where the light from above and in front falls.</summary>
-        private void DrawFaces(VertexHelper vh, WeaponModel m, float cut)
+        private void DrawFaces(WeaponModel m, float cut)
         {
             var light = new Vector3(0.25f, 0.75f, 0.6f).normalized;
-            var uv = new Vector2(0.5f, 0.5f);
             for (int f = 0; f < m.Normals.Length; f++)
             {
                 if (!_front[f])
@@ -448,30 +588,53 @@ namespace CLASSIFIED
                 {
                     continue;
                 }
-                float lit = Mathf.Max(0f, Vector3.Dot(_rotation.MultiplyVector(m.Normals[f]), light));
-                Color32 color = Tint((10f + 34f * lit + 30f * ScanGlow(x, m)) * built + 40f * Leading(x, cut));
-                int start = vh.currentVertCount;
-                vh.AddVert(_screen[a], color, uv);
-                vh.AddVert(_screen[b], color, uv);
-                vh.AddVert(_screen[c], color, uv);
-                vh.AddTriangle(start, start + 1, start + 2);
+                float lit = Mathf.Max(0f, Vector3.Dot(_turned[f], light));
+                Color32 color = Tint(((10f + 34f * lit + 30f * ScanGlow(x, m)) * built + 40f * Leading(x, cut)) * Facing(_turned[f].z));
+                if (color.a == 0)
+                {
+                    continue;
+                }
+                int start = _positions.Count;
+                _positions.Add(_screen[a]);
+                _positions.Add(_screen[b]);
+                _positions.Add(_screen[c]);
+                _colors.Add(color);
+                _colors.Add(color);
+                _colors.Add(color);
+                _uvs.Add(Solid);
+                _uvs.Add(Solid);
+                _uvs.Add(Solid);
+                _indices.Add(start);
+                _indices.Add(start + 1);
+                _indices.Add(start + 2);
             }
         }
 
-        /// <summary>The creases and the outline over the faces; the creases round the back faint. Cut exactly at the build line.</summary>
-        private void DrawEdges(VertexHelper vh, WeaponModel m, float cut)
+        /// <summary>
+        /// The creases turned to the viewer and the outline, over the faces, cut exactly at the
+        /// build line. The creases round the back are left out: they were barely visible, and
+        /// were half the lines.
+        /// </summary>
+        private void DrawEdges(WeaponModel m, float cut)
         {
             float weight = Mathf.Clamp(Scale / 220f, 0.75f, 1.4f);
+            // Drawn small, the creases crowd into a shimmer: fewer of them, fainter.
+            float creaseAlpha = Mathf.Lerp(70f, 120f, Mathf.Clamp01((Scale - 120f) / 160f));
             for (int e = 0; e < m.EdgeA.Length; e++)
             {
                 int f0 = m.EdgeF0[e];
                 int f1 = m.EdgeF1[e];
-                bool seen = _front[f0] || (f1 >= 0 && _front[f1]);
-                bool outline = f1 < 0 ? _front[f0] : _front[f0] != _front[f1];
-                if (!outline && !m.Crease[e])
+                float z0 = _turned[f0].z;
+                float z1 = f1 >= 0 ? _turned[f1].z : -1f;
+                // An outline where one side faces the viewer and the other away, as strongly as the
+                // two disagree; a crease as strongly as its nearer side faces the viewer.
+                float outlineK = f1 < 0 ? Facing(z0) : Mathf.Abs(Facing(z0) - Facing(z1));
+                float creaseK = m.Crease[e] ? Facing(Mathf.Max(z0, z1)) : 0f;
+                if (outlineK < 0.02f && creaseK < 0.02f)
                 {
                     continue;
                 }
+                bool outline = outlineK >= creaseK * 0.6f;
                 int a = m.EdgeA[e];
                 int b = m.EdgeB[e];
                 float xa = m.Vertices[a].x;
@@ -494,15 +657,14 @@ namespace CLASSIFIED
                     xb = cut;
                 }
                 float x = (xa + xb) * 0.5f;
-                float alpha = outline ? 235f : seen ? 120f : 30f;
-                alpha = Mathf.Min(255f, (alpha + 120f * ScanGlow(x, m)) * Built(x, cut) + 220f * Leading(x, cut));
-                float width = (outline ? 1.6f : seen ? 1.1f : 0.9f) * weight;
-                Line(vh, pa, pb, width, Tint(alpha));
+                float alpha = outline ? 235f * outlineK + creaseAlpha * creaseK * (1f - outlineK) : creaseAlpha * creaseK;
+                alpha = Mathf.Min(255f, (alpha + 120f * ScanGlow(x, m) * Mathf.Max(outlineK, creaseK)) * Built(x, cut) + 220f * Leading(x, cut));
+                Line(pa, pb, (outline ? 1.6f : 1.1f) * weight, Tint(alpha));
             }
         }
 
         /// <summary>The turntable: a ring on the floor under the item, its ticks turning.</summary>
-        private void DrawTable(VertexHelper vh)
+        private void DrawTable()
         {
             const int Ticks = 72;
             float y = TableHeight;
@@ -515,13 +677,13 @@ namespace CLASSIFIED
                 Vector2 s = Project(new Vector3(Mathf.Cos(angle) * r, y, Mathf.Sin(angle) * r), out _);
                 if (i > 0)
                 {
-                    Line(vh, last, s, 1.4f, Tint(70f * shown));
+                    Line(last, s, 1.4f, Tint(70f * shown));
                 }
                 last = s;
                 float spun = angle + TableTurn;
                 bool major = i % 6 == 0;
                 float inner = r - (major ? 0.1f : 0.05f) * r;
-                Line(vh, Project(new Vector3(Mathf.Cos(spun) * inner, y, Mathf.Sin(spun) * inner), out _),
+                Line(Project(new Vector3(Mathf.Cos(spun) * inner, y, Mathf.Sin(spun) * inner), out _),
                     Project(new Vector3(Mathf.Cos(spun) * r, y, Mathf.Sin(spun) * r), out _), major ? 1.6f : 1.1f, Tint((major ? 90f : 45f) * shown));
             }
             for (int i = 1; i <= Ticks; i++)
@@ -534,7 +696,7 @@ namespace CLASSIFIED
                 float a1 = i * Mathf.PI * 2f / Ticks;
                 Vector2 s0 = Project(new Vector3(Mathf.Cos(a0) * r * 0.82f, y, Mathf.Sin(a0) * r * 0.82f), out _);
                 Vector2 s1 = Project(new Vector3(Mathf.Cos(a1) * r * 0.82f, y, Mathf.Sin(a1) * r * 0.82f), out _);
-                Line(vh, s0, s1, 1.1f, Tint(34f * shown));
+                Line(s0, s1, 1.1f, Tint(34f * shown));
             }
         }
 
@@ -552,7 +714,7 @@ namespace CLASSIFIED
         private Color32 Tint(float alpha) => new Color32(Ink.r, Ink.g, Ink.b, (byte)Mathf.Clamp(alpha * Strength * (Ink.a / 255f), 0f, 255f));
 
         /// <summary>A line as one quad across the soft profile.</summary>
-        private static void Line(VertexHelper vh, Vector2 a, Vector2 b, float width, Color32 color)
+        private void Line(Vector2 a, Vector2 b, float width, Color32 color)
         {
             Vector2 d = b - a;
             float length = d.magnitude;
@@ -562,13 +724,25 @@ namespace CLASSIFIED
             }
             // Wide enough for the soft edges to fall outside the line's own width.
             Vector2 side = new Vector2(-d.y, d.x) / length * (width * 0.5f + 1f);
-            int start = vh.currentVertCount;
-            vh.AddVert(a - side, color, new Vector2(0.5f, 0f));
-            vh.AddVert(a + side, color, new Vector2(0.5f, 1f));
-            vh.AddVert(b + side, color, new Vector2(0.5f, 1f));
-            vh.AddVert(b - side, color, new Vector2(0.5f, 0f));
-            vh.AddTriangle(start, start + 1, start + 2);
-            vh.AddTriangle(start, start + 2, start + 3);
+            int start = _positions.Count;
+            _positions.Add(a - side);
+            _positions.Add(a + side);
+            _positions.Add(b + side);
+            _positions.Add(b - side);
+            _colors.Add(color);
+            _colors.Add(color);
+            _colors.Add(color);
+            _colors.Add(color);
+            _uvs.Add(EdgeLow);
+            _uvs.Add(EdgeHigh);
+            _uvs.Add(EdgeHigh);
+            _uvs.Add(EdgeLow);
+            _indices.Add(start);
+            _indices.Add(start + 1);
+            _indices.Add(start + 2);
+            _indices.Add(start);
+            _indices.Add(start + 2);
+            _indices.Add(start + 3);
         }
     }
 }

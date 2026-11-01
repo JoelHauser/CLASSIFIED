@@ -344,8 +344,28 @@ namespace CLASSIFIED
             }
             else if (!hide && _otherHidden)
             {
-                _otherTerminal.enabled = true;
+                // Given back only once ACCESS GRANTED has put its own terminal away: switched on
+                // while that still stands, it showed for a frame over the menu as this one left.
                 _otherHidden = false;
+                _restoreOther = _otherTerminal;
+                RestoreOther();
+            }
+        }
+
+        private static Canvas _restoreOther;
+
+        /// <summary>ACCESS GRANTED's canvas back on, as soon as its terminal is hidden. Asked every frame by the plugin.</summary>
+        internal static void RestoreOther()
+        {
+            if (_restoreOther == null)
+            {
+                _restoreOther = null;
+                return;
+            }
+            if (!_restoreOther.gameObject.activeInHierarchy)
+            {
+                _restoreOther.enabled = true;
+                _restoreOther = null;
             }
         }
     }

@@ -538,7 +538,31 @@ namespace CLASSIFIED
             faction == Faction.Usec ? UsecChatter : BearChatter;
 
         /// <summary>What our signals people pick up from <paramref name="enemy"/>'s radios.</summary>
-        internal static string[] Intercepts(Faction enemy) => enemy == Faction.Bear ? BearIntercepts : UsecIntercepts;
+        internal static string[] Intercepts(Faction enemy) =>
+            enemy == Faction.Bear ? BearIntercepts : Overlay.BearRussian ? UsecInterceptsRu : UsecIntercepts;
+
+        /// <summary>USEC's traffic as BEAR's interpreters write it down: in Russian, unless BEAR is set to English.</summary>
+        private static readonly string[] UsecInterceptsRu =
+        {
+            "«ОВЕРЛОРД, Я ХАММЕР-ДВА. НА СВЯЗИ. ВСЁ НОРМАЛЬНО, МИНУС ОДИН БОТИНОК. ПРИЁМ.»",
+            "«КОНТАКТ, ЧЕТВЕРО МЕДВЕДЕЙ У {place}. ОТХОДИМ. НАМ ЗА ЭТО НЕ ПЛАТЯТ.»",
+            "«ПОВТОРИ ПОСЛЕДНЕЕ.» «Я СКАЗАЛ, КОФЕМАШИНА СЛОМАЛАСЬ.» «ПОВТОРИ?»",
+            "«ШТАБ СПРАШИВАЕТ, НАШЛИ ЛИ МЫ СЕРВЕР КЛИЕНТА.» «ПУСТЬ ШТАБ ПРИЕДЕТ И ПОИЩЕТ.»",
+            "«РУССКИЕ У {place}. У НИХ КОЗА. ЗАЧЕМ ИМ КОЗА?»",
+            "«ЭВАКУАЦИЯ У {place} СВОБОДНА. ВЫДВИГАЕМСЯ. ЕСЛИ ЧТО, МОЙ СХРОН ДОСТАЁТСЯ ДЭЙВУ.»",
+            "«ЦБУ, ЗАПРАШИВАЮ ГРУППУ БЫСТРОГО РЕАГИРОВАНИЯ.» «ОНИ НА ОБЕДЕ.» «ВСЕ?»",
+            "«НАШЛИ НОУТБУК TERRAGROUP. ПАРОЛЬ НА СТИКЕРЕ. КЛАССИКА.»",
+            "«{boss} У {bossplace}. НЕТ. НЕТ. РАЗВОРАЧИВАЕМСЯ. НЕТ.»",
+            "«МЕДИКА СЮДА. МЕДИКА. НЕСИ ХОРОШЕЕ, А НЕ АНАЛЬГИН.»",
+            "«МИРОТВОРЕЦ ХОЧЕТ ПРЕДОПЛАТУ.» «МИРОТВОРЕЦ ВСЕГДА ХОЧЕТ ПРЕДОПЛАТУ.»",
+            "«ОВЕРЛОРД, ТУТ {n2} ДИКИХ ХОТЯТ СДАТЬСЯ. КОМУ, НЕПОНЯТНО.»",
+            "«КАКОЙ СЕГОДНЯ ПАРОЛЬ?» «ОН В БРИФИНГЕ.» «В КАКОМ БРИФИНГЕ?»",
+            "«ГЛАВНЫЙ ОФИС, КАК СЛЫШНО?» 40 СЕКУНД МУЗЫКИ ОЖИДАНИЯ. ПЕРЕДАЧА ОКОНЧЕНА.",
+            "«СНАЙПЕР МЕДВЕДЕЙ ВСЁ ЕЩЁ НА ВЫШКЕ. ОН ХОРОШ. Я ЕГО НЕНАВИЖУ. ОН ХОРОШ.»",
+            "«ТЫЛ ГОВОРИТ, ПОДВОЗ ЗАВТРА.» «ОНИ ГОВОРИЛИ ЭТО В ПРОШЛОМ МЕСЯЦЕ.» «ОНИ ГОВОРЯТ ЭТО КАЖДОЕ ЗАВТРА.»",
+            "«ИДЁТ СНЕГ. КТО ВЗЯЛ БЕЛЫЙ КАМУФЛЯЖ?» В ЭФИРЕ ТИШИНА.",
+            "«ТОТ, У КОГО МОЙ СЧАСТЛИВЫЙ НОЖ, Я ТЕБЯ НАЙДУ.» (СМЕХ НА ФОНЕ)"
+        };
 
         /// <summary>A signature line for an order: an officer, their post, a reference.</summary>
         internal static string Signature(System.Random random, ThemeChoice id, string sender = null)

@@ -99,7 +99,8 @@ namespace CLASSIFIED
         {
             _previewHold = false;
             _previewSpeed = NormalSpeed;
-            _previewLoop = false;
+            // A preview plays round until closed; the showreel ends on the menu.
+            _previewLoop = !captionHidden;
             _view = View.All;
             _captionHidden = captionHidden;
             _captionKey = null;
@@ -412,7 +413,6 @@ namespace CLASSIFIED
             {
                 Show(label, frame);
             }
-            Show(_stampBox, art);
             foreach (Image banner in _banners)
             {
                 Show(banner, art);
@@ -567,7 +567,11 @@ namespace CLASSIFIED
             return builder.ToString();
         }
 
-        /// <summary>The ending finished: a looping preview plays again from the start. True if it does.</summary>
+        /// <summary>
+        /// The ending finished: a looping preview starts again. Its ending kept the terminal up
+        /// (AnimateOutro), and the restart comes up without its fade-in, so the menu never shows
+        /// between the two. True if it does.
+        /// </summary>
         private bool LoopPreview()
         {
             if (!_previewing || _showreel || !_previewLoop)
@@ -575,12 +579,45 @@ namespace CLASSIFIED
                 return false;
             }
             PlayPreview(_previewVariant);
+            ShowCurtain(true);
+            ClassifiedPlugin.Log.LogInfo("Preview: looping.");
             return true;
+        }
+
+        /// <summary>
+        /// While a preview loops, a plain sheet of the unit's darkest colour sits between the menu
+        /// and the terminal, on a canvas just under it: every ending plays as it does for real and
+        /// fades onto the sheet, never the menu, and the next run comes up out of it.
+        /// </summary>
+        private Image _curtain;
+
+        private void ShowCurtain(bool on)
+        {
+            if (_curtain == null)
+            {
+                var go = new GameObject("ClassifiedCurtain", typeof(RectTransform));
+                DontDestroyOnLoad(go);
+                var canvas = go.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 32000;
+                _curtain = MakeImage("Sheet", go.transform, Ink);
+                Stretch(_curtain.rectTransform);
+                go.SetActive(false);
+            }
+            if (on && _variant != null)
+            {
+                _curtain.color = Ink;
+            }
+            if (_curtain.transform.parent.gameObject.activeSelf != on)
+            {
+                _curtain.transform.parent.gameObject.SetActive(on);
+            }
         }
 
         private void EndPreview()
         {
             _previewing = false;
+            ShowCurtain(false);
             SetCaptionActive(false);
             ApplyView();
         }
