@@ -10,13 +10,14 @@
   Check it in the Forge editor's preview before saving.
 
   Images are served from the repository (docs/images), so they show once pushed to main.
-  They come from scripts/make_showcase.py. Thumbnail: a square image, the Forge crops to 1:1.
+  They come from scripts/make_showcase.py; hero.webp (animated, 8 s loop) from scripts/make_hero.py.
+  Thumbnail: a square image, the Forge crops to 1:1.
 
   Short-description field:
     "Your launch becomes your faction's field terminal: the real load steps, 3D weapon debriefs and live operations, in a different BEAR or USEC unit every time."
 -->
 
-![CLASSIFIED: a BEAR or USEC field terminal over your load](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/weapons/hk416_3.png)
+![CLASSIFIED: a BEAR or USEC field terminal over your load](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/hero.webp)
 
 From the splash screen to the main menu, your launch becomes your faction's field terminal. It shows what EFT is really loading, timed against your own launches, while a different BEAR or USEC unit briefs you on the table beside it: 3D weapons, live operations and intercepted radio traffic.
 
