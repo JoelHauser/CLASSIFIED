@@ -185,6 +185,10 @@ namespace CLASSIFIED
         internal int[] EdgeF1;
         internal bool[] Crease;
         internal string[] AnchorSlots;
+
+        /// <summary>The part at each anchor by its short name, English and Russian; empty where the model has none.</summary>
+        internal string[] AnchorNames;
+        internal string[] AnchorNamesRu;
         internal Vector3[] Anchors;
 
         /// <summary>The lowest and highest points, for the table under it and the labels over it.</summary>
@@ -257,6 +261,8 @@ namespace CLASSIFIED
                 Faces = new int[faces * 3],
                 Normals = new Vector3[faces],
                 AnchorSlots = new string[anchors],
+                AnchorNames = new string[anchors],
+                AnchorNamesRu = new string[anchors],
                 Anchors = new Vector3[anchors],
                 Floor = float.MaxValue,
                 Top = float.MinValue,
@@ -281,8 +287,12 @@ namespace CLASSIFIED
             for (int i = 0; i < anchors; i++)
             {
                 m.Anchors[i] = new Vector3(r.ReadInt16() * Q, r.ReadInt16() * Q, r.ReadInt16() * Q);
+                // UTF-8, its length in bytes: "slot", or "slot|English name|Russian name".
                 int length = r.ReadByte();
-                m.AnchorSlots[i] = new string(r.ReadChars(length));
+                string[] fields = System.Text.Encoding.UTF8.GetString(r.ReadBytes(length)).Split('|');
+                m.AnchorSlots[i] = fields[0];
+                m.AnchorNames[i] = fields.Length > 1 ? fields[1] : string.Empty;
+                m.AnchorNamesRu[i] = fields.Length > 2 ? fields[2] : m.AnchorNames[i];
             }
 
             // Face normals (the faces come wound outward), then every edge with the faces either

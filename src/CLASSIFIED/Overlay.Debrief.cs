@@ -243,18 +243,34 @@ namespace CLASSIFIED
                     // A weapon's parts by slot; equipment's by the points the generator marked on it.
                     string[] order = { "mod_scope", "mod_muzzle", "mod_magazine", "mod_stock", "mod_tactical", "mod_foregrip", "mod_sight_rear", "mod_reciever", "mod_gas_block", "mod_handguard", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel", "mod_bipod",
                         "gear_plate", "gear_strap", "gear_shell", "gear_rim", "gear_optics", "gear_mount", "gear_headband", "gear_cup", "gear_lid", "gear_body", "gear_name" };
+                    // Each row (above the item, below it) takes labels only while they fit across the
+                    // zone, so they never have to be pushed over each other.
+                    float above = 0f, below = 0f, budget = _zone.width * 0.9f;
                     foreach (string slot in order)
                     {
                         // The first part in a slot of that kind (an optic may sit in mod_scope_000).
                         int i = System.Array.FindIndex(model.AnchorSlots, s => s == slot || s.StartsWith(slot + "_"));
-                        string text = PartName(slot);
-                        if (i < 0 || text == null || _callouts.Count >= 4)
+                        if (i < 0 || _callouts.Count >= 5)
+                        {
+                            continue;
+                        }
+                        // The part by name where the model knows it ("EXPS3", "PSO-1"), else what it is.
+                        string named = Russian ? model.AnchorNamesRu[i] : model.AnchorNames[i];
+                        string text = !string.IsNullOrEmpty(named) ? Clip((Russian ? O.Cyr(named) : named).ToUpperInvariant(), 18) : PartName(slot);
+                        if (text == null)
                         {
                             continue;
                         }
                         var callout = new Callout { At = model.Anchors[i], Below = model.Anchors[i].y < -0.08f };
                         callout.Label = Label(text, 0f, 0f, 200f, 9f, A(T.Text, 220), TextAlignmentOptions.Center, _leaders.transform);
                         callout.Width = callout.Label.GetPreferredValues(text).x / U + 6f;
+                        ref float used = ref callout.Below ? ref below : ref above;
+                        if (used + callout.Width + 12f > budget)
+                        {
+                            Object.Destroy(callout.Label.gameObject);
+                            continue;
+                        }
+                        used += callout.Width + 12f;
                         SetText(callout.Label, 0f, 0f, callout.Width * U, 14f * U, 9f * U, 6f);
                         callout.Label.gameObject.SetActive(false);
                         _callouts.Add(callout);
@@ -288,6 +304,8 @@ namespace CLASSIFIED
                 _rowTop = (top * scale + RowGap) * U;
                 _rowBottom = (bottom * scale - RowGap) * U;
             }
+
+            private static string Clip(string text, int max) => text.Length <= max ? text : text.Substring(0, max).TrimEnd();
 
             private string PartName(string slot)
             {

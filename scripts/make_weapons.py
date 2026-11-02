@@ -244,8 +244,8 @@ ITEMS = [
 # suppressor. Everything from what the database says fits; nothing that conflicts.
 BUILDS = 8
 REPLACE = {
-    "mod_handguard": 0.7, "mod_stock": 0.6, "mod_stock_000": 0.5, "mod_stock_001": 0.5, "mod_pistol_grip": 0.6,
-    "mod_pistolgrip": 0.6, "mod_muzzle": 0.6, "mod_reciever": 0.35, "mod_magazine": 0.4, "mod_charge": 0.35,
+    "mod_handguard": 0.7, "mod_stock": 0.85, "mod_stock_000": 0.8, "mod_stock_001": 0.8, "mod_pistol_grip": 0.75,
+    "mod_pistolgrip": 0.75, "mod_muzzle": 0.6, "mod_reciever": 0.35, "mod_magazine": 0.75, "mod_charge": 0.35,
 }
 ATTACH = [("mod_scope", 0.97), ("mod_mount", 0.9), ("mod_tactical", 0.8), ("mod_foregrip", 0.85), ("mod_muzzle", 0.6)]
 
@@ -440,8 +440,9 @@ class Part:
         return out or heavy
 
 
-def assemble(streaming, items, preset, weapon, problems=None):
+def assemble(streaming, items, preset, weapon, problems=None, names=None):
     parts = []  # (slot, part name, triangles)
+    names = {} if names is None else names  # callout label -> the template of the first item under it
     problems = [] if problems is None else problems
 
     def place(item, matrix):
@@ -463,6 +464,7 @@ def assemble(streaming, items, preset, weapon, problems=None):
                 for kind in ("mod_tactical", "mod_muzzle", "mod_foregrip"):
                     if label.startswith(kind):
                         label = kind
+        names.setdefault(label, item["_tpl"])
         shown = part.meshes()
         if not shown and weapon:
             # Its meshes in another bundle, as some parts keep them: loaded with what the
@@ -1008,13 +1010,19 @@ def edges_of(verts, faces, crease_degrees=32.0):
     return n, out
 
 
-def orient(verts):
-    """Barrel along +x, top up +y, centred, longest half-length 1."""
+def orient(verts, down=None):
+    """
+    Barrel along +x (the longest side), top up +y, centred. Which of the other two sides is
+    height: the one the magazine and grip hang along from the bore (down, a vector in the
+    model's own space), when known; a PKM with its box and bipod is wider than it is tall.
+    """
     c = (verts.max(axis=0) + verts.min(axis=0)) / 2.0
     v = verts - c
     ext = np.ptp(v, axis=0)
     order = np.argsort(-ext)
     long_axis, mid_axis, short_axis = order
+    if down is not None and abs(down[short_axis]) > abs(down[mid_axis]):
+        mid_axis, short_axis = short_axis, mid_axis
     out = np.zeros_like(v)
     out[:, 0] = v[:, long_axis]
     out[:, 1] = v[:, mid_axis]
@@ -1038,7 +1046,7 @@ def write(path, verts, faces, anchors):
         for slot, p in anchors:
             ap = np.round(np.clip(p * s, -1, 1) * 32767).astype(np.int16)
             f.write(struct.pack("<3h", *ap))
-            name = slot.encode("ascii")[:31]
+            name = slot.encode("utf-8")[:255]
             f.write(struct.pack("<B", len(name)))
             f.write(name)
 
@@ -1162,6 +1170,8 @@ def main():
     globals_ = json.load(open(os.path.join(db, "globals.json"), encoding="utf-8"))
     en = json.load(open(os.path.join(db, "locales", "global", "en.json"), encoding="utf-8"))
     ru = json.load(open(os.path.join(db, "locales", "global", "ru.json"), encoding="utf-8"))
+    LOCALE_EN.update(en)
+    LOCALE_RU.update(ru)
     os.makedirs(PREVIEW, exist_ok=True)
     only = set(sys.argv[2:])
 
@@ -1344,6 +1354,8 @@ def without_tactical(build):
     return {"_parent": build["_parent"], "_items": [x for x in its if x["_id"] not in gone]}
 
 
+LOCALE_EN = {}
+LOCALE_RU = {}
 STOCK_PROBLEMS = set()
 STOCK_LABELS = set()
 ESSENTIAL_LABELS = {"mod_magazine", "mod_stock", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel"}
@@ -1356,7 +1368,8 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
     anything did, so another build can be tried.
     """
     problems = []
-    parts = assemble(streaming, items, preset, weapon, problems)
+    names = {}
+    parts = assemble(streaming, items, preset, weapon, problems, names)
     if not parts:
         print(f"{iid}: no meshes")
         return
@@ -1387,7 +1400,10 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
     # game holds it, y up.
     c = (verts.max(axis=0) + verts.min(axis=0)) / 2.0
     if weapon:
-        verts, axes = orient(verts)
+        hang = [p[2].reshape(-1, 3) for p in parts if p[0] in ("mod_magazine", "mod_pistol_grip", "mod_pistolgrip")]
+        bore = [p[2].reshape(-1, 3) for p in parts if p[0] in ("mod_barrel", "mod_muzzle")]
+        down = np.concatenate(hang).mean(axis=0) - np.concatenate(bore).mean(axis=0) if hang and bore else None
+        verts, axes = orient(verts, down)
     else:
         verts, axes = verts - c, (0, 1, 2)
         if kind in ("armor", "backpack", "rig"):
@@ -1521,6 +1537,15 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
         faces = faces[:, [0, 2, 1]]
     normals, edges = edges_of(verts, faces)
     creases = sum(1 for e in edges if e[4])
+    # Each anchor carries its part's short name, English and Russian: "mod_scope|EXPS3|EXPS3".
+    if weapon:
+        named = []
+        for slot, point in anchor_list:
+            tpl = names.get(slot)
+            en = LOCALE_EN.get(f"{tpl} ShortName", "") if tpl else ""
+            ru = LOCALE_RU.get(f"{tpl} ShortName", en) if tpl else ""
+            named.append((f"{slot}|{en}|{ru}" if en else slot, point))
+        anchor_list = named
     path = os.path.join(OUT, f"item_{iid}.bin")
     write(path, verts, faces, anchor_list)
     side_view(os.path.join(PREVIEW, f"{iid}.png"), verts, faces, edges)
