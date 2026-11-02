@@ -593,7 +593,8 @@ namespace CLASSIFIED
             }
         }
 
-        private void Hide()
+        /// <param name="restarting">True when another show follows at once (a preview or reel starting over).</param>
+        private void Hide(bool restarting = false)
         {
             EndFx();
             EndShowreel();
@@ -614,11 +615,12 @@ namespace CLASSIFIED
             Insignia.Release();
             _grid.texture = null;
             Backdrops.Release();
-            if (!ClassifiedPlugin.RaidLoading.Value)
+            if (!restarting && !ClassifiedPlugin.RaidLoading.Value)
             {
                 // Nothing shows again this session unless a preview is asked for, so the glows
                 // (one is the size of the screen) and the table's models go too. With raid loads
                 // on they are kept, so a raid's terminal comes up as finished as the launch's.
+                // A preview starting over keeps them: it would only make them again.
                 _glow.texture = null;
                 _emblemGlow.texture = null;
                 _glowBake.Release();

@@ -321,7 +321,7 @@ namespace CLASSIFIED
             if (_phase != Phase.Hidden)
             {
                 StartupTracker.EndRun();
-                Hide();
+                Hide(restarting: true);
             }
             if (!StartupTracker.BeginPreview(ClassifiedPlugin.PreviewSeconds.Value, kind: _previewKind))
             {

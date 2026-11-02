@@ -113,7 +113,7 @@ namespace CLASSIFIED
             if (_phase != Phase.Hidden)
             {
                 StartupTracker.EndRun();
-                Hide();
+                Hide(restarting: true);
             }
             if (_random == null)
             {
