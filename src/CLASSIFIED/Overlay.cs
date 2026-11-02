@@ -595,6 +595,17 @@ namespace CLASSIFIED
             Insignia.Release();
             _grid.texture = null;
             Backdrops.Release();
+            if (!ClassifiedPlugin.RaidLoading.Value)
+            {
+                // Nothing shows again this session unless a preview is asked for, so the glows
+                // (one is the size of the screen) and the table's models go too. With raid loads
+                // on they are kept, so a raid's terminal comes up as finished as the launch's.
+                _glow.texture = null;
+                _emblemGlow.texture = null;
+                _glowBake.Release();
+                _emblemBake.Release();
+                WeaponModel.ClearCache();
+            }
             gameObject.SetActive(false);
         }
 

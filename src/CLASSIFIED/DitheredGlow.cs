@@ -108,6 +108,29 @@ namespace CLASSIFIED
             return false;
         }
 
+        /// <summary>
+        /// On the main thread: lets every kept texture go, and any bake still running land on
+        /// nothing. The next Request bakes again.
+        /// </summary>
+        internal void Release()
+        {
+            Interlocked.Increment(ref _wanted);
+            lock (_lock)
+            {
+                _ready = null;
+            }
+            foreach (KeyValuePair<string, Texture2D> made in _made)
+            {
+                if (made.Value != null)
+                {
+                    UnityEngine.Object.Destroy(made.Value);
+                }
+            }
+            _made.Clear();
+            _texture = null;
+            _key = null;
+        }
+
         /// <summary>On the main thread: turns a finished bake into the texture. True when a new one was made.</summary>
         internal bool Collect()
         {
