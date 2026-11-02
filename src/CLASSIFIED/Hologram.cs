@@ -225,6 +225,15 @@ namespace CLASSIFIED
             return model;
         }
 
+        /// <summary>Forgets every model read so far; the next table reads its own again.</summary>
+        internal static void ClearCache()
+        {
+            lock (Cache)
+            {
+                Cache.Clear();
+            }
+        }
+
         /// <summary>
         /// Starts reading models on a worker thread, so a later Load finds them ready instead of
         /// unpacking one on the frame its item comes onto the table. Reading is plain C#: no Unity
