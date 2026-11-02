@@ -198,16 +198,16 @@ namespace CLASSIFIED
 
             private const float Turn = 0.34f;
 
-            /// <summary>How long an item holds side on, its callouts showing, before it starts to turn.</summary>
-            private const float SideOn = BuildTime + 3f;
+            /// <summary>How long an item holds side on before it starts to turn: through its build-in and a beat more.</summary>
+            private const float SideOn = BuildTime + 0.4f;
 
-            /// <summary>How long the turn takes to come up to speed.</summary>
-            private const float SpinUp = 2f;
+            /// <summary>How long the turn takes to come up to speed: slowly, so the callouts are read before it has turned far.</summary>
+            private const float SpinUp = 3f;
 
             /// <summary>
-            /// The item's turn, from its time on the table: side on while it builds and for a few
-            /// seconds after, with the barest drift, then easing into a steady turn. Each item starts
-            /// side on, so its callouts are always seen; they fade as it turns away.
+            /// The item's turn, from its time on the table: side on while it builds, with the barest
+            /// drift, then easing straight into a steady turn. Each item starts side on, so its
+            /// callouts are always seen; they fade as it turns away.
             /// </summary>
             private static float YawAt(float age)
             {
