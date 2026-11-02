@@ -210,10 +210,61 @@ namespace CLASSIFIED
             {
                 return null;
             }
-            if (Cache.TryGetValue(id, out WeaponModel cached))
+            lock (Cache)
             {
-                return cached;
+                if (Cache.TryGetValue(id, out WeaponModel cached))
+                {
+                    return cached;
+                }
             }
+            WeaponModel model = Decode(id);
+            lock (Cache)
+            {
+                Cache[id] = model;
+            }
+            return model;
+        }
+
+        /// <summary>
+        /// Starts reading models on a worker thread, so a later Load finds them ready instead of
+        /// unpacking one on the frame its item comes onto the table. Reading is plain C#: no Unity
+        /// calls, so it is safe off the main thread (logging goes through BepInEx's thread-safe log).
+        /// </summary>
+        internal static void Prefetch(IEnumerable<string> ids)
+        {
+            var wanted = new List<string>();
+            lock (Cache)
+            {
+                foreach (string id in ids)
+                {
+                    if (id != null && !Cache.ContainsKey(id) && !wanted.Contains(id))
+                    {
+                        wanted.Add(id);
+                    }
+                }
+            }
+            if (wanted.Count == 0)
+            {
+                return;
+            }
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                foreach (string id in wanted)
+                {
+                    WeaponModel model = Decode(id);
+                    lock (Cache)
+                    {
+                        if (!Cache.ContainsKey(id))
+                        {
+                            Cache[id] = model;
+                        }
+                    }
+                }
+            });
+        }
+
+        private static WeaponModel Decode(string id)
+        {
             WeaponModel model = null;
             string resource = "CLASSIFIED.item_" + id + ".bin";
             try
@@ -239,7 +290,6 @@ namespace CLASSIFIED
                 ClassifiedPlugin.Log.LogWarning("Hologram: could not read " + resource + ": " + e.Message);
                 model = null;
             }
-            Cache[id] = model;
             return model;
         }
 

@@ -187,6 +187,8 @@ namespace CLASSIFIED
                     _lineLabel = Fit(Label("", x + w * 0.5f, top - 26f, w, 9f, A(T.Dim, 210), TextAlignmentOptions.Left), 9f);
                 }
 
+                // The table's models read on a worker thread now, not on the frame each comes on.
+                WeaponModel.Prefetch(_kit);
                 _holo = Hologram.Create("Item", R);
                 _holo.Ink = A(T.Accent, 255);
                 _leaders = Draw();
@@ -264,14 +266,17 @@ namespace CLASSIFIED
                 {
                     // A weapon's parts by slot; equipment's by the points the generator marked on it.
                     string[] order = { "mod_scope", "mod_muzzle", "mod_magazine", "mod_stock", "mod_tactical", "mod_foregrip", "mod_sight_rear", "mod_reciever", "mod_gas_block", "mod_handguard", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel", "mod_bipod",
-                        "gear_plate", "gear_strap", "gear_shell", "gear_rim", "gear_optics", "gear_mount", "gear_headband", "gear_cup", "gear_lid", "gear_body", "gear_name" };
+                        "gear_plate", "gear_soft", "gear_pouch", "gear_strap", "gear_shell", "gear_rim", "gear_optics", "gear_mount", "gear_headband", "gear_cup", "gear_lid", "gear_body", "gear_name" };
                     // Each row (above the item, below it) takes labels only while they fit across the
                     // zone, so they never have to be pushed over each other.
                     float above = 0f, below = 0f, budget = _zone.width * 0.9f;
                     foreach (string slot in order)
                     {
                         // The first part in a slot of that kind (an optic may sit in mod_scope_000).
-                        int i = System.Array.FindIndex(model.AnchorSlots, s => s == slot || s.StartsWith(slot + "_"));
+                        // A stock is named by its outermost piece (the stock on its buffer tube), anything else by its first.
+                        int i = slot == "mod_stock"
+                            ? System.Array.FindLastIndex(model.AnchorSlots, s => s == slot || s.StartsWith(slot + "_"))
+                            : System.Array.FindIndex(model.AnchorSlots, s => s == slot || s.StartsWith(slot + "_"));
                         if (i < 0 || _callouts.Count >= 5)
                         {
                             continue;
@@ -348,6 +353,8 @@ namespace CLASSIFIED
                     case "mod_handguard": return Ru("ЦЕВЬЁ", "HANDGUARD");
                     case "mod_bipod": return Ru("СОШКИ", "BIPOD");
                     case "gear_plate": return Ru("БРОНЕПЛАСТИНА", "BALLISTIC PLATE");
+                    case "gear_soft": return Ru("БРОНЕПАНЕЛИ", "ARMOUR PANELS");
+                    case "gear_pouch": return Ru("ПОДСУМКИ", "POUCHES");
                     case "gear_strap": return Ru("ПЛЕЧЕВОЙ РЕМЕНЬ", "SHOULDER STRAP");
                     case "gear_shell": return Ru("КОРПУС ШЛЕМА", "SHELL");
                     case "gear_rim": return Ru("КРОМКА", "RIM");
@@ -979,7 +986,13 @@ namespace CLASSIFIED
                             heading = _orbit - 180f;
                         }
                         Place(at, heading);
-                        Redraw(p, () => Polyline(_live, new[] { _path[0], Vector2.Lerp(_path[0], _path[1], Mathf.Min(p / Outbound, 1f)) }, 1.4f, A(Own, 140), dash: true));
+                        if (Due(p))
+                        {
+                            _leg[0] = _path[0];
+                            _leg[1] = Vector2.Lerp(_path[0], _path[1], Mathf.Min(p / Outbound, 1f));
+                            Polyline(_live, _leg, 1.4f, A(Own, 140), dash: true);
+                            _live.Commit();
+                        }
                         break;
                     }
                     case Operation.Signals:
@@ -998,7 +1011,8 @@ namespace CLASSIFIED
                         _mover.gameObject.SetActive(false);
                         float head = Mathf.Lerp(0.06f, 0.94f, p);
                         bool inDanger = (Along(_path, head) - _danger).magnitude < 34f;
-                        Redraw(inDanger ? 10f + Mathf.Floor(t * 12f) * 0.001f : p, () =>
+                        // In the danger area the pulse redraws a dozen times a second; else only as the column moves.
+                        if (Due(inDanger ? 10f + Mathf.Repeat(Mathf.Floor(t * 12f), 1000f) * 0.001f : p))
                         {
                             if (inDanger)
                             {
@@ -1017,10 +1031,14 @@ namespace CLASSIFIED
                                 Vector2 side = new Vector2(-dir.y, dir.x);
                                 Vector2 front = at + dir * 6.5f;
                                 Vector2 back = at - dir * 6.5f;
-                                _live.Polygon(new[] { P(front.x + side.x * 4.5f, front.y + side.y * 4.5f), P(front.x - side.x * 4.5f, front.y - side.y * 4.5f),
-                                    P(back.x - side.x * 4.5f, back.y - side.y * 4.5f), P(back.x + side.x * 4.5f, back.y + side.y * 4.5f) }, A(Own, (byte)(245 - k * 40)));
+                                _quad[0] = P(front.x + side.x * 4.5f, front.y + side.y * 4.5f);
+                                _quad[1] = P(front.x - side.x * 4.5f, front.y - side.y * 4.5f);
+                                _quad[2] = P(back.x - side.x * 4.5f, back.y - side.y * 4.5f);
+                                _quad[3] = P(back.x + side.x * 4.5f, back.y + side.y * 4.5f);
+                                _live.Polygon(_quad, A(Own, (byte)(245 - k * 40)));
                             }
-                        });
+                            _live.Commit();
+                        }
                         break;
                     }
                     case Operation.Casevac:
@@ -1030,7 +1048,11 @@ namespace CLASSIFIED
                         Vector2 at = Along(_path, leg);
                         Vector2 ahead = Along(_path, Mathf.Clamp01(leg + (p < 0.5f ? 0.02f : -0.02f))) - at;
                         Place(at, Mathf.Atan2(ahead.y, ahead.x) * Mathf.Rad2Deg - 90f);
-                        Redraw(p, () => Polyline(_live, Part(_path, p < 0.5f ? leg : 1f), 1.4f, A(Own, 150), dash: true));
+                        if (Due(p))
+                        {
+                            Polyline(_live, Part(_path, p < 0.5f ? leg : 1f), 1.4f, A(Own, 150), dash: true);
+                            _live.Commit();
+                        }
                         break;
                     }
                     case Operation.Surveillance:
@@ -1038,7 +1060,11 @@ namespace CLASSIFIED
                         Vector2 at = Along(_path, p);
                         Vector2 ahead = Along(_path, Mathf.Min(1f, p + 0.02f)) - at;
                         Place(at, Mathf.Atan2(ahead.y, ahead.x) * Mathf.Rad2Deg - 90f);
-                        Redraw(p, () => Polyline(_live, Part(_path, p), 1.4f, A(Enemy, 170), dash: true));
+                        if (Due(p))
+                        {
+                            Polyline(_live, Part(_path, p), 1.4f, A(Enemy, 170), dash: true);
+                            _live.Commit();
+                        }
                         break;
                     }
                     default:
@@ -1046,7 +1072,11 @@ namespace CLASSIFIED
                         // The arrow carries its own head: no marker.
                         _mover.gameObject.SetActive(false);
                         float reach = Mathf.Max(0.04f, p);
-                        Redraw(p, () => BroadArrow(_live, Part(_path, reach), 10f, Own, Along(_path, reach) - Along(_path, Mathf.Max(0f, reach - 0.05f))));
+                        if (Due(p))
+                        {
+                            BroadArrow(_live, Part(_path, reach), 10f, Own, Along(_path, reach) - Along(_path, Mathf.Max(0f, reach - 0.05f)));
+                            _live.Commit();
+                        }
                         break;
                     }
                 }
@@ -1059,17 +1089,20 @@ namespace CLASSIFIED
             }
 
             /// <summary>Redraws the live layer when the load has moved on enough to show.</summary>
-            private void Redraw(float p, System.Action draw)
+            /// <summary>Whether the moving part of the map needs drawing again for <paramref name="p"/>; if so, cleared for it (the caller draws and commits).</summary>
+            private bool Due(float p)
             {
                 if (Mathf.Abs(p - _drawn) < 0.0005f)
                 {
-                    return;
+                    return false;
                 }
                 _drawn = p;
                 _live.Clear();
-                draw();
-                _live.Commit();
+                return true;
             }
+
+            private readonly Vector2[] _leg = new Vector2[2];
+            private readonly Vector2[] _quad = new Vector2[4];
 
             /// <summary>Signals: each receiver's bearing swings onto the emitter as the load goes on; once they cross, the fix.</summary>
             private void Bearings(float t, float p)

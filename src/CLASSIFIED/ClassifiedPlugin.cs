@@ -232,7 +232,7 @@ namespace CLASSIFIED
             Enabled = Config.Bind("General", "Enabled", true,
                 "Show your faction's loading terminal instead of the plain loading text.");
             FactionSetting = Config.Bind("General", "Faction", FactionChoice.Profile,
-                "Whose terminal to show. Profile follows your profile's faction (the first launch signs in unidentified until the profile loads); BEAR or USEC shows that side's whatever your profile.");
+                "Whose terminal to show. Profile follows your profile's faction (the very first launch, before the profile loads, picks a side at random); BEAR or USEC shows that side's whatever your profile.");
             BearLanguage = Config.Bind("General", "BEAR Language", BearText.Russian,
                 "BEAR's terminal speaks Russian: its steps, orders, chatter and labels. English shows all of it in English instead.");
             WithAccessGranted = Config.Bind("General", "With ACCESS GRANTED", AccessGrantedMode.TakeTurns,

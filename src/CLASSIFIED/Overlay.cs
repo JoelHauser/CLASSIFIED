@@ -160,6 +160,9 @@ namespace CLASSIFIED
         private TextMeshProUGUI _bottomRight;
 
         private bool _bootSubtitle;
+
+        /// <summary>The overrun last written into a slow step's note, in tenths of a second.</summary>
+        private int _shownOverTenths = -1;
         private int _shownStep = -2;
         private string _shownDetail;
         private float _stepShownAt;
@@ -1132,15 +1135,18 @@ namespace CLASSIFIED
             }
 
             string warnHex = _variant.Theme.WarnHex;
-            if (slow)
+            int overTenths = slow ? Mathf.FloorToInt(over * 10f) : -1;
+            if (slow && (overTenths != _shownOverTenths || detailChanged || !wasSlow))
             {
+                _shownOverTenths = overTenths;
                 string late = Cyr(Lang.Bear(_variant.Theme.SlowNote)) + $"  +{over:0.0}" + Words("С", "S");
                 _currentDetail.text = string.IsNullOrEmpty(detail)
                     ? $"  <color={warnHex}>{late}</color>"
                     : $"  {detail.ToUpperInvariant()}   <color={warnHex}>{late}</color>";
             }
-            else if (detailChanged || wasSlow)
+            else if (!slow && (detailChanged || wasSlow))
             {
+                _shownOverTenths = -1;
                 _currentDetail.text = string.IsNullOrEmpty(detail) ? string.Empty : "  " + detail.ToUpperInvariant();
             }
         }

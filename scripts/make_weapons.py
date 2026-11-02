@@ -1124,7 +1124,8 @@ def spec_lines(kind, key, items, preset):
         ru = f"КАЛИБР {calibre.replace('.', ',')}   ТЕМП {int(p.get('bFirerate', 0))} ВЫСТР/МИН   ДАЛЬНОСТЬ {int(p.get('bEffDist', 0))} М   РЕЖИМ " + "/".join(
             {"SINGLE": "ОД", "FULLAUTO": "АВТ", "BURST": "ОЧ"}.get(m, m) for m in modes)
         return en, ru
-    if kind in ("helmet", "armor"):
+    armoured_rig = kind == "rig" and any(int(items[it["_tpl"]]["_props"].get("armorClass", 0) or 0) for it in preset["_items"])
+    if kind in ("helmet", "armor") or armoured_rig:
         classes = [int(items[it["_tpl"]]["_props"].get("armorClass", 0) or 0) for it in preset["_items"]]
         cls = max(classes) if classes else 0
         mat = MATERIALS.get(p.get("ArmorMaterial", ""), (p.get("ArmorMaterial", "").upper(), p.get("ArmorMaterial", "")))
@@ -1144,7 +1145,7 @@ def spec_lines(kind, key, items, preset):
         "nvg": ("IMAGE INTENSIFIER", "ЭЛЕКТРОННО-ОПТИЧЕСКИЙ ПРЕОБРАЗОВАТЕЛЬ"),
         "headset": ("ACTIVE HEARING PROTECTION", "АКТИВНЫЕ ПРОТИВОШУМНЫЕ НАУШНИКИ"),
         "radio": ("ENCRYPTED VIDEO DOWNLINK", "ЗАЩИЩЁННЫЙ КАНАЛ ПЕРЕДАЧИ"),
-        "device": ("DIAGNOSTIC EQUIPMENT", "ДИАГНОСТИЧЕСКОЕ ОБОРУДОВАНИЕ"),
+        "device": ("MEDICAL EQUIPMENT", "МЕДИЦИНСКОЕ ОБОРУДОВАНИЕ"),
         "food": ("FIELD RATION", "ПОЛЕВОЙ ПАЁК"),
         "intel": ("HANDLE AS CLASSIFIED", "ОБРАЩАТЬСЯ КАК С СЕКРЕТНЫМИ"),
         "med": ("FIRST AID", "ПЕРВАЯ ПОМОЩЬ"),
@@ -1152,6 +1153,9 @@ def spec_lines(kind, key, items, preset):
         "valuable": ("BARTER GOODS", "ТОВАР ДЛЯ ОБМЕНА"),
     }
     label = labels.get(kind, ("", ""))
+    if kind == "nvg" and "thermal" in items[key]["_name"].lower():
+        # A thermal imager sees heat; it is not an image intensifier.
+        label = ("THERMAL IMAGER", "ТЕПЛОВИЗОР")
     return f"{label[0]}   {weight[0]}", f"{label[1]}   {weight[1]}"
 
 
@@ -1208,7 +1212,8 @@ def main():
         preset = find_preset(globals_, items, template) or single(items, template)
         key = next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])
         line_en, line_ru = spec_lines(kind, key, items, preset)
-        specs.append((iid, kind, KINDS[kind][0], KINDS[kind][1], en[key + " ShortName"], en[key + " Name"],
+        label = KINDS["armor"] if kind == "rig" and gear_facts(items, preset)["armoured"]             else ("THERMAL IMAGING", "ТЕПЛОВИДЕНИЕ") if kind == "nvg" and "thermal" in items[key]["_name"].lower() else KINDS[kind]
+        specs.append((iid, kind, label[0], label[1], en[key + " ShortName"], en[key + " Name"],
                       ru.get(key + " ShortName", en[key + " ShortName"]), ru.get(key + " Name", en[key + " Name"]), line_en, line_ru))
         if only and iid not in only:
             continue
@@ -1299,7 +1304,7 @@ def attached(parts, gap=0.01, problems=None):
     return keep
 
 
-def gear_anchors(kind, verts):
+def gear_anchors(kind, verts, facts):
     """
     Callout points on equipment, which has no slots to name: by kind, from its shape as it
     stands (y up). Each is a point of the model itself.
@@ -1314,8 +1319,18 @@ def gear_anchors(kind, verts):
     top = at([mid[0], hi[1], mid[2]])
     bottom = at([mid[0], lo[1], mid[2]])
     if kind in ("armor", "rig"):
-        out = [("gear_strap", at([lo[0] + size[0] * 0.25, hi[1], mid[2]]))]
-        out.append(("gear_plate", at([mid[0], lo[1] + size[1] * 0.6, hi[2]])))
+        # Only what it has: a plate where it takes plates, armour panels where it is armoured
+        # without them (soft or sewn-in), pouches where it carries any; its straps otherwise.
+        out = []
+        chest = at([mid[0], lo[1] + size[1] * 0.6, hi[2]])
+        if facts["plates"]:
+            out.append(("gear_plate", chest))
+        elif facts["armoured"]:
+            out.append(("gear_soft", chest))
+        if facts["pouches"]:
+            out.append(("gear_pouch", at([mid[0], lo[1] + size[1] * 0.22, hi[2]])))
+        if len(out) < 2:
+            out.append(("gear_strap", at([lo[0] + size[0] * 0.25, hi[1], mid[2]])))
         return out
     if kind == "helmet":
         return [("gear_shell", top), ("gear_rim", at([hi[0], lo[1] + size[1] * 0.25, mid[2]]))]
@@ -1329,6 +1344,14 @@ def gear_anchors(kind, verts):
     if kind == "backpack":
         return [("gear_lid", top), ("gear_body", at([mid[0], mid[1], hi[2]]))]
     return [("gear_name", top)]
+
+
+def gear_facts(items, preset):
+    """What a piece of equipment has, from its data: plate slots, an armour class, pouches."""
+    root = items[next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])]
+    slots = [sl["_name"].lower() for sl in root["_props"].get("Slots", [])]
+    armour = max([int(items[it["_tpl"]]["_props"].get("armorClass", 0) or 0) for it in preset["_items"]] or [0])
+    return {"plates": "front_plate" in slots, "armoured": armour > 0, "pouches": bool(root["_props"].get("Grids"))}
 
 
 def plated(items, preset):
@@ -1454,7 +1477,7 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
             anchor_list.append((slot, pts[np.argmin(((pts - middle) ** 2).sum(axis=1))]))
 
     if not weapon:
-        anchor_list = gear_anchors(kind, verts)
+        anchor_list = gear_anchors(kind, verts, gear_facts(items, preset))
 
     if weapon:
         def anchor(name):

@@ -347,7 +347,11 @@ namespace CLASSIFIED
                 {
                     // A new trace a dozen times a second: noise, with the carriers standing up out of it.
                     _nextTrace = t + 1f / 12f;
-                    var trace = new float[SpectrumBins];
+                    float[] trace = _history.Count >= Waterfall ? _history[_history.Count - 1] : new float[SpectrumBins];
+                    if (_history.Count >= Waterfall)
+                    {
+                        _history.RemoveAt(_history.Count - 1);
+                    }
                     for (int i = 0; i < SpectrumBins; i++)
                     {
                         float f = i / (SpectrumBins - 1f);
@@ -360,10 +364,6 @@ namespace CLASSIFIED
                         trace[i] = Mathf.Clamp01(v);
                     }
                     _history.Insert(0, trace);
-                    if (_history.Count > Waterfall)
-                    {
-                        _history.RemoveAt(_history.Count - 1);
-                    }
                     _spectrum.Clear();
                     // The waterfall: the older traces fainter and lower, the newest on top.
                     for (int h = _history.Count - 1; h >= 0; h--)
@@ -490,6 +490,8 @@ namespace CLASSIFIED
             private Vector2 _roadSide;
             private Vector2 _teamFrom;
             private readonly Vector2[] _teamTo = new Vector2[4];
+            private readonly Vector2[] _teamAt = new Vector2[4];
+            private readonly Vector2[] _diamond = new Vector2[4];
             private float[] _fallsAt = new float[0];
             private TextMeshProUGUI _combatLabel;
             private int _shownCombat = -1;
@@ -1325,8 +1327,9 @@ namespace CLASSIFIED
                 // The analyst's marks: the objective boxed, its vehicles and the traffic tagged as the picture closes.
                 _reticle.Clear();
                 Vector2 lo = new Vector2(float.MaxValue, float.MaxValue), hi = -lo;
-                foreach (Vector2 corner in new[] { _site + _siteX * 23f + _siteY * 16f, _site - _siteX * 23f + _siteY * 16f, _site + _siteX * 23f - _siteY * 16f, _site - _siteX * 23f - _siteY * 16f })
+                for (int ci = 0; ci < 4; ci++)
                 {
+                    Vector2 corner = _site + _siteX * (ci % 2 == 0 ? 23f : -23f) + _siteY * (ci < 2 ? 16f : -16f);
                     Vector2 q = ToPanel(corner);
                     lo = Vector2.Min(lo, q);
                     hi = Vector2.Max(hi, q);
@@ -1463,7 +1466,7 @@ namespace CLASSIFIED
                 // The team: out from the far side, then onto the wire.
                 float move = Mathf.Clamp01((p - 0.08f) / 0.5f);
                 move = move * move * (3f - 2f * move);
-                var team = new Vector2[_teamTo.Length];
+                Vector2[] team = _teamAt;
                 for (int i = 0; i < team.Length; i++)
                 {
                     Vector2 start = _teamFrom + _siteX * ((i - 1.5f) * 6f);
@@ -1553,7 +1556,11 @@ namespace CLASSIFIED
                     Vector2 q = ToPanel(team[i]);
                     if (a.Contains(q))
                     {
-                        _traffic.Polygon(new[] { P(q.x, q.y + 3.6f), P(q.x + 3.6f, q.y), P(q.x, q.y - 3.6f), P(q.x - 3.6f, q.y) }, own);
+                        _diamond[0] = P(q.x, q.y + 3.6f);
+                        _diamond[1] = P(q.x + 3.6f, q.y);
+                        _diamond[2] = P(q.x, q.y - 3.6f);
+                        _diamond[3] = P(q.x - 3.6f, q.y);
+                        _traffic.Polygon(_diamond, own);
                     }
                 }
 
@@ -1615,12 +1622,13 @@ namespace CLASSIFIED
                 internal float Full;
                 internal string Unit;
                 internal bool Decimal;
-                internal string Shown;
+                internal int Shown;
             }
 
             private readonly List<Team> _teams = new List<Team>();
             private readonly List<Gauge> _gauges = new List<Gauge>();
             private TextMeshProUGUI _readyReading;
+            private int _shownReady = -1;
             private bool _stores;
 
             private void BuildReadiness(Rect zone)
@@ -1747,7 +1755,7 @@ namespace CLASSIFIED
                     _gauges.Add(new Gauge
                     {
                         Fill = fill, Value = value, From = Range(0.1f, 0.3f), To = Range(0.3f, 0.95f), Width = barW,
-                        Full = rows[i].Item2, Unit = rows[i].Item3, Decimal = rows[i].Item4
+                        Full = rows[i].Item2, Unit = rows[i].Item3, Decimal = rows[i].Item4, Shown = -1
                     });
                 }
             }
@@ -1787,10 +1795,11 @@ namespace CLASSIFIED
                             fit += team.States[k] == 2 ? 0 : 1;
                         }
                     }
-                    string reading = Ru($"Л/С {fit}/{total}", $"PAX {fit}/{total}") + "  " + Ru($"ДОЛОЖИЛИ {reported}/{_teams.Count}", $"{reported}/{_teams.Count} UP");
-                    if (_readyReading.text != reading)
+                    int key = fit * 10000 + total * 100 + reported;
+                    if (key != _shownReady)
                     {
-                        _readyReading.text = reading;
+                        _shownReady = key;
+                        _readyReading.text = Ru($"Л/С {fit}/{total}", $"PAX {fit}/{total}") + "  " + Ru($"ДОЛОЖИЛИ {reported}/{_teams.Count}", $"{reported}/{_teams.Count} UP");
                     }
                     return;
                 }
@@ -1806,20 +1815,21 @@ namespace CLASSIFIED
                     g.Fill.rectTransform.sizeDelta = new Vector2(Mathf.Round((g.Width * cells - 3f) * U), Mathf.Round(7f * U));
                     bool short_ = v < 0.35f;
                     g.Fill.color = A(short_ ? T.Warn : T.Accent, 200);
+                    // The figure as shown (a tenth, or a whole number): its text is made only when that changes.
                     float amount = v * g.Full;
-                    string text = (g.Decimal ? amount.ToString(T.Faction == Faction.Bear ? "0.0" : "0.0").Replace('.', T.Faction == Faction.Bear ? ',' : '.') : Mathf.RoundToInt(amount).ToString("N0")) + g.Unit;
-                    if (text != g.Shown)
+                    int figure = g.Decimal ? Mathf.RoundToInt(amount * 10f) : Mathf.RoundToInt(amount);
+                    if (figure != g.Shown)
                     {
-                        g.Shown = text;
-                        g.Value.text = text;
+                        g.Shown = figure;
+                        g.Value.text = (g.Decimal ? (figure / 10f).ToString("0.0").Replace('.', T.Faction == Faction.Bear ? ',' : '.') : figure.ToString("N0")) + g.Unit;
                     }
                     _gauges[i] = g;
                     low += short_ ? 1 : 0;
                 }
-                string board = low == 0 ? Ru("ОБЕСПЕЧЕНЫ", "GREEN") : Ru($"НЕХВАТКА {low}", $"AMBER  {low} SHORT");
-                if (_readyReading.text != board)
+                if (low != _shownReady)
                 {
-                    _readyReading.text = board;
+                    _shownReady = low;
+                    _readyReading.text = low == 0 ? Ru("ОБЕСПЕЧЕНЫ", "GREEN") : Ru($"НЕХВАТКА {low}", $"AMBER  {low} SHORT");
                 }
             }
 
