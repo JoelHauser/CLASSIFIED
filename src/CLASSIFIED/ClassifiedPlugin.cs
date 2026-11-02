@@ -86,8 +86,9 @@ namespace CLASSIFIED
         /// <summary>
         /// A raid is loading: whether this terminal shows it. Off unless switched on. With Deploy
         /// Screen Overhaul installed it stands aside by default, or they take turns. With ACCESS
-        /// GRANTED's raid terminal on too, the With ACCESS GRANTED setting decides, raid by raid.
-        /// Counts the raid either way, so taking turns stays in step.
+        /// GRANTED installed, raid loads go to whichever terminal showed this launch, so the
+        /// player keeps the one they signed in to; the other takes them only if that one has raid
+        /// loads off. Counts the raid either way, so taking turns stays in step.
         /// </summary>
         internal static bool ShowThisDeploy()
         {
@@ -111,37 +112,30 @@ namespace CLASSIFIED
                         break;
                 }
             }
-            if (AccessGrantedInstalled && AccessGrantedShowsRaids())
+            if (AccessGrantedInstalled && _standingAside && AccessGrantedShowsRaids())
             {
-                switch (WithAccessGranted.Value)
-                {
-                    case AccessGrantedMode.AlwaysAccessGranted:
-                        return false;
-                    case AccessGrantedMode.TakeTurns:
-                        // Over the deploys this terminal is allowed, every other one is ACCESS GRANTED's.
-                        _raidTurn++;
-                        if (_raidTurn % 2 == 0)
-                        {
-                            Log.LogInfo("ACCESS GRANTED shows raid loads too: this one is its turn.");
-                            return false;
-                        }
-                        break;
-                }
+                Log.LogInfo("ACCESS GRANTED showed this launch: its terminal shows the raid loads too.");
+                return false;
             }
             return true;
         }
 
-        private static int _raidTurn;
+        /// <summary>
+        /// Whether this launch's loading screen was CLASSIFIED's. Public, for ACCESS GRANTED: it
+        /// asks when a raid loads, so the raid goes to the terminal the player signed in to.
+        /// </summary>
+        public static bool OwnsThisLaunch => Showing;
 
-        /// <summary>Whether ACCESS GRANTED has its own raid-loading terminal switched on, from its settings.</summary>
+        /// <summary>Whether ACCESS GRANTED is switched on with its own raid-loading terminal, from its settings.</summary>
         private static bool AccessGrantedShowsRaids()
         {
             try
             {
                 if (BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(AccessGrantedGuid, out PluginInfo info) && info.Instance != null
+                    && info.Instance.Config.TryGetEntry(new ConfigDefinition("General", "Enabled"), out ConfigEntry<bool> enabled)
                     && info.Instance.Config.TryGetEntry(new ConfigDefinition("Raid Loading", "Show While Loading Raids"), out ConfigEntry<bool> entry))
                 {
-                    return entry.Value;
+                    return enabled.Value && entry.Value;
                 }
             }
             catch (System.Exception e)
@@ -236,7 +230,8 @@ namespace CLASSIFIED
             BearLanguage = Config.Bind("General", "BEAR Language", BearText.Russian,
                 "BEAR's terminal speaks Russian: its steps, orders, chatter and labels. English shows all of it in English instead.");
             WithAccessGranted = Config.Bind("General", "With ACCESS GRANTED", AccessGrantedMode.TakeTurns,
-                "Only matters when ACCESS GRANTED is installed too. Take Turns alternates launches between the TerraGroup terminal and yours; or always show one of the two.");
+                "Only matters when ACCESS GRANTED is installed too. Take Turns alternates launches between the TerraGroup terminal and yours; or always show one of the two. "
+                + "Raid loads follow the launch: the terminal you signed in to shows them, if its raid loading is on.");
             Theme = Config.Bind("Style", "Unit", ThemeChoice.Random,
                 "The unit the terminal belongs to, with its own colours, drawing and orders. Random picks one of your faction's each launch, never one shown in the last few launches.");
             Glitches = Config.Bind("Style", "Glitches", GlitchLevel.Subtle,
@@ -266,7 +261,7 @@ namespace CLASSIFIED
             PreviewLoad = Config.Bind("Preview", "Preview Load", RunKind.Launch,
                 "Which load the preview pretends to be when it opens: the game launching, or a raid loading. T switches while it shows.");
             RaidLoading = Config.Bind("Raid Loading", "Show While Loading Raids", false,
-                "Also show the terminal while a raid loads, from the deploy screen to the raid: the game's real load steps, "
+                "Also show the terminal while a raid loads, from the deploy screen to the raid: the same unit you signed in to, the game's real load steps, "
                 + "the countdown, then into the raid. One notice at most. Esc cancels the raid while the game allows it.");
             WithDeployScreen = Config.Bind("Raid Loading", "With Deploy Screen Overhaul", DeployScreenMode.StandAside,
                 "Only matters when Deploy Screen Overhaul is installed too, since both draw the raid loading screen. "

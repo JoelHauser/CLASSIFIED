@@ -454,6 +454,13 @@ namespace CLASSIFIED
             gameObject.SetActive(false);
         }
 
+        /// <summary>
+        /// The terminal the player signed in to this session, once a launch has reached the menu.
+        /// Every later load (a raid, the sign-in after one) keeps its unit and look, so the
+        /// session reads as one terminal; only the words are new each time.
+        /// </summary>
+        private Variant _sessionLook;
+
         /// <summary>Rolls this launch's unit, rings, header, ending and surprises.</summary>
         /// <param name="record">False for a roll that is never shown: its memos and headlines are not marked as seen.</param>
         private void Roll(bool record = true)
@@ -463,9 +470,21 @@ namespace CLASSIFIED
                 _random = new System.Random(Environment.TickCount);
             }
             // A preview brings its own roll, picked with the preview's keys.
-            _variant = _previewing && _previewVariant != null
-                ? _previewVariant
-                : Variant.Roll(_random, ClassifiedPlugin.Theme.Value, PlayerFaction(), ClassifiedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig(), preview: !record);
+            if (_previewing && _previewVariant != null)
+            {
+                _variant = _previewVariant;
+            }
+            else
+            {
+                Variant look = _sessionLook;
+                ThemeChoice theme = look != null ? look.Theme.Id : ClassifiedPlugin.Theme.Value;
+                Faction faction = look != null ? look.Faction : PlayerFaction();
+                _variant = Variant.Roll(_random, theme, faction, ClassifiedPlugin.Glitches.Value, StartupTracker.Launches, Pins.FromConfig(), preview: !record);
+                if (look != null)
+                {
+                    _variant.KeepLook(look);
+                }
+            }
             _chatterSource = new Chatter(_random, _variant.Theme);
             DeployRoll();
         }
@@ -616,6 +635,12 @@ namespace CLASSIFIED
             StartupTracker.EndRun();
             EndFx();
             _ringKick = 0f;
+            if (!_previewing && !_showreel && !Deploying && _sessionLook == null)
+            {
+                // The terminal the player signed in to (after any crossfade to their faction):
+                // the rest of the session keeps it.
+                _sessionLook = _variant;
+            }
             _phase = Phase.Granted;
             _grantedAt = realTime;
             _fading = false;

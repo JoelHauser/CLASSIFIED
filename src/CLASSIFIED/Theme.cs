@@ -415,6 +415,33 @@ namespace CLASSIFIED
         /// <summary>The faction this terminal belongs to; Unknown before a profile has ever been seen.</summary>
         internal Faction Faction => Theme.Faction;
 
+        /// <summary>
+        /// Takes the look of <paramref name="from"/>: its unit, its name and motto, parts, rings,
+        /// header and badge, so a later load in the session is the terminal the player signed in
+        /// to. The words (the notices, the ticker, the closing line) stay this roll's own.
+        /// </summary>
+        internal void KeepLook(Variant from)
+        {
+            Theme = from.Theme;
+            Backdrop = from.Backdrop;
+            Frame = from.Frame;
+            Intro = from.Intro;
+            Bar = from.Bar;
+            Outro = from.Outro;
+            Layout = from.Layout;
+            DashSpin = from.DashSpin;
+            ArcSpin = from.ArcSpin;
+            ChartSeed = from.ChartSeed;
+            Header = from.Header;
+            Name = from.Name;
+            Motto = from.Motto;
+            Boot = from.Boot;
+            SignIn = from.SignIn;
+            Deploy = from.Deploy;
+            TopRight = from.TopRight;
+            Milestone = from.Milestone;
+        }
+
         /// <param name="preview">
         /// A preview (or a roll never shown): shows three notices, is more likely to fake a
         /// denial, and does not mark what it picks as seen.
