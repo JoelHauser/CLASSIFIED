@@ -184,7 +184,7 @@ ITEMS = [
     ("trg", "weapon_sako_trg_m10_86x70", "weapon"),
     ("mk18", "weapon_sword_int_mk_18_mjolnir_86x70", "weapon"),
     ("ppsh", "weapon_zis_ppsh41_762x25", "weapon"),
-    ("deagle", "weapon_magnum_research_desert_eagle_l5_127x33", "weapon"),
+    ("deagle", "weapon_magnum_research_desert_eagle_l6_127x33", "weapon"),
     ("adar", "weapon_adar_2-15_556x45", "weapon"),
     ("raptor", "weapon_aklys_defense_velociraptor_762x35", "weapon"),
     ("tor2", "item_equipment_helmet_tor_2", "helmet"),
@@ -533,7 +533,7 @@ SIGHTS_BY_CLASS = {
     "SniperRifle": {"OpticScope": 5.0, "AssaultScope": 1.5, "Collimator": 0.2, "CompactCollimator": 0.1, "SpecialScope": 0.3},
     "MarksmanRifle": {"OpticScope": 4.0, "AssaultScope": 2.0, "Collimator": 0.4, "CompactCollimator": 0.2, "SpecialScope": 0.3},
     "MachineGun": {"OpticScope": 0.5, "AssaultScope": 2.0, "Collimator": 1.0, "CompactCollimator": 0.3, "SpecialScope": 0.2},
-    "Pistol": {"OpticScope": 0.0, "AssaultScope": 0.0, "Collimator": 0.3, "CompactCollimator": 3.0, "SpecialScope": 0.0},
+    "Pistol": {"OpticScope": 0.0, "AssaultScope": 0.3, "Collimator": 1.2, "CompactCollimator": 2.0, "SpecialScope": 0.0},
     "Revolver": {"OpticScope": 0.0, "AssaultScope": 0.2, "Collimator": 1.0, "CompactCollimator": 2.0, "SpecialScope": 0.0},
 }
 
@@ -554,6 +554,15 @@ def sight_kind(items, tpl):
 
 def is_mount(items, tpl):
     return "Mount" in kinds_of(items, tpl)
+
+
+# The kinds of attachment a build's loadout picks from, and the slot each goes in.
+LOADOUT = ("optic", "light", "grip", "muzzle")
+CATEGORY = {"mod_scope": "optic", "mod_tactical": "light", "mod_foregrip": "grip", "mod_muzzle": "muzzle"}
+
+
+def preset_root(preset):
+    return next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])
 
 
 def random_build(items, preset, rng, streaming):
@@ -597,7 +606,7 @@ def random_build(items, preset, rng, streaming):
             return False
         path = v["_props"].get("Prefab", {}).get("path", "")
         name = v["_name"].lower()
-        if not path or "event" in name or "test" in name or "quest" in name or "carry_handle" in name or "vltor_stock_adapter" in name:
+        if not path or "event" in name or "test" in name or "quest" in name or "carry_hand" in name or "vltor_stock_adapter" in name:
             return False
         if not os.path.exists(os.path.join(streaming, path.replace("/", os.sep))):
             return False
@@ -631,10 +640,19 @@ def random_build(items, preset, rng, streaming):
                 return False
         return True
 
+    # This build's loadout: each kind of attachment about half the time (a precision rifle nearly
+    # always has its scope), at least one, so builds run from a lone sight or suppressor to everything.
+    root_class = next((c for c in kinds_of(items, preset_root(preset)) if c in SIGHTS_BY_CLASS or c in ("AssaultRifle", "AssaultCarbine", "Smg", "Shotgun")), "")
+    want = {k for k in LOADOUT if rng.random() < (0.85 if k == "optic" and root_class in ("SniperRifle", "MarksmanRifle") else 0.55)}
+    if not want:
+        want = {rng.choice(sorted(LOADOUT))}
+
     # Swaps.
     for it in list(its):
         slot = it.get("slotId")
         if not slot or slot not in REPLACE or it not in its or rng.random() > REPLACE[slot]:
+            continue
+        if slot == "mod_muzzle" and "muzzle" not in want:
             continue
         sl = slot_def(it["parentId"], slot)
         if sl is None:
@@ -820,9 +838,10 @@ def random_build(items, preset, rng, streaming):
     # Whatever the weapon must show (a magazine, a stock, a grip) is on it, from the start.
     fill_required(preset["_parent"])
 
-    # A carry handle goes: an optic stacked on one looks wrong, and its slot takes a real one.
+    # With an optic coming, a carry handle (the game spells it "carry_hande" too) goes: an optic
+    # stacked on one looks wrong. Without one it stays, as the weapon's iron sight.
     for x in list(its):
-        if x in its and x.get("parentId") and "carry_handle" in items[x["_tpl"]]["_name"].lower():
+        if "optic" in want and x in its and x.get("parentId") and "carry_hand" in items[x["_tpl"]]["_name"].lower():
             its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
 
     # Attachments.
@@ -841,6 +860,8 @@ def random_build(items, preset, rng, streaming):
             if rule is None or depth(it["_id"]) > 6 or added >= 9:
                 continue
             kind, chance = rule
+            if kind != "mod_mount" and CATEGORY[kind] not in want:
+                continue
             if kind == "mod_scope":
                 # The optic goes on whole: a sight, or rings with their scope on.
                 if not has_scope and fit_sight(it, sl):
@@ -867,17 +888,17 @@ def random_build(items, preset, rng, streaming):
             queue.append(new)
             added += 1
 
-    # Every random build shows its attachments: an optic (in a scope slot, else on a mount: the
-    # dovetail of an AK, a pistol's slide plate), a light or laser, and most of the time a grip.
-    if not has_sight():
+    # What the loadout asked for goes on, wherever it fits: an optic (in a scope slot, else on a
+    # mount: an AK's dovetail, a pistol's slide plate), a light or laser, a grip.
+    if "optic" in want and not has_sight():
         fit = lambda it, sl: reach(it, sl, "mod_scope", pick_sight)
         if not ensure("mod_scope", fit, ("mod_scope", "mod_mount")):
             swap_for("mod_scope", fit, ("mod_scope", "mod_mount"))
-    if not has_kind("mod_tactical"):
+    if "light" in want and not has_kind("mod_tactical"):
         fit = lambda it, sl: reach(it, sl, "mod_tactical", any_of)
         if not ensure("mod_tactical", fit, ("mod_tactical", "mod_mount", "mod_scope")):
             swap_for("mod_tactical", fit, ("mod_tactical", "mod_mount"))
-    if not has_kind("mod_foregrip") and rng.random() < 0.75:
+    if "grip" in want and not has_kind("mod_foregrip"):
         ensure("mod_foregrip", lambda it, sl: reach(it, sl, "mod_foregrip", any_of), ("mod_foregrip", "mod_mount"))
 
     # Nothing hangs off a muzzle device or suppressor (a VSS's): mounts clamped there sit at odd angles.
@@ -913,7 +934,7 @@ def random_build(items, preset, rng, streaming):
             if x["_id"] not in original and is_mount(items, x["_tpl"]) and not children(x["_id"]):
                 its.remove(x)
                 changed = True
-    return {"_parent": preset["_parent"], "_items": its}
+    return {"_parent": preset["_parent"], "_items": its, "_want": sorted(want)}
 
 
 def subtree_of(items_list, iid):
@@ -1155,6 +1176,7 @@ def main():
                       ru.get(key + " ShortName", en[key + " ShortName"]), ru.get(key + " Name", en[key + " Name"]), line_en, line_ru))
         if only and iid not in only:
             continue
+        built = set()
         for k in range(BUILDS if weapon else 1):
             name = iid if k == 0 else f"{iid}_{k}"
             try:
@@ -1166,7 +1188,11 @@ def main():
                 for attempt in range(48):
                     check = []
                     build = random_build(items, preset, random.Random(f"{iid}-{k}-{attempt}"), streaming)
-                    if attempt < 20 and not any(sight_kind(items, x["_tpl"]) for x in build["_items"]):
+                    if attempt < 20 and "optic" in build.get("_want", ()) and not any(sight_kind(items, x["_tpl"]) for x in build["_items"]):
+                        continue
+                    signature = tuple(sorted(x["_tpl"] for x in build["_items"]))
+                    if signature in built and attempt < 40:
+                        print(f"   {name} try {attempt + 1} rejected: same as another build")
                         continue
                     if sorted(x["_tpl"] for x in build["_items"]) == sorted(x["_tpl"] for x in preset["_items"]) and attempt < 47:
                         print(f"   {name} try {attempt + 1} rejected: same as the stock build")
@@ -1178,10 +1204,12 @@ def main():
                         check = []
                         make(name, kind, bare, items, streaming, weapon, check)
                         if not check:
+                            built.add(signature)
                             break
                         print(f"   {name} bare build rejected too: {'; '.join(check)}")
                     make(name, kind, build, items, streaming, weapon, check if attempt < 47 else None)
                     if not check:
+                        built.add(signature)
                         break
                     print(f"   {name} try {attempt + 1} rejected: {'; '.join(check)}")
             except Exception as e:  # one item the game builds differently should not stop the rest
@@ -1419,6 +1447,15 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
             rest = [pts * sign for slot, name, pts in each if slot not in ("mod_muzzle", "mod_tactical", "mod_scope", "mount", "mod_foregrip")]
             barrel = [pts * sign for slot, name, pts in each if slot in ("mod_barrel", "mod_muzzle")]
             bore = float(np.median(np.concatenate(barrel)[:, 1])) if barrel else None
+            # The barrel lies along the model's length: if not, the model was laid out on the wrong
+            # axis (a long magazine or stock can outmeasure a pistol's barrel).
+            if barrel:
+                q = np.concatenate(barrel)
+                centred = q - q.mean(axis=0)
+                if len(centred) >= 3:
+                    _, sv, vt = np.linalg.svd(centred, full_matrices=False)
+                    if sv[0] > 1.5 * sv[1] and abs(vt[0][0]) < 0.8:
+                        geo.append("model turned: barrel not along its length")
             if rest:
                 tip = max(float(q[:, 0].max()) for q in rest)
                 for slot, name, pts in each:
