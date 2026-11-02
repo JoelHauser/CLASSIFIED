@@ -97,13 +97,12 @@ namespace CLASSIFIED
             private bool _zoned;
             private Rect _left;
             private Rect _right;
-            private Rect _strip;
 
             private void Zones()
             {
                 if (!_zoned)
                 {
-                    O.ArtZones(out _left, out _right, out _strip);
+                    O.ArtZones(out _left, out _right, out _);
                     _zoned = true;
                 }
             }
@@ -112,12 +111,6 @@ namespace CLASSIFIED
             protected Rect Lz { get { Zones(); return _left; } }
             /// <summary>The right zone.</summary>
             protected Rect Rz { get { Zones(); return _right; } }
-            /// <summary>The strip under the readout, above the ticker.</summary>
-            protected Rect Sz { get { Zones(); return _strip; } }
-            protected Rect Zone(int side) => side == 0 ? Lz : Rz;
-            /// <summary>The taller zone, for the one big piece; the other gets the rest.</summary>
-            protected Rect Tall => Lz.height >= Rz.height ? Lz : Rz;
-            protected Rect Other => Lz.height >= Rz.height ? Rz : Lz;
 
             protected override bool Seeded => true;
 

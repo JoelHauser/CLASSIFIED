@@ -562,7 +562,7 @@ namespace CLASSIFIED
 
         private void ApplyIntroText()
         {
-            string unit = _variant.Theme.Division;
+            string unit = _variant.Name.En;
             int session = StartupTracker.Launches;
             _bootText.text =
                 $"USEC TACNET  //  SECURE BOOT  //  BUILD 4.1.{session % 1000:000}\n\n"

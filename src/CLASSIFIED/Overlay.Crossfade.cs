@@ -251,10 +251,8 @@ namespace CLASSIFIED
         /// <summary>The unit, in Russian too for BEAR where the font allows, and the stage of the launch.</summary>
         private string Subtitle(bool boot)
         {
-            Theme theme = _variant.Theme;
-            // BEAR in Russian gives its unit's own name; the stage follows the terminal's language.
-            string unit = theme.Faction == Faction.Bear && BearRussian && !string.IsNullOrEmpty(theme.Native) ? Cyr(theme.Native) : theme.Division;
-            return unit + "  //  " + Stage(boot);
+            // The name the unit goes by this launch, and the stage, both in the terminal's language.
+            return Words(_variant.Name.Ru, _variant.Name.En) + "  //  " + Stage(boot);
         }
 
         /// <summary>Whether the terminal's font has Russian letters; checked when the font is set.</summary>

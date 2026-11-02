@@ -64,6 +64,7 @@ namespace CLASSIFIED
             // Map conventions: Soviet maps draw own forces red and the enemy blue, NATO the
             // other way round.
             private Vector2 _danger = new Vector2(-9999f, -9999f);
+            private float _bearingsAt = -1f;
 
             private Color32 Own => Bear ? new Color32(226, 58, 44, 255) : new Color32(82, 160, 255, 255);
             private Color32 Enemy => Bear ? new Color32(64, 140, 255, 255) : new Color32(240, 70, 64, 255);
@@ -115,7 +116,6 @@ namespace CLASSIFIED
             private Rect _zone;
             private float _titleHeight;
             private float _yaw;
-            private float _flickerUntil;
             private float _rowTop;
             private float _rowBottom;
             private float _wordsShown = -1f;
@@ -219,7 +219,7 @@ namespace CLASSIFIED
                 string line = Russian ? O.Cyr(_spec.LineRu) : _spec.LineEn;
                 if (_kindLabel != null)
                 {
-                    _kindLabel.text = (Russian ? O.Cyr(_spec.KindRu) : _spec.KindEn) + Ru("  //  ДСП", "  //  FOUO");
+                    _kindLabel.text = (Russian ? O.Cyr(_spec.KindRu) : _spec.KindEn) + Ru("  //  СЕКРЕТНО", "  //  RESTRICTED");
                     _shownAzimuth = -1;
                     _fullLabel.text = full;
                     _nameLabel.text = name;
@@ -238,9 +238,11 @@ namespace CLASSIFIED
                     Object.Destroy(c.Label.gameObject);
                 }
                 _callouts.Clear();
-                if (model != null && _spec.Weapon)
+                if (model != null)
                 {
-                    string[] order = { "mod_scope", "mod_muzzle", "mod_magazine", "mod_stock", "mod_tactical", "mod_foregrip", "mod_sight_rear", "mod_reciever", "mod_gas_block", "mod_handguard", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel", "mod_bipod" };
+                    // A weapon's parts by slot; equipment's by the points the generator marked on it.
+                    string[] order = { "mod_scope", "mod_muzzle", "mod_magazine", "mod_stock", "mod_tactical", "mod_foregrip", "mod_sight_rear", "mod_reciever", "mod_gas_block", "mod_handguard", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel", "mod_bipod",
+                        "gear_plate", "gear_strap", "gear_shell", "gear_rim", "gear_optics", "gear_mount", "gear_headband", "gear_cup", "gear_lid", "gear_body", "gear_name" };
                     foreach (string slot in order)
                     {
                         // The first part in a slot of that kind (an optic may sit in mod_scope_000).
@@ -305,6 +307,17 @@ namespace CLASSIFIED
                     case "mod_barrel": return Ru("СТВОЛ", "BARREL");
                     case "mod_handguard": return Ru("ЦЕВЬЁ", "HANDGUARD");
                     case "mod_bipod": return Ru("СОШКИ", "BIPOD");
+                    case "gear_plate": return Ru("БРОНЕПЛАСТИНА", "BALLISTIC PLATE");
+                    case "gear_strap": return Ru("ПЛЕЧЕВОЙ РЕМЕНЬ", "SHOULDER STRAP");
+                    case "gear_shell": return Ru("КОРПУС ШЛЕМА", "SHELL");
+                    case "gear_rim": return Ru("КРОМКА", "RIM");
+                    case "gear_optics": return Ru("ОПТИКА", "OPTICS");
+                    case "gear_mount": return Ru("КРЕПЛЕНИЕ", "MOUNT");
+                    case "gear_headband": return Ru("ОГОЛОВЬЕ", "HEADBAND");
+                    case "gear_cup": return Ru("ЧАШКА НАУШНИКА", "EAR CUP");
+                    case "gear_lid": return Ru("КЛАПАН", "LID");
+                    case "gear_body": return Ru("ОСНОВНОЕ ОТДЕЛЕНИЕ", "MAIN COMPARTMENT");
+                    case "gear_name": return Russian ? O.Cyr(_spec.ShortRu) : _spec.Short;
                     default: return null;
                 }
             }
@@ -339,12 +352,8 @@ namespace CLASSIFIED
                 // A scan along it every few seconds, once it is built.
                 float cycle = ((age - BuildTime) % 4.5f) / 4.5f;
                 _holo.ScanAt = !_dissolving && age > BuildTime && cycle < 0.55f ? cycle / 0.55f : -9f;
-                // Now and then the projection stutters.
-                if (t > _flickerUntil + 2f && Rng.NextDouble() < Dt * 0.12f)
-                {
-                    _flickerUntil = t + Range(0.05f, 0.14f);
-                }
-                _holo.Strength = t < _flickerUntil ? 0.45f : 0.92f + 0.08f * Mathf.Sin(t * 23f);
+                // Steady: the stutters and the shimmer read as the attachments flashing.
+                _holo.Strength = 0.95f;
                 _holo.Tick(t);
 
                 // The words come in with the item and go with it.
@@ -540,6 +549,8 @@ namespace CLASSIFIED
                 _op = OperationOf(T.Id);
                 float header = 22f;
                 _map = Rect.MinMaxRect(zone.xMin + 6f, zone.yMin + 6f, zone.xMax - 6f, zone.yMax - header - 6f);
+                // A dark ground under the map: the backdrop's own map showing through read as two maps at once.
+                Box(_map.center.x, _map.center.y, _map.width, _map.height, A(Dark, 235));
                 _clip = Clip(_map);
 
                 // Terrain under a light grid, in the unit's own colour.
@@ -932,8 +943,12 @@ namespace CLASSIFIED
                         break;
                     }
                     case Operation.Signals:
-                        // The bearings swing all the time, so they redraw every frame.
-                        Bearings(t, p);
+                        // The bearings swing all the time: redrawn 30 times a second, which is smooth for a slow swing.
+                        if (t - _bearingsAt >= 1f / 30f)
+                        {
+                            _bearingsAt = t;
+                            Bearings(t, p);
+                        }
                         break;
                     case Operation.Convoy:
                     {

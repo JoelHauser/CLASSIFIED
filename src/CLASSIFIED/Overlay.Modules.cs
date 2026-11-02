@@ -96,6 +96,8 @@ namespace CLASSIFIED
             {
                 const float Header = 22f;
                 Rect area = Rect.MinMaxRect(zone.xMin + 6f, zone.yMin + 6f, zone.xMax - 6f, zone.yMax - Header - 6f);
+                // A dark ground under the panel, so the backdrop's own map and figures don't show through it.
+                Box(area.center.x, area.center.y, area.width, area.height, A(Dark, 235));
                 Shape frame = Draw();
                 Outline(frame, area.center.x, area.center.y, area.width, area.height, 1.5f, A(T.Accent, 70));
                 const float Tick = 10f;
@@ -121,6 +123,12 @@ namespace CLASSIFIED
             private TextMeshProUGUI _dossierReading;
             private TextMeshProUGUI _match;
             private Rect _photo;
+            private readonly List<TextMeshProUGUI> _sightings = new List<TextMeshProUGUI>();
+            private TextMeshProUGUI _bounty;
+            private int _bountyTo;
+            private int _shownBounty = -1;
+            private Vector2 _face;
+            private float _faceSize;
             private int _shownMatch = -1;
 
             private static readonly string[] Callsigns = { "GRANIT", "SHAMAN", "VOLK", "KOSTYL", "SAPPER", "BARMAN", "TOURIST", "NOMAD", "DEACON", "LYNX", "HATCHET", "MOTH" };
@@ -129,14 +137,17 @@ namespace CLASSIFIED
             {
                 _panel = PanelFrame(zone, Ru($"ЛИЧНОЕ ДЕЛО  //  № {Code(4)}  //  СОВ. СЕКРЕТНО", $"PERSONNEL FILE  //  NO. {Code(4)}  //  EYES ONLY"), out _dossierReading);
                 Rect a = _panel;
-                // The photo, on the left, as tall as the panel allows.
-                float ph = Mathf.Min(a.height - 30f, 190f);
+                // The photo, on the left, as tall as the panel.
+                float ph = Mathf.Min(a.height - 34f, 280f);
                 float pw = ph * 0.78f;
-                _photo = new Rect(a.xMin + 14f, a.yMax - 14f - ph, pw, ph);
+                _photo = new Rect(a.xMin + 14f, a.center.y - ph * 0.5f + 6f, pw, ph);
                 Shape photo = Draw();
                 photo.RoundedRect(P(_photo.center.x, _photo.center.y), pw * U, ph * U, 0f, A(T.Accent, 14));
                 Outline(photo, _photo.center.x, _photo.center.y, pw, ph, 1.2f, A(T.Accent, 90));
                 Person(photo, _photo.center.x, _photo.center.y - ph * 0.08f, ph * 0.8f, A(T.Accent, 60));
+                // Where Person puts the head (0.16 of its height above its middle), for the match box.
+                _face = new Vector2(_photo.center.x, _photo.center.y - ph * 0.08f + 0.16f * ph * 0.8f);
+                _faceSize = 0.2f * ph * 0.8f * 2f;
                 // A measuring scale down the photo's side, as police photos have.
                 for (int k = 0; k <= 10; k++)
                 {
@@ -147,42 +158,87 @@ namespace CLASSIFIED
                 _scan = Draw();
                 _match = Label("", _photo.center.x, _photo.yMin - 10f, pw + 40f, 9f, A(T.Accent, 220), TextAlignmentOptions.Center);
 
-                // The record, on the right.
+                // The record, in the middle, its rows spread down the panel.
                 float x = _photo.xMax + 18f;
-                float w = a.xMax - 10f - x;
+                float room = a.xMax - 10f - x;
+                bool side = room > 330f;
+                float w = side ? Mathf.Min(room * 0.5f, 300f) : room;
                 Faction enemy = Theme.Opposite(T.Faction);
+                // What they carry: any weapon in the armoury.
+                var arms = Kit.All[0];
+                for (int k = 0; k < 40; k++)
+                {
+                    var candidate = Kit.All[Rng.Next(Kit.All.Length)];
+                    if (candidate.Weapon)
+                    {
+                        arms = candidate;
+                        break;
+                    }
+                }
                 string[,] rows =
                 {
                     { Ru("ФАМИЛИЯ", "NAME"), "" },
                     { Ru("ПОЗЫВНОЙ", "CALLSIGN"), "«" + Callsigns[Rng.Next(Callsigns.Length)] + "»" },
                     { Ru("ПРИНАДЛЕЖНОСТЬ", "AFFILIATION"), Rng.Next(3) == 0 ? Ru("ДИКИЕ", "SCAV") : Theme.Name(enemy) },
+                    { Ru("ВООРУЖЕНИЕ", "ARMED WITH"), Russian ? O.Cyr(arms.ShortRu) : arms.Short },
                     { Ru("ПОСЛЕДНИЙ РАЗ", "LAST SEEN"), Lore.Fill("{place}", Rng).ToUpperInvariant() },
                     { Ru("СТЕПЕНЬ УГРОЗЫ", "THREAT"), Ru(Rng.Next(2) == 0 ? "ВЫСОКАЯ" : "КРАЙНЕ ВЫСОКАЯ", Rng.Next(2) == 0 ? "HIGH" : "EXTREME") },
                     { Ru("СТАТУС", "STATUS"), Ru("В РОЗЫСКЕ", "WANTED") }
                 };
+                int count = rows.GetLength(0);
+                float pitch = Mathf.Clamp((a.height - 24f) / count, 22f, 40f);
                 Shape bars = Draw();
-                for (int i = 0; i < rows.GetLength(0); i++)
+                for (int i = 0; i < count; i++)
                 {
-                    float y = a.yMax - 22f - i * 26f;
-                    if (y < a.yMin + 14f)
+                    float y = a.yMax - 16f - pitch * (i + 0.5f);
+                    if (y < a.yMin + 12f)
                     {
                         break;
                     }
-                    Fit(Label(rows[i, 0], x + w * 0.5f, y + 6f, w, 7f, A(T.Dim, 200), TextAlignmentOptions.Left), 7f);
+                    Fit(Label(rows[i, 0], x + w * 0.5f, y + 7f, w, 7f, A(T.Dim, 200), TextAlignmentOptions.Left), 7f);
                     if (i == 0)
                     {
                         // The name is blacked out.
-                        bars.RoundedRect(P(x + w * 0.3f, y - 6f), w * 0.6f * U, 9f * U, 0f, A(T.Text, 170));
+                        bars.RoundedRect(P(x + w * 0.3f, y - 5f), w * 0.6f * U, 9f * U, 0f, A(T.Text, 170));
                     }
                     else
                     {
-                        bool warn = i >= 4;
-                        Fit(Label(rows[i, 1], x + w * 0.5f, y - 6f, w, 10f, A(warn ? T.Warn : T.Text, 220), TextAlignmentOptions.Left), 10f);
+                        bool warn = i >= count - 2;
+                        Fit(Label(rows[i, 1], x + w * 0.5f, y - 5f, w, 10f, A(warn ? T.Warn : T.Text, 220), TextAlignmentOptions.Left), 10f);
                     }
-                    bars.Line(P(x, y - 13f), P(x + w, y - 13f), U, A(T.Accent, 30));
+                    bars.Line(P(x, y - pitch * 0.5f + 2f), P(x + w, y - pitch * 0.5f + 2f), U, A(T.Accent, 30));
+                }
+
+                // On the right, where there is room: when and where they were seen, what they are worth, who they run with.
+                _sightings.Clear();
+                if (side)
+                {
+                    float sx = x + w + 24f;
+                    float sw = a.xMax - 12f - sx;
+                    bars.Line(P(sx - 12f, a.yMin + 10f), P(sx - 12f, a.yMax - 10f), U, A(T.Accent, 40));
+                    float top = a.yMax - 16f;
+                    Fit(Label(Ru("НАБЛЮДЕНИЯ", "SIGHTINGS"), sx + sw * 0.5f, top, sw, 7f, A(T.Dim, 200), TextAlignmentOptions.Left), 7f);
+                    int seen = Mathf.Clamp(Mathf.FloorToInt((a.height * 0.55f) / 18f), 2, 6);
+                    int minute = Rng.Next(0, 300);
+                    for (int i = 0; i < seen; i++)
+                    {
+                        minute += Rng.Next(25, 140);
+                        string when = $"{(minute / 60) % 24:00}:{minute % 60:00}";
+                        TextMeshProUGUI line = Fit(Label($"<color={T.AccentHex}>{when}</color>  {Lore.Fill("{place}", Rng).ToUpperInvariant()}", sx + sw * 0.5f, top - 16f - i * 18f, sw, 9f, A(T.Text, 210), TextAlignmentOptions.Left), 9f);
+                        line.gameObject.SetActive(false);
+                        _sightings.Add(line);
+                    }
+                    float low = a.yMin + 16f;
+                    Fit(Label(Ru("ВОЗНАГРАЖДЕНИЕ", "BOUNTY"), sx + sw * 0.5f, low + 44f, sw, 7f, A(T.Dim, 200), TextAlignmentOptions.Left), 7f);
+                    _bountyTo = Rng.Next(5, 60) * 10000;
+                    _bounty = Label("", sx + sw * 0.5f, low + 28f, sw, 14f, A(T.Warn, 230), TextAlignmentOptions.Left);
+                    Fit(Label(Ru("СВЯЗИ: ", "ASSOCIATES: ") + "«" + Callsigns[Rng.Next(Callsigns.Length)] + "», «" + Callsigns[Rng.Next(Callsigns.Length)] + "»", sx + sw * 0.5f, low + 4f, sw, 8f, A(T.Text, 190), TextAlignmentOptions.Left), 8f);
+                }
+                else
+                {
+                    _bounty = null;
                 }
                 bars.Commit();
-
             }
 
             private void AnimateDossier(float t)
@@ -190,8 +246,9 @@ namespace CLASSIFIED
                 float p = Progress;
                 // The match box closes in on the face, the score climbing, as the load runs.
                 _scan.Clear();
-                Vector2 face = new Vector2(_photo.center.x, _photo.yMax - _photo.height * 0.28f);
-                float size = Mathf.Lerp(_photo.width * 0.9f, _photo.width * 0.42f, Mathf.Clamp01(p * 1.4f));
+                // Closing from most of the photo onto the head, a little wider than it.
+                Vector2 face = _face;
+                float size = Mathf.Lerp(_photo.width * 0.9f, _faceSize * 1.35f, Mathf.Clamp01(p * 1.4f));
                 float arm = size * 0.25f;
                 Color32 c = A(p > 0.7f ? T.Warn : T.Accent, 220);
                 for (int sx = -1; sx <= 1; sx += 2)
@@ -207,6 +264,24 @@ namespace CLASSIFIED
                 float y = Mathf.Lerp(_photo.yMin + 2f, _photo.yMax - 2f, 0.5f + 0.5f * Mathf.Sin(t * 1.3f));
                 _scan.Line(P(_photo.xMin + 2f, y), P(_photo.xMax - 8f, y), U, A(T.Accent, 120));
                 _scan.Commit();
+                // The sightings come in one by one, the bounty counts up.
+                for (int i = 0; i < _sightings.Count; i++)
+                {
+                    bool show = p >= 0.1f + 0.8f * i / Mathf.Max(1, _sightings.Count);
+                    if (_sightings[i].gameObject.activeSelf != show)
+                    {
+                        _sightings[i].gameObject.SetActive(show);
+                    }
+                }
+                if (_bounty != null)
+                {
+                    int bounty = Mathf.RoundToInt(_bountyTo * Mathf.Clamp01(p * 1.2f) / 1000f) * 1000;
+                    if (bounty != _shownBounty)
+                    {
+                        _shownBounty = bounty;
+                        _bounty.text = (T.Faction == Faction.Bear ? "$ " : "₽ ") + bounty.ToString("N0");
+                    }
+                }
                 int match = Mathf.Min(99, Mathf.FloorToInt(12f + p * 90f));
                 if (match != _shownMatch)
                 {
@@ -404,10 +479,21 @@ namespace CLASSIFIED
             private int _shownZoom = -1;
             private int _shownScale = -1;
             private float _heat;
+            private float _imageryAt = -1f;
             private bool _infrared;
             private bool _drawnInfrared;
             private float _infraredAt = -1f;
             private Image _groundBox;
+
+            // The fight on the ground, drawn as a raid review would: a friendly team closing on the
+            // compound, its defenders, tracers both ways, now and then an explosion, the fallen marked.
+            private Vector2 _roadSide;
+            private Vector2 _teamFrom;
+            private readonly Vector2[] _teamTo = new Vector2[4];
+            private float[] _fallsAt = new float[0];
+            private TextMeshProUGUI _combatLabel;
+            private int _shownCombat = -1;
+            private static readonly Color32 Tracer = new Color32(255, 214, 120, 235);
             private readonly List<Walker> _walkers = new List<Walker>();
             private readonly List<Vector2> _noteAt = new List<Vector2>();
             private readonly List<TextMeshProUGUI> _notes = new List<TextMeshProUGUI>();
@@ -453,6 +539,25 @@ namespace CLASSIFIED
                 }
                 _world = Draw(-a.center.x, -a.center.y, clip);
                 _traffic = Draw(-a.center.x, -a.center.y, clip);
+
+                // The team starts well out on the far side from the road and ends stacked on the back wire.
+                Vector2 from = _site - _roadSide * Range(150f, 200f) + _siteX * Range(-60f, 60f);
+                _teamFrom = new Vector2(Mathf.Clamp(from.x, 20f, _worldSize.x - 20f), Mathf.Clamp(from.y, 20f, _worldSize.y - 20f));
+                for (int i = 0; i < _teamTo.Length; i++)
+                {
+                    _teamTo[i] = _site - _roadSide * Range(24f, 30f) + _siteX * (-15f + i * 10f);
+                }
+                // The defenders fall one at a time over the second half of the load.
+                _fallsAt = new float[_walkers.Count];
+                for (int i = 0; i < _fallsAt.Length; i++)
+                {
+                    _fallsAt[i] = i < 5 ? 0.45f + i * 0.09f + Range(0f, 0.04f) : 9f;
+                }
+                for (int i = _fallsAt.Length - 1; i > 0; i--)
+                {
+                    int j = Rng.Next(i + 1);
+                    (_fallsAt[i], _fallsAt[j]) = (_fallsAt[j], _fallsAt[i]);
+                }
                 _moverStart = Range(0f, 400f);
                 _drawnScale = 0f;
 
@@ -488,6 +593,7 @@ namespace CLASSIFIED
                 _scaleLabel = Label("", a.xMax - 44f, a.yMin + 26f, 60f, 8f, A(T.Text, 210), TextAlignmentOptions.Right);
                 _reticle = Draw();
                 _targetLabel = Label(Ru($"ОБЪЕКТ {Code(3)}", $"OBJECTIVE {Code(3)}"), 0f, 0f, 120f, 8f, A(T.Text, 220), TextAlignmentOptions.Left);
+                _combatLabel = Label("", a.xMin + 12f + 110f, a.yMax - 30f, 220f, 8f, A(T.Warn, 230), TextAlignmentOptions.Left);
                 for (int i = 0; i < _tags.Length; i++)
                 {
                     bool mover = i >= 4;
@@ -522,6 +628,7 @@ namespace CLASSIFIED
                 _siteX = new Vector2(Mathf.Cos(turn), Mathf.Sin(turn));
                 _siteY = new Vector2(-_siteX.y, _siteX.x);
                 float side = Rng.Next(2) == 0 ? -1f : 1f;
+                _roadSide = _siteY * side;
 
                 // The road, passing the compound a little way off.
                 _road = Wander(new Vector2(-20f, _site.y + side * Range(60f, 85f) + Range(-25f, 25f)), new Vector2(W + 20f, _site.y + side * Range(60f, 85f) + Range(-25f, 25f)), 0.05f, 28);
@@ -1174,6 +1281,14 @@ namespace CLASSIFIED
                 _world.rectTransform.localScale = new Vector3(k, k, 1f);
                 _world.rectTransform.anchoredPosition = (-a.center * k + (_drawnCentre - _viewCentre) * scale) * U;
 
+                // Held, the traffic and the marks need no more than 30 redraws a second.
+                bool flashing = _infraredAt >= 0f && t - _infraredAt < 0.4f;
+                if (within >= 1f && !flashing && t - _imageryAt < 1f / 30f)
+                {
+                    return;
+                }
+                _imageryAt = t;
+
                 // Traffic on the road, one each way, keeping right.
                 _traffic.Clear();
                 float length = _roadAt[_roadAt.Length - 1];
@@ -1189,8 +1304,13 @@ namespace CLASSIFIED
                 // People, too small to see until the picture closes in.
                 if (step >= 2)
                 {
-                    foreach (Walker w in _walkers)
+                    for (int i = 0; i < _walkers.Count; i++)
                     {
+                        if (p >= _fallsAt[i])
+                        {
+                            continue;
+                        }
+                        Walker w = _walkers[i];
                         float along = w.Speed > 0f ? Mathf.PingPong((t + w.Phase) * w.Speed / Mathf.Max(1f, (w.B - w.A).magnitude), 1f) : 0f;
                         Vector2 at = Vector2.Lerp(w.A, w.B, along);
                         _heat = Cold;
@@ -1199,6 +1319,7 @@ namespace CLASSIFIED
                         Add(Traffic, Disc(at, 0.42f, 6), Mix(T.Text, 0.95f));
                     }
                 }
+                Combat(t, p);
                 _traffic.Commit();
 
                 // The analyst's marks: the objective boxed, its vehicles and the traffic tagged as the picture closes.
@@ -1312,6 +1433,137 @@ namespace CLASSIFIED
                     float gsd = 1f / (scale * U);
                     string sensor = _infrared ? Ru("ТПВ", "IR WHT") : Ru("ТВ", "EO");
                     _imageData.text = Ru($"{sensor}  //  {_gridRef}  //  РАЗРЕШ. {gsd:0.00} М".Replace('.', ','), $"{sensor}  //  {_gridRef}  //  GSD {gsd:0.00} M");
+                }
+            }
+
+            /// <summary>Where walker <paramref name="i"/> is at time <paramref name="t"/>.</summary>
+            private Vector2 WalkerAt(int i, float t)
+            {
+                Walker w = _walkers[i];
+                float along = w.Speed > 0f ? Mathf.PingPong((t + w.Phase) * w.Speed / Mathf.Max(1f, (w.B - w.A).magnitude), 1f) : 0f;
+                return Vector2.Lerp(w.A, w.B, along);
+            }
+
+            /// <summary>A repeatable random number in 0..1 for a moment and a slot, so a redraw draws the same burst.</summary>
+            private static float Chance(int moment, int slot)
+            {
+                float v = Mathf.Sin(moment * 12.9898f + slot * 78.233f) * 43758.547f;
+                return v - Mathf.Floor(v);
+            }
+
+            /// <summary>
+            /// The fight, in markers that keep their size at any zoom: the team (diamonds, the unit's
+            /// colour) moving up, the defenders (the enemy's colour), tracers each way once they are in
+            /// contact, a blast now and then, a cross where a defender fell.
+            /// </summary>
+            private void Combat(float t, float p)
+            {
+                Rect a = _panel;
+                Color32 own = A(Own, 235), enemy = A(Enemy, 235);
+                // The team: out from the far side, then onto the wire.
+                float move = Mathf.Clamp01((p - 0.08f) / 0.5f);
+                move = move * move * (3f - 2f * move);
+                var team = new Vector2[_teamTo.Length];
+                for (int i = 0; i < team.Length; i++)
+                {
+                    Vector2 start = _teamFrom + _siteX * ((i - 1.5f) * 6f);
+                    team[i] = Vector2.Lerp(start, _teamTo[i], move);
+                }
+                bool contact = p > 0.3f;
+                int alive = 0;
+                for (int i = 0; i < _walkers.Count; i++)
+                {
+                    alive += p < _fallsAt[i] ? 1 : 0;
+                }
+
+                // Tracers: a few bursts at a time, eight moments a second, each a short streak flying shooter to target.
+                if (contact && alive > 0)
+                {
+                    int moment = Mathf.FloorToInt(t * 8f);
+                    float within = t * 8f - moment;
+                    for (int b = 0; b < 3; b++)
+                    {
+                        if (Chance(moment, b) < 0.35f)
+                        {
+                            continue;
+                        }
+                        int ti = Mathf.FloorToInt(Chance(moment, b + 10) * team.Length) % team.Length;
+                        int wi = Mathf.FloorToInt(Chance(moment, b + 20) * _walkers.Count) % _walkers.Count;
+                        if (p >= _fallsAt[wi])
+                        {
+                            continue;
+                        }
+                        bool outgoing = Chance(moment, b + 30) < 0.6f;
+                        Vector2 from = ToPanel(outgoing ? team[ti] : WalkerAt(wi, t));
+                        Vector2 to = ToPanel(outgoing ? WalkerAt(wi, t) : team[ti]);
+                        float k = Mathf.Clamp01(within * 1.6f);
+                        Vector2 head = Vector2.Lerp(from, to, Mathf.Min(1f, k + 0.25f));
+                        Vector2 tail = Vector2.Lerp(from, to, k);
+                        _traffic.Line(P(tail.x, tail.y), P(head.x, head.y), 1.2f * U, Tracer);
+                        if (within < 0.2f)
+                        {
+                            _traffic.Disc(P(from.x, from.y), 2.2f * U, new Color32(255, 240, 200, 220));
+                        }
+                    }
+                }
+
+                // A blast now and then near the compound: a ring opening out and fading.
+                if (contact)
+                {
+                    int blast = Mathf.FloorToInt(t / 3.5f);
+                    float age = t - blast * 3.5f;
+                    if (age < 0.8f && Chance(blast, 99) > 0.3f)
+                    {
+                        Vector2 at = _site + _siteX * ((Chance(blast, 98) - 0.5f) * 50f) + _siteY * ((Chance(blast, 97) - 0.5f) * 36f);
+                        Vector2 q = ToPanel(at);
+                        float r = 3f + age * 22f;
+                        byte fade = (byte)(220f * (1f - age / 0.8f));
+                        if (age < 0.15f)
+                        {
+                            _traffic.Disc(P(q.x, q.y), (4f + age * 30f) * U, new Color32(255, 230, 170, fade));
+                        }
+                        for (int k = 0; k < 16; k++)
+                        {
+                            float a0 = k * Mathf.PI / 8f, a1 = (k + 1) * Mathf.PI / 8f;
+                            _traffic.Line(P(q.x + Mathf.Cos(a0) * r, q.y + Mathf.Sin(a0) * r), P(q.x + Mathf.Cos(a1) * r, q.y + Mathf.Sin(a1) * r), 1.4f * U, new Color32(255, 200, 120, fade));
+                        }
+                    }
+                }
+
+                // The markers: the defenders standing or fallen, then the team over everything.
+                for (int i = 0; i < _walkers.Count; i++)
+                {
+                    Vector2 q = ToPanel(WalkerAt(i, t));
+                    if (!a.Contains(q))
+                    {
+                        continue;
+                    }
+                    if (p >= _fallsAt[i])
+                    {
+                        _traffic.Line(P(q.x - 3.5f, q.y - 3.5f), P(q.x + 3.5f, q.y + 3.5f), 1.4f * U, A(enemy, 160));
+                        _traffic.Line(P(q.x - 3.5f, q.y + 3.5f), P(q.x + 3.5f, q.y - 3.5f), 1.4f * U, A(enemy, 160));
+                    }
+                    else
+                    {
+                        _traffic.Disc(P(q.x, q.y), 2.6f * U, enemy);
+                    }
+                }
+                for (int i = 0; i < team.Length; i++)
+                {
+                    Vector2 q = ToPanel(team[i]);
+                    if (a.Contains(q))
+                    {
+                        _traffic.Polygon(new[] { P(q.x, q.y + 3.6f), P(q.x + 3.6f, q.y), P(q.x, q.y - 3.6f), P(q.x - 3.6f, q.y) }, own);
+                    }
+                }
+
+                int fallen = _walkers.Count - alive;
+                int key = (contact ? 100 : 0) + fallen;
+                if (key != _shownCombat)
+                {
+                    _shownCombat = key;
+                    _combatLabel.text = !contact ? Ru("ГРУППА ВЫДВИГАЕТСЯ", "TEAM MOVING UP")
+                        : Ru($"ОГНЕВОЙ КОНТАКТ  //  УНИЧТОЖЕНО {fallen}", $"TROOPS IN CONTACT  //  EKIA {fallen}");
                 }
             }
 

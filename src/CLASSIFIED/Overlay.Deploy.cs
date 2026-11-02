@@ -177,7 +177,11 @@ namespace CLASSIFIED
         }
 
         /// <summary>The second half of the subtitle: what stage the game is at.</summary>
-        private string Stage(bool boot) => Deploying ? Words("ВЫДВИЖЕНИЕ", "DEPLOYING") : boot ? Words("ЗАПУСК СИСТЕМЫ", "STARTING UP") : Words("ВХОД В СЕТЬ", "SIGNING IN");
+        private string Stage(bool boot)
+        {
+            UnitNames.Pair stage = Deploying ? _variant.Deploy : boot ? _variant.Boot : _variant.SignIn;
+            return Words(stage.Ru, stage.En);
+        }
 
         /// <summary>The running step's time: elapsed, or on the countdown the time left.</summary>
         private string StepTimeText(int current, int tenths)

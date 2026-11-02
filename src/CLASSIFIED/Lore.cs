@@ -179,14 +179,6 @@ namespace CLASSIFIED
         /// <summary>A line of regional intel, filled in.</summary>
         internal static string IntelLine(System.Random random) => Fill(IntelTemplate(random), random);
 
-        /// <summary>A real place in the region, for labelling a camera, a destination, a dateline.</summary>
-        internal static void Location(System.Random random, out string map, out string place)
-        {
-            Spot spot = Maps[random.Next(Maps.Length)];
-            map = spot.Map;
-            place = spot.Places[random.Next(spot.Places.Length)];
-        }
-
         /// <summary>An intel line still holding its placeholders, for filling in later; one the player has not seen lately.</summary>
         internal static string IntelTemplate(System.Random random) => Archive.PickLine("intel", Intel, random);
 

@@ -96,7 +96,6 @@ namespace CLASSIFIED
         internal readonly Color32 Ink;
         internal readonly Color32 Glow;
         internal readonly Color32 Primary;
-        internal readonly Color32 Mid;
         internal readonly Color32 Accent;
         internal readonly Color32 Text;
         internal readonly Color32 Dim;
@@ -118,12 +117,11 @@ namespace CLASSIFIED
         internal OutroKind[] Outros;
         internal bool Scanlines;
 
-        /// <summary>The unit's name, in Latin letters: the subtitle, memo senders, the preview.</summary>
+        /// <summary>The unit's own name, in Latin letters: memo senders, the preview. The subtitle's comes from UnitNames.</summary>
         internal string Division;
 
         /// <summary>BEAR units' own name in Russian, shown beside the Latin one where the font has the letters.</summary>
         internal string Native;
-        internal string TitleCard;
         internal string LogTag = "OK";
         internal string SlowNote = "STAND BY";
         internal string[] Headers;
@@ -137,7 +135,7 @@ namespace CLASSIFIED
         /// <summary>BEAR, USEC, or CLASSIFIED before the faction is known: the wordmark.</summary>
         internal string Wordmark => Faction == Faction.Bear ? "BEAR" : Faction == Faction.Usec ? "USEC" : "CLASSIFIED";
 
-        private Theme(ThemeChoice id, Faction faction, string ink, string glow, string primary, string mid,
+        private Theme(ThemeChoice id, Faction faction, string ink, string glow, string primary,
             string accent, string text, string dim, string warn, string split)
         {
             Id = id;
@@ -145,7 +143,6 @@ namespace CLASSIFIED
             Ink = Hex(ink);
             Glow = Hex(glow);
             Primary = Hex(primary);
-            Mid = Hex(mid);
             Accent = Hex(accent);
             Text = Hex(text);
             Dim = Hex(dim);
@@ -159,11 +156,11 @@ namespace CLASSIFIED
         internal static readonly Theme[] All =
         {
             // ---- BEAR -------------------------------------------------------------------
-            new Theme(ThemeChoice.BearCommand, Faction.Bear, "0A0303", "5A0E0E", "C4262A", "8E1C1F", "E8C35A", "F4E9D8", "A08A78", "FF7A3C", "3CC8FF")
+            new Theme(ThemeChoice.BearCommand, Faction.Bear, "0A0303", "5A0E0E", "C4262A", "E8C35A", "F4E9D8", "A08A78", "FF7A3C", "3CC8FF")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Document }, Frames = new[] { FrameKind.Plate, FrameKind.Gauge },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Crt }, Bars = new[] { BarKind.Lamps }, Outros = new[] { OutroKind.Sting, OutroKind.Zoom },
-                Division = "COMMAND POST", Native = "ШТАБ", TitleCard = "BATTLE ENCOUNTER ASSAULT REGIMENT", LogTag = "ВЫП",
+                Division = "COMMAND POST", Native = "ШТАБ", LogTag = "ВЫП",
                 SlowNote = "ЖДАТЬ ПРИКАЗА",
                 Headers = new[] { "BEAR  //  ШТАБ ГРУППИРОВКИ  //  СОВЕРШЕННО СЕКРЕТНО", "BEAR  //  КОМАНДНЫЙ ПУНКТ  //  ОСОБОЙ ВАЖНОСТИ", "BEAR  //  ОПЕРАТИВНЫЙ ОТДЕЛ" },
                 Grants = new[] { "ПРИКАЗ ПОЛУЧЕН", "ДОСТУП РАЗРЕШЁН" },
@@ -171,11 +168,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "COMMAND CONFIRMS OPERATION WILL CONTINUE", "REINFORCEMENTS 'EXPECTED SHORTLY', SAYS COMMAND" },
                 Memos = new[] { "THE OPERATION CONTINUES. NO UNIT IS TO WITHDRAW WITHOUT A WRITTEN ORDER FROM THIS HEADQUARTERS.", "SQUAD LEADERS WILL REPORT STRENGTH AND AMMUNITION BY 0600 DAILY. 'ENOUGH' IS NOT A NUMBER." }
             },
-            new Theme(ThemeChoice.BearReconnaissance, Faction.Bear, "060803", "2E3A12", "7E9A2E", "5C7222", "C8E07A", "EEF5DC", "8E9A72", "FF8A3C", "C83CFF")
+            new Theme(ThemeChoice.BearReconnaissance, Faction.Bear, "060803", "2E3A12", "7E9A2E", "C8E07A", "EEF5DC", "8E9A72", "FF8A3C", "C83CFF")
             {
                 Backdrops = new[] { BackdropKind.Imagery, BackdropKind.Map }, Frames = new[] { FrameKind.Reticle, FrameKind.Gauge },
                 Intros = new[] { IntroKind.Crt, IntroKind.TitleCard }, Bars = new[] { BarKind.Tape, BarKind.Lamps }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
-                Division = "RECONNAISSANCE", Native = "РАЗВЕДКА", TitleCard = "ВИЖУ ВСЁ", LogTag = "НАБЛ",
+                Division = "RECONNAISSANCE", Native = "РАЗВЕДКА", LogTag = "НАБЛ",
                 SlowNote = "ДЕРЖАТЬ ПОЗИЦИЮ",
                 Headers = new[] { "BEAR  //  РАЗВЕДКА  //  СЕКРЕТНО", "BEAR  //  РАЗВЕДЫВАТЕЛЬНЫЙ ПУНКТ  //  СЕКРЕТНО", "BEAR  //  ОТДЕЛЬНЫЙ РАЗВЕДВЗВОД" },
                 Grants = new[] { "НАБЛЮДАТЕЛЬ НА МЕСТЕ", "ЦЕЛЬ ВИЖУ" },
@@ -183,12 +180,12 @@ namespace CLASSIFIED
                 Headlines = new[] { "RECON TEAM RETURNS WITH FULL REPORT AND NO RATIONS", "NEW OBSERVATION POST 'HAS A GOOD VIEW', SAYS SPOTTER" },
                 Memos = new[] { "OBSERVATION POSTS WILL BE RELIEVED EVERY SIX HOURS. AN OBSERVER WHO FALLS ASLEEP WILL BE RELIEVED PERMANENTLY.", "PHOTOGRAPHS ARE TO SHOW THE TARGET. PHOTOGRAPHS OF SUNSETS OVER THE BAY WILL BE DELETED." }
             },
-            new Theme(ThemeChoice.BearSignals, Faction.Bear, "0A0600", "5A3200", "FFA020", "C07818", "FFD27A", "FFF0D2", "B08A50", "FF4632", "3CA0FF")
+            new Theme(ThemeChoice.BearSignals, Faction.Bear, "0A0600", "5A3200", "FFA020", "FFD27A", "FFF0D2", "B08A50", "FF4632", "3CA0FF")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Plain }, Frames = new[] { FrameKind.Gauge, FrameKind.Reticle },
                 Intros = new[] { IntroKind.Crt }, Bars = new[] { BarKind.Lamps }, Outros = new[] { OutroKind.Zoom, OutroKind.Flash },
                 Scanlines = true,
-                Division = "SIGNALS", Native = "СВЯЗЬ", TitleCard = "СВЯЗЬ ЕСТЬ", LogTag = "ПРИН",
+                Division = "SIGNALS", Native = "СВЯЗЬ", LogTag = "ПРИН",
                 SlowNote = "СЛАБЫЙ СИГНАЛ",
                 Headers = new[] { "BEAR  //  УЗЕЛ СВЯЗИ  //  СЕКРЕТНО", "BEAR  //  УЗЕЛ СВЯЗИ  //  ДЛЯ СЛУЖЕБНОГО ПОЛЬЗОВАНИЯ", "BEAR  //  ЗАСЕКРЕЧЕННАЯ СВЯЗЬ" },
                 Grants = new[] { "КАНАЛ ЗАКРЫТ", "СВЯЗЬ УСТАНОВЛЕНА" },
@@ -196,11 +193,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "SIGNALS RESTORES CONTACT WITH ALL UNITS EXCEPT THE ONES IT CANNOT FIND", "NEW CODEBOOK ISSUED. OLD CODEBOOK BURNED, MOSTLY" },
                 Memos = new[] { "RADIO DISCIPLINE: TRANSMISSIONS UNDER TEN SECONDS. THE ENEMY IS LISTENING, AND SO IS THE COLONEL.", "TODAY'S CALL SIGNS ARE IN THE SEALED ENVELOPE. DO NOT USE YESTERDAY'S. DO NOT USE YOUR NAME." }
             },
-            new Theme(ThemeChoice.BearCounterintelligence, Faction.Bear, "08060A", "3A1420", "A8303C", "7A2430", "E0A0A8", "F0E6EA", "9A8890", "FFC83C", "3CFFC8")
+            new Theme(ThemeChoice.BearCounterintelligence, Faction.Bear, "08060A", "3A1420", "A8303C", "E0A0A8", "F0E6EA", "9A8890", "FFC83C", "3CFFC8")
             {
                 Backdrops = new[] { BackdropKind.Document, BackdropKind.Imagery }, Frames = new[] { FrameKind.Plate, FrameKind.Reticle },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Crt }, Bars = new[] { BarKind.Tape }, Outros = new[] { OutroKind.Sting, OutroKind.Lift },
-                Division = "COUNTERINTELLIGENCE", Native = "КОНТРРАЗВЕДКА", TitleCard = "ДОВЕРЯЙ, НО ПРОВЕРЯЙ", LogTag = "ПРОВ",
+                Division = "COUNTERINTELLIGENCE", Native = "КОНТРРАЗВЕДКА", LogTag = "ПРОВ",
                 SlowNote = "НА ПРОВЕРКЕ",
                 Headers = new[] { "BEAR  //  ОСОБЫЙ ОТДЕЛ  //  СОВЕРШЕННО СЕКРЕТНО", "BEAR  //  ОСОБЫЙ ОТДЕЛ  //  ЛИЧНО В РУКИ", "BEAR  //  КОНТРРАЗВЕДКА" },
                 Grants = new[] { "БЛАГОНАДЁЖНОСТЬ ПОДТВЕРЖДЕНА", "ЛИЧНОСТЬ УСТАНОВЛЕНА" },
@@ -208,11 +205,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "COUNTERINTELLIGENCE FINDS NO LEAKS. FINDING ITSELF LEAKED", "ALL PERSONNEL TO BE REVIEWED. REVIEWERS ALSO TO BE REVIEWED" },
                 Memos = new[] { "ANY CONTACT WITH USEC PERSONNEL, ARMED OR OTHERWISE, IS TO BE REPORTED TO THIS OFFICE WITHIN THE HOUR.", "THE FLEA MARKET IS AN ENEMY INTELLIGENCE SOURCE. WHAT YOU SELL THERE TELLS THEM WHAT YOU HAVE." }
             },
-            new Theme(ThemeChoice.BearSupply, Faction.Bear, "0A0804", "4A3A1A", "B89A5A", "8A7240", "E8D4A0", "F8F0DE", "A89878", "FF5A3C", "4A8CFF")
+            new Theme(ThemeChoice.BearSupply, Faction.Bear, "0A0804", "4A3A1A", "B89A5A", "E8D4A0", "F8F0DE", "A89878", "FF5A3C", "4A8CFF")
             {
                 Backdrops = new[] { BackdropKind.Document, BackdropKind.Map }, Frames = new[] { FrameKind.Gauge, FrameKind.Plate },
                 Intros = new[] { IntroKind.Crt, IntroKind.TitleCard }, Bars = new[] { BarKind.Lamps, BarKind.Tape }, Outros = new[] { OutroKind.Slide, OutroKind.Lift },
-                Division = "SUPPLY", Native = "ТЫЛ", TitleCard = "БЕЗ ТЫЛА НЕТ ФРОНТА", LogTag = "ВЫД",
+                Division = "SUPPLY", Native = "ТЫЛ", LogTag = "ВЫД",
                 SlowNote = "КОЛОННА ЗАДЕРЖИВАЕТСЯ",
                 Headers = new[] { "BEAR  //  СЛУЖБА ТЫЛА  //  ДСП", "BEAR  //  ТЫЛ  //  ДЛЯ СЛУЖЕБНОГО ПОЛЬЗОВАНИЯ", "BEAR  //  ВЕЩЕВОЙ СКЛАД" },
                 Grants = new[] { "ЗАЯВКА УТВЕРЖДЕНА", "ПОЛУЧЕНО ПОД РОСПИСЬ" },
@@ -220,11 +217,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "TUSHONKA STOCKS 'ADEQUATE', SAYS QUARTERMASTER WHO WILL NOT OPEN THE STORE", "SUPPLY CONVOY ARRIVES WITH WRONG CALIBRE AGAIN" },
                 Memos = new[] { "AMMUNITION IS ISSUED, NOT GIVEN. EVERY ROUND IS SIGNED FOR, AND EVERY EMPTY CASE IS ACCOUNTED FOR.", "THE QUARTERMASTER IS AWARE THE BOOTS ARE THE WRONG SIZE. THE FEET WILL BE ADJUSTED." }
             },
-            new Theme(ThemeChoice.BearMedical, Faction.Bear, "05080A", "1A3A44", "5AB4C8", "3E8A9A", "B8E8F2", "F0FBFF", "7EA0A8", "FF4A4A", "FFB43C")
+            new Theme(ThemeChoice.BearMedical, Faction.Bear, "05080A", "1A3A44", "5AB4C8", "B8E8F2", "F0FBFF", "7EA0A8", "FF4A4A", "FFB43C")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Document }, Frames = new[] { FrameKind.Plate, FrameKind.Gauge },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Crt }, Bars = new[] { BarKind.Tape, BarKind.Lamps }, Outros = new[] { OutroKind.Zoom, OutroKind.Sting },
-                Division = "MEDICAL SERVICE", Native = "МЕДСЛУЖБА", TitleCard = "СВОИХ НЕ БРОСАЕМ", LogTag = "СТАБ",
+                Division = "MEDICAL SERVICE", Native = "МЕДСЛУЖБА", LogTag = "СТАБ",
                 SlowNote = "ИДЁТ СОРТИРОВКА",
                 Headers = new[] { "BEAR  //  МЕДИЦИНСКИЙ ПУНКТ", "BEAR  //  МЕДИЦИНСКАЯ СЛУЖБА  //  ДЛЯ СЛУЖЕБНОГО ПОЛЬЗОВАНИЯ", "BEAR  //  МЕДСАНБАТ" },
                 Grants = new[] { "ГОДЕН К СЛУЖБЕ", "ДОПУЩЕН МЕДКОМИССИЕЙ" },
@@ -234,11 +231,11 @@ namespace CLASSIFIED
             },
 
             // ---- USEC -------------------------------------------------------------------
-            new Theme(ThemeChoice.UsecOperations, Faction.Usec, "03060C", "0E2A4A", "2E86DE", "22649E", "8CC8FF", "E6F2FF", "6E88A6", "FFAA33", "FF3B5C")
+            new Theme(ThemeChoice.UsecOperations, Faction.Usec, "03060C", "0E2A4A", "2E86DE", "8CC8FF", "E6F2FF", "6E88A6", "FFAA33", "FF3B5C")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Imagery }, Frames = new[] { FrameKind.Hud, FrameKind.Lock },
                 Intros = new[] { IntroKind.Boot, IntroKind.Crt }, Bars = new[] { BarKind.Ruler, BarKind.Segments }, Outros = new[] { OutroKind.Slide, OutroKind.Zoom },
-                Division = "TACTICAL OPERATIONS CENTER", TitleCard = "UNITED SECURITY", LogTag = "COMPLETE",
+                Division = "TACTICAL OPERATIONS CENTER", LogTag = "COMPLETE",
                 SlowNote = "STAND BY",
                 Headers = new[] { "USEC  //  TOC  //  SECRET//REL USEC", "USEC  //  TACTICAL OPERATIONS CENTER", "USEC  //  OPERATIONS  //  SECRET" },
                 Grants = new[] { "AUTHENTICATED", "YOU ARE CLEARED" },
@@ -246,11 +243,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "TOC REPORTS ALL TEAMS ACCOUNTED FOR, MOSTLY", "COMMAND APPROVES EXTENSION OF OPERATION 'UNTIL FURTHER NOTICE'" },
                 Memos = new[] { "ALL TEAMS CHECK IN ON THE HOUR. A TEAM THAT MISSES TWO CHECK-INS IS LISTED MISSING AND ITS GEAR IS ALLOCATED.", "THE PLAN HAS CHANGED. THE NEW PLAN IS THE OLD PLAN WITH FEWER PEOPLE. ACKNOWLEDGE BY 1800." }
             },
-            new Theme(ThemeChoice.UsecIntelligence, Faction.Usec, "06050C", "2A2050", "7A6AD8", "5A4EA6", "C4BCFF", "EEEAFF", "8A84AE", "FFBE3C", "3CFFC8")
+            new Theme(ThemeChoice.UsecIntelligence, Faction.Usec, "06050C", "2A2050", "7A6AD8", "C4BCFF", "EEEAFF", "8A84AE", "FFBE3C", "3CFFC8")
             {
                 Backdrops = new[] { BackdropKind.Imagery, BackdropKind.Document }, Frames = new[] { FrameKind.Scope, FrameKind.Lock },
                 Intros = new[] { IntroKind.Boot, IntroKind.TitleCard }, Bars = new[] { BarKind.Ruler }, Outros = new[] { OutroKind.Sting, OutroKind.Lift },
-                Division = "S2 INTELLIGENCE", TitleCard = "KNOW BEFORE YOU GO", LogTag = "ASSESSED",
+                Division = "S2 INTELLIGENCE", LogTag = "ASSESSED",
                 SlowNote = "AWAITING CONFIRMATION",
                 Headers = new[] { "USEC  //  S2  //  SECRET//NOFORN", "USEC  //  INTELLIGENCE SECTION", "USEC  //  S2  //  ANALYST WORKSTATION" },
                 Grants = new[] { "BRIEFING READY", "NEED TO KNOW CONFIRMED" },
@@ -258,12 +255,12 @@ namespace CLASSIFIED
                 Headlines = new[] { "S2 ASSESSES ENEMY STRENGTH AS 'MORE THAN WE WOULD LIKE'", "ANALYSTS CONFIRM THE BOSS IS WHERE THE BOSS USUALLY IS" },
                 Memos = new[] { "CONFIDENCE LEVELS ARE TO BE STATED IN EVERY REPORT. 'PRETTY SURE' IS NOT A CONFIDENCE LEVEL.", "INTELLIGENCE FOLDERS RECOVERED IN THE FIELD COME TO S2 FIRST. THEY ARE NOT CURRENCY." }
             },
-            new Theme(ThemeChoice.UsecSignals, Faction.Usec, "020906", "0A4430", "2EC48A", "22966A", "9CF5CC", "E6FFF4", "6EA890", "FF8C3C", "FF3CA0")
+            new Theme(ThemeChoice.UsecSignals, Faction.Usec, "020906", "0A4430", "2EC48A", "9CF5CC", "E6FFF4", "6EA890", "FF8C3C", "FF3CA0")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Plain }, Frames = new[] { FrameKind.Hud, FrameKind.Scope },
                 Intros = new[] { IntroKind.Crt, IntroKind.Boot }, Bars = new[] { BarKind.Segments }, Outros = new[] { OutroKind.Flash, OutroKind.Zoom },
                 Scanlines = true,
-                Division = "S6 COMMUNICATIONS", TitleCard = "SAY AGAIN, OVER", LogTag = "ACK",
+                Division = "S6 COMMUNICATIONS", LogTag = "ROGER",
                 SlowNote = "LINK DEGRADED",
                 Headers = new[] { "USEC  //  S6  //  COMSEC", "USEC  //  COMMUNICATIONS SECTION", "USEC  //  S6  //  NET CONTROL" },
                 Grants = new[] { "NET JOINED", "COMMS CHECK, LOUD AND CLEAR" },
@@ -271,11 +268,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "S6 RESTORES UPLINK; TEAMS ASKED TO STOP STREAMING MUSIC OVER IT", "JAMMING OVER THE CITY 'NOT OURS', CONFIRMS S6" },
                 Memos = new[] { "RADIOS ARE TO BE CHECKED BEFORE EVERY DEPARTURE. A RADIO THAT WORKED YESTERDAY IS NOT A CHECKED RADIO.", "DO NOT KEY THE MIC TO SAY 'ROGER' TWICE. ONCE WAS ENOUGH. THE FIRST TIME WAS ENOUGH." }
             },
-            new Theme(ThemeChoice.UsecLogistics, Faction.Usec, "0A0805", "4A3820", "C8A064", "967648", "F0D8A8", "FFF6E6", "AE9C80", "FF5A32", "4A8CFF")
+            new Theme(ThemeChoice.UsecLogistics, Faction.Usec, "0A0805", "4A3820", "C8A064", "F0D8A8", "FFF6E6", "AE9C80", "FF5A32", "4A8CFF")
             {
                 Backdrops = new[] { BackdropKind.Map, BackdropKind.Document }, Frames = new[] { FrameKind.Lock, FrameKind.Hud },
                 Intros = new[] { IntroKind.Boot, IntroKind.Crt }, Bars = new[] { BarKind.Segments, BarKind.Ruler }, Outros = new[] { OutroKind.Lift, OutroKind.Slide },
-                Division = "S4 LOGISTICS", TitleCard = "BEANS, BULLETS, BANDAGES", LogTag = "STAGED",
+                Division = "S4 LOGISTICS", LogTag = "STAGED",
                 SlowNote = "AWAITING RESUPPLY",
                 Headers = new[] { "USEC  //  S4  //  SUPPLY CONTROL", "USEC  //  LOGISTICS SECTION", "USEC  //  S4  //  FORWARD STOCK" },
                 Grants = new[] { "RESUPPLY CONFIRMED", "DRAW APPROVED" },
@@ -283,11 +280,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "RESUPPLY FLIGHT CANCELLED. RESUPPLY BY FOOT 'UNDER CONSIDERATION'", "S4 LOCATES MISSING PALLET IN A SCAV CAMP" },
                 Memos = new[] { "ALL SALVAGED EQUIPMENT IS USEC PROPERTY UNTIL S4 SAYS OTHERWISE. S4 RARELY SAYS OTHERWISE.", "MRES ARE NOT TO BE TRADED WITH LOCALS. THE EXCHANGE RATE IS BEING MONITORED." }
             },
-            new Theme(ThemeChoice.UsecMedical, Faction.Usec, "0A0506", "4A1418", "D8404A", "A03038", "FFB2B8", "FFF0F2", "B88890", "FFC850", "50D2FF")
+            new Theme(ThemeChoice.UsecMedical, Faction.Usec, "0A0506", "4A1418", "D8404A", "FFB2B8", "FFF0F2", "B88890", "FFC850", "50D2FF")
             {
                 Backdrops = new[] { BackdropKind.Document, BackdropKind.Map }, Frames = new[] { FrameKind.Scope, FrameKind.Hud },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Boot }, Bars = new[] { BarKind.Ruler }, Outros = new[] { OutroKind.Zoom, OutroKind.Sting },
-                Division = "MEDICAL // CASEVAC", TitleCard = "SO THAT OTHERS MAY LIVE", LogTag = "STABLE",
+                Division = "MEDICAL // CASEVAC", LogTag = "STABLE",
                 SlowNote = "TRIAGE IN PROGRESS",
                 Headers = new[] { "USEC  //  ROLE 1 AID STATION", "USEC  //  MEDICAL  //  CASEVAC COORDINATION", "USEC  //  MEDICAL SECTION" },
                 Grants = new[] { "FIT FOR DUTY", "MEDICAL CLEARANCE GRANTED" },
@@ -295,11 +292,11 @@ namespace CLASSIFIED
                 Headlines = new[] { "AID STATION TREATS RECORD NUMBER OF 'I'M FINE' INJURIES", "MEDICS REMIND TEAMS THAT BLACKED-OUT LIMBS ARE NOT A STRATEGY" },
                 Memos = new[] { "EVERY OPERATOR CARRIES TWO TOURNIQUETS. ONE FOR YOU, ONE FOR WHOEVER FORGOT THEIRS.", "PAINKILLERS MASK INJURIES. THEY DO NOT FIX THEM. A FRACTURE IS STILL A FRACTURE AT THE EXTRACT." }
             },
-            new Theme(ThemeChoice.UsecCommand, Faction.Usec, "080705", "4A3C14", "D8B040", "A68630", "FFE08A", "FFF6DA", "AA9A70", "FF5A3C", "5A8CFF")
+            new Theme(ThemeChoice.UsecCommand, Faction.Usec, "080705", "4A3C14", "D8B040", "FFE08A", "FFF6DA", "AA9A70", "FF5A3C", "5A8CFF")
             {
                 Backdrops = new[] { BackdropKind.Document, BackdropKind.Imagery }, Frames = new[] { FrameKind.Lock, FrameKind.Scope },
                 Intros = new[] { IntroKind.TitleCard, IntroKind.Boot }, Bars = new[] { BarKind.Segments }, Outros = new[] { OutroKind.Sting, OutroKind.Flash },
-                Division = "CORPORATE COMMAND", TitleCard = "UNITED SECURITY INTERNATIONAL", LogTag = "APPROVED",
+                Division = "CORPORATE COMMAND", LogTag = "APPROVED",
                 SlowNote = "PENDING APPROVAL",
                 Headers = new[] { "USEC  //  CORPORATE COMMAND  //  CONFIDENTIAL", "USEC INTERNATIONAL  //  EXECUTIVE NETWORK", "USEC  //  CONTRACT MANAGEMENT" },
                 Grants = new[] { "WELCOME, CONTRACTOR", "CONTRACT ACTIVE" },
@@ -393,16 +390,18 @@ namespace CLASSIFIED
         /// <summary>How the brand and the readout are arranged on the screen.</summary>
         internal LayoutKind Layout;
 
-        internal int DashCount;
-        internal int DashMajorEvery;
         internal float DashSpin;
-        internal int ArcCount;
-        internal float ArcSweep;
-        internal float ArcStart;
         internal float ArcSpin;
         internal int ChartSeed;
 
         internal string Header;
+
+        /// <summary>What the unit calls itself this launch, its motto, and its words for the stages (UnitNames).</summary>
+        internal UnitNames.Pair Name;
+        internal UnitNames.Pair Motto;
+        internal UnitNames.Pair Boot;
+        internal UnitNames.Pair SignIn;
+        internal UnitNames.Pair Deploy;
         internal string TopRight;
         internal string GrantText;
         internal bool Greet;
@@ -470,15 +469,16 @@ namespace CLASSIFIED
             if (pins.Bar != BarKind.Random) v.Bar = pins.Bar;
             if (pins.Outro != OutroKind.Random) v.Outro = pins.Outro;
 
-            int[] dashCounts = { 36, 48, 60, 72 };
-            v.DashCount = dashCounts[random.Next(dashCounts.Length)];
-            v.DashMajorEvery = random.Next(2) == 0 ? 4 : 6;
             v.DashSpin = Range(random, 6f, 16f) * Sign(random);
-            v.ArcCount = random.Next(2, 5);
-            v.ArcSweep = 360f / v.ArcCount * Range(random, 0.35f, 0.7f);
-            v.ArcStart = Range(random, 0f, 360f);
             v.ArcSpin = Range(random, 16f, 36f) * Sign(random);
             v.ChartSeed = random.Next();
+            UnitNames.Pair[] unitNames = UnitNames.Names(choice);
+            v.Name = unitNames[random.Next(unitNames.Length)];
+            UnitNames.Pair[] mottos = UnitNames.Mottos(choice);
+            v.Motto = mottos[random.Next(mottos.Length)];
+            v.Boot = UnitNames.Booting[random.Next(UnitNames.Booting.Length)];
+            v.SignIn = UnitNames.SigningIn[random.Next(UnitNames.SigningIn.Length)];
+            v.Deploy = UnitNames.Deploying[random.Next(UnitNames.Deploying.Length)];
 
             v.Header = Lang.Bear(t.Headers[random.Next(t.Headers.Length)]);
             string service = t.Faction == Faction.Bear ? $"{(Overlay.BearRussian ? "АБВГДЕКМНТ" : "ABVGDEKMNT")[random.Next(10)]}-{random.Next(100000, 1000000)}"

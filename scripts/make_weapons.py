@@ -160,6 +160,81 @@ ITEMS = [
     ("gasan", "item_electr_gasanalyzer", "tech"),
     ("tetriz", "item_barter_electr_tetriz", "tech"),
     ("lion", "item_barter_valuable_lion", "valuable"),
+    # Third batch.
+    ("ak101", "weapon_izhmash_ak101_556x45", "weapon"),
+    ("ak102", "weapon_izhmash_ak102_556x45", "weapon"),
+    ("aks74n", "weapon_izhmash_aks74n_545x39", "weapon"),
+    ("rpk16", "weapon_izhmash_rpk16_545x39", "weapon"),
+    ("ak545", "weapon_sag_ak545_545x39", "weapon"),
+    ("rd704", "weapon_rifle_dynamics_704_762x39", "weapon"),
+    ("a91", "weapon_kbp_9a91_9x39", "weapon"),
+    ("sr3m", "weapon_tochmash_sr3m_9x39", "weapon"),
+    ("g36", "weapon_hk_g36_556x45", "weapon"),
+    ("uzi", "weapon_iwi_uzi_9x19", "weapon"),
+    ("uzipro", "weapon_iwi_uzi_pro_smg_9x19", "weapon"),
+    ("stm9", "weapon_stmarms_stm_9_9x19", "weapon"),
+    ("mp155", "weapon_kalashnikov_mp155_12g", "weapon"),
+    ("m870", "weapon_remington_model_870_12g", "weapon"),
+    ("m590", "weapon_mossberg_590a1_12g", "weapon"),
+    ("m3", "weapon_benelli_m3_s90_12g", "weapon"),
+    ("aa12", "weapon_mps_aa_12_gen_1_12g", "weapon"),
+    ("svt40", "weapon_toz_svt_40_762x54r", "weapon"),
+    ("opsks", "weapon_molot_op_sks_762x39", "weapon"),
+    ("mosininf", "weapon_izhmash_mosin_infantry_762x54", "weapon"),
+    ("trg", "weapon_sako_trg_m10_86x70", "weapon"),
+    ("mk18", "weapon_sword_int_mk_18_mjolnir_86x70", "weapon"),
+    ("ppsh", "weapon_zis_ppsh41_762x25", "weapon"),
+    ("deagle", "weapon_magnum_research_desert_eagle_l5_127x33", "weapon"),
+    ("adar", "weapon_adar_2-15_556x45", "weapon"),
+    ("raptor", "weapon_aklys_defense_velociraptor_762x35", "weapon"),
+    ("tor2", "item_equipment_helmet_tor_2", "helmet"),
+    ("ryst", "item_equipment_helmet_rys_t", "helmet"),
+    ("achhc", "item_equipment_helmet_ACHHC_black", "helmet"),
+    ("tc800", "item_equipment_helmet_tc800", "helmet"),
+    ("maska", "item_equipment_helmet_maska_1sh", "helmet"),
+    ("6b23", "item_equipment_armor_6b23_digital", "armor"),
+    ("trooper", "item_equipment_armor_trooper", "armor"),
+    ("a18", "item_equipment_armor_a18", "armor"),
+    ("thorcrv", "item_equipment_armor_custom_thorcrv", "armor"),
+    ("hpc", "item_equipment_armor_hexatac", "armor"),
+    ("korakulon", "item_equipment_armor_kora_kulon_black", "armor"),
+    ("zhuk3", "item_equipment_armor_zhuk3", "armor"),
+    ("drd", "item_equipment_armor_drd", "armor"),
+    ("6b2", "item_equipment_armor_6b2", "armor"),
+    ("bankrobber", "item_equipment_rig_bankrobber", "rig"),
+    ("triton", "item_equipment_rig_triton", "rig"),
+    ("d3crx", "item_equipment_rig_d3crx", "rig"),
+    ("idearig", "item_equipment_rig_idea", "rig"),
+    ("umka", "item_equipment_rig_umka_m33", "rig"),
+    ("mmac", "item_equipment_rig_mmac", "rig"),
+    ("strandhogg", "item_equipment_rig_strandhogg", "rig"),
+    ("tv115", "item_equipment_rig_tv115", "rig"),
+    ("mech", "item_equipment_backpack_mech", "backpack"),
+    ("lbt", "item_equipment_backpack_lbt1476a", "backpack"),
+    ("trooper35", "item_equipment_backpack_trooper_35", "backpack"),
+    ("satl", "item_equipment_backpack_mystery_ranch_satl", "backpack"),
+    ("dragonegg", "item_equipment_backpack_dragon_egg_mk_ii", "backpack"),
+    ("drawbridge", "item_equipment_backpack_drawbridge", "backpack"),
+    ("pillbox", "item_equipment_backpack_pillbox", "backpack"),
+    ("takedown", "item_equipment_backpack_takedown_sling", "backpack"),
+    ("xcel", "item_equipment_headset_xcel", "headset"),
+    ("comtac5", "item_equipment_headset_comtac_v", "headset"),
+    ("liberator", "item_equipment_headset_liberator", "headset"),
+    ("tsport", "item_equipment_headset_tactical_sport", "headset"),
+    ("pnv57", "nvg_57em", "nvg"),
+    ("hdd", "item_barter_electr_hdd", "tech"),
+    ("gyro", "item_barter_electr_gyroscope", "tech"),
+    ("mcb", "item_barter_electr_militaryboard", "tech"),
+    ("aesa", "item_barter_electr_phaseantenna", "tech"),
+    ("ultralink", "Item_barter_electr_adv_ultralink", "tech"),
+    ("rfid", "Item_barter_electr_rfidreader", "tech"),
+    ("labrys", "item_barter_info_labrys", "intel"),
+    ("bluefolders", "Item_barter_info_tgdocs", "intel"),
+    ("smt", "item_barter_info_securedtape", "intel"),
+    ("defib", "Item_barter_medical_defibrillator", "device"),
+    ("catstatue", "item_barter_valuable_cat", "valuable"),
+    ("raven", "item_barter_valuable_raven", "valuable"),
+    ("carkit", "item_meds_automedkit", "med"),
 ]
 
 # A weapon is built several ways: its default preset, and random builds. A random build swaps
@@ -175,7 +250,7 @@ REPLACE = {
 ATTACH = [("mod_scope", 0.97), ("mod_mount", 0.9), ("mod_tactical", 0.8), ("mod_foregrip", 0.85), ("mod_muzzle", 0.6)]
 
 # Parts that are never seen from outside, or are not part of the weapon.
-SKIP = ("patron", "shell", "bullet", "_hide", "collider", "camera", "fp_", "human")
+SKIP = ("patron", "shell", "bullet", "_hide", "collider", "camera", "fp_", "human", "belt_link")
 
 # The most triangles a weapon keeps; more are merged away.
 BUDGET = 3200
@@ -230,8 +305,11 @@ def dependencies(streaming, prefab, depth=2):
 class Part:
     """One item's prefab: its transforms by name, and its visible meshes in its own space."""
 
-    def __init__(self, streaming, prefab, template, weapon=True, deps=False):
+    def __init__(self, streaming, prefab, template, weapon=True, deps=False, root=False):
         self.weapon = weapon
+        # The weapon's own model, whose heavy detail-only meshes are its internals; on an
+        # attachment such a mesh is its body (a magazine's shell, a scope's tube).
+        self.root_part = root
         path = os.path.join(streaming, prefab.replace("/", os.sep))
         folder, name = os.path.split(path)
         stem = name[:-len(".bundle")] if name.endswith(".bundle") else name
@@ -353,7 +431,7 @@ class Part:
             idx = np.array(tris, dtype=np.int64)
             m = self.world[key]
             w = (np.c_[v, np.ones(len(v))] @ m.T)[:, :3]
-            if self.weapon and lod == 0 and len(tris) > 1500:
+            if self.weapon and self.root_part and lod == 0 and len(tris) > 1500:
                 # Only a detailed version, and a heavy one: an internal part, mostly. Kept
                 # aside for a part that has nothing else (a handguard, a stock, an ACOG).
                 heavy.append((base, w[idx]))
@@ -371,7 +449,8 @@ def assemble(streaming, items, preset, weapon, problems=None):
         prefab = tpl["_props"].get("Prefab", {}).get("path")
         if not prefab:
             return
-        part = Part(streaming, prefab, tpl["_name"], weapon)
+        root = not item.get("slotId")
+        part = Part(streaming, prefab, tpl["_name"], weapon, root=root)
         # The callout it gets: an optic only for a real sight (not the rings or riser under it),
         # and numbered slots (mod_tactical_001) under their kind.
         label = item.get("slotId", "weapon")
@@ -388,7 +467,7 @@ def assemble(streaming, items, preset, weapon, problems=None):
         if not shown and weapon:
             # Its meshes in another bundle, as some parts keep them: loaded with what the
             # manifest says it needs (only then: doing it for every part broke the PKM).
-            part = Part(streaming, prefab, tpl["_name"], weapon, deps=True)
+            part = Part(streaming, prefab, tpl["_name"], weapon, deps=True, root=root)
             shown = part.meshes()
         if weapon and item.get("slotId") and part.y_up:
             matrix = matrix @ SEAT
@@ -442,7 +521,21 @@ def leaves(items, ids):
     return out
 
 
-SIGHTS = {"Collimator": 1.0, "CompactCollimator": 1.0, "AssaultScope": 1.0, "OpticScope": 0.8, "SpecialScope": 0.25}
+# A pistol's mini red dot is lost on a rifle at hologram size: rare there.
+SIGHTS = {"Collimator": 1.0, "CompactCollimator": 0.3, "AssaultScope": 1.0, "OpticScope": 0.8, "SpecialScope": 0.25}
+
+# Makers of Soviet and Russian weapons, whose iron sights stay up with an optic on.
+SOVIET = tuple("weapon_" + m for m in ("izhmash", "kalashnikov", "molot", "toz", "zid", "zis", "tochmash", "kbp", "ckib",
+                                      "zmz", "izhmeh", "izhmekh", "kiba", "orsis", "lobaev", "degtyarev", "tokarev", "bazalt"))
+
+# What each kind of weapon carries: a precision rifle a magnified scope, a pistol a small red dot.
+SIGHTS_BY_CLASS = {
+    "SniperRifle": {"OpticScope": 5.0, "AssaultScope": 1.5, "Collimator": 0.2, "CompactCollimator": 0.1, "SpecialScope": 0.3},
+    "MarksmanRifle": {"OpticScope": 4.0, "AssaultScope": 2.0, "Collimator": 0.4, "CompactCollimator": 0.2, "SpecialScope": 0.3},
+    "MachineGun": {"OpticScope": 0.5, "AssaultScope": 2.0, "Collimator": 1.0, "CompactCollimator": 0.3, "SpecialScope": 0.2},
+    "Pistol": {"OpticScope": 0.0, "AssaultScope": 0.0, "Collimator": 0.3, "CompactCollimator": 3.0, "SpecialScope": 0.0},
+    "Revolver": {"OpticScope": 0.0, "AssaultScope": 0.2, "Collimator": 1.0, "CompactCollimator": 2.0, "SpecialScope": 0.0},
+}
 
 
 def kinds_of(items, tpl):
@@ -504,7 +597,7 @@ def random_build(items, preset, rng, streaming):
             return False
         path = v["_props"].get("Prefab", {}).get("path", "")
         name = v["_name"].lower()
-        if not path or "event" in name or "test" in name or "quest" in name:
+        if not path or "event" in name or "test" in name or "quest" in name or "carry_handle" in name or "vltor_stock_adapter" in name:
             return False
         if not os.path.exists(os.path.join(streaming, path.replace("/", os.sep))):
             return False
@@ -526,7 +619,7 @@ def random_build(items, preset, rng, streaming):
         for sl in items[tpl_of(iid)]["_props"].get("Slots", []):
             # What the game requires, and what a weapon looks wrong without (a buffer tube with no
             # stock on it, a receiver with no grip).
-            essential = sl.get("_required") or sl["_name"].startswith(("mod_stock", "mod_pistol_grip", "mod_pistolgrip", "mod_handguard", "mod_barrel"))
+            essential = sl.get("_required") or sl["_name"].startswith(("mod_stock", "mod_pistol_grip", "mod_pistolgrip", "mod_handguard", "mod_barrel", "mod_magazine"))
             if not essential or any(c.get("slotId") == sl["_name"] for c in children(iid)):
                 continue
             pool = options(sl)
@@ -548,6 +641,12 @@ def random_build(items, preset, rng, streaming):
             continue
         old_tree = subtree(it["_id"])
         pool = [t for t in options(sl, ignore=old_tree) if t != it["_tpl"]]
+        if slot == "mod_magazine":
+            # A magazine that shows: no stubby ten-rounders hidden in the magazine well.
+            def rounds(t):
+                c = items[t]["_props"].get("Cartridges") or [{}]
+                return c[0].get("_max_count", 0)
+            pool = [t for t in pool if rounds(t) >= min(20, rounds(it["_tpl"]))]
         if not pool:
             continue
         saved = copy.deepcopy(its)
@@ -572,6 +671,9 @@ def random_build(items, preset, rng, streaming):
         if not fill_required(part["_id"]):
             its[:] = saved
 
+    root_tpl = next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])
+    table = next((SIGHTS_BY_CLASS[c] for c in kinds_of(items, root_tpl) if c in SIGHTS_BY_CLASS), {})
+
     def pick_sight(pool):
         """A sight from the pool: its kind first, evenly, then one of that kind."""
         by_kind = {}
@@ -582,7 +684,10 @@ def random_build(items, preset, rng, streaming):
         if not by_kind:
             return None
         kinds = sorted(by_kind)
-        k = rng.choices(kinds, weights=[SIGHTS[x] for x in kinds])[0]
+        weights = [table.get(x, SIGHTS[x]) for x in kinds]
+        if sum(weights) <= 0:
+            weights = [SIGHTS[x] for x in kinds]
+        k = rng.choices(kinds, weights=weights)[0]
         return rng.choice(by_kind[k])
 
     def scope_mounts(pool):
@@ -617,33 +722,6 @@ def random_build(items, preset, rng, streaming):
 
     def has_sight():
         return any(sight_kind(items, x["_tpl"]) for x in its)
-
-    def fit_device(it, sl, prefix):
-        """A light, laser or grip (by slot prefix) in the slot, or on a mount there that takes one."""
-        pool = options(sl)
-        direct = [t for t in pool if not is_mount(items, t)] if sl["_name"].startswith(prefix) else []
-        if direct:
-            new = {"_id": new_id(), "_tpl": rng.choice(direct), "parentId": it["_id"], "slotId": sl["_name"]}
-            its.append(new)
-            if fill_required(new["_id"], 3):
-                return True
-            its[:] = [x for x in its if x["_id"] not in subtree(new["_id"])]
-            return False
-        mounts = [t for t in pool if is_mount(items, t) and any(s2["_name"].startswith(prefix) for s2 in items[t]["_props"].get("Slots", []))]
-        if not mounts:
-            return False
-        mount = {"_id": new_id(), "_tpl": rng.choice(mounts), "parentId": it["_id"], "slotId": sl["_name"]}
-        its.append(mount)
-        for sl2 in items[mount["_tpl"]]["_props"].get("Slots", []):
-            if sl2["_name"].startswith(prefix):
-                devices = [t for t in options(sl2) if not is_mount(items, t)]
-                if devices:
-                    its.append({"_id": new_id(), "_tpl": rng.choice(devices), "parentId": mount["_id"], "slotId": sl2["_name"]})
-                    if fill_required(mount["_id"], 3):
-                        return True
-                break
-        its[:] = [x for x in its if x["_id"] not in subtree(mount["_id"])]
-        return False
 
     def reach(it, sl, prefix, pick, depth=3):
         """
@@ -739,6 +817,14 @@ def random_build(items, preset, rng, streaming):
                             return True
         return False
 
+    # Whatever the weapon must show (a magazine, a stock, a grip) is on it, from the start.
+    fill_required(preset["_parent"])
+
+    # A carry handle goes: an optic stacked on one looks wrong, and its slot takes a real one.
+    for x in list(its):
+        if x in its and x.get("parentId") and "carry_handle" in items[x["_tpl"]]["_name"].lower():
+            its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
+
     # Attachments.
     has_scope = has_sight()
     queue = list(its)
@@ -793,6 +879,30 @@ def random_build(items, preset, rng, streaming):
             swap_for("mod_tactical", fit, ("mod_tactical", "mod_mount"))
     if not has_kind("mod_foregrip") and rng.random() < 0.75:
         ensure("mod_foregrip", lambda it, sl: reach(it, sl, "mod_foregrip", any_of), ("mod_foregrip", "mod_mount"))
+
+    # Nothing hangs off a muzzle device or suppressor (a VSS's): mounts clamped there sit at odd angles.
+    for x in list(its):
+        parent = next((y for y in its if y["_id"] == x.get("parentId")), None)
+        if x in its and parent is not None and parent.get("slotId", "").startswith("mod_muzzle")                 and x.get("slotId", "").startswith(("mod_mount", "mod_tactical", "mod_foregrip", "mod_scope")):
+            its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
+
+    # One optic: a red dot out on the handguard in front of a scope is no use. The most capable stays.
+    rank = {"OpticScope": 0, "AssaultScope": 1, "Collimator": 2, "CompactCollimator": 3, "SpecialScope": 4}
+    sights = [x for x in its if sight_kind(items, x["_tpl"])]
+    if len(sights) > 1:
+        keep = min(sights, key=lambda x: rank[sight_kind(items, x["_tpl"])])
+        for x in sights:
+            if x is not keep and x in its:
+                its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
+
+    # A NATO weapon with an optic has its flip-up iron sights folded away: off the model. Soviet
+    # and Russian weapons keep theirs, which are part of the receiver and handguard.
+    root_name = items[root_tpl]["_name"]
+    if has_sight() and not root_name.startswith(SOVIET):
+        for x in list(its):
+            if x in its and x.get("slotId", "").startswith(("mod_sight_rear", "mod_sight_front")) \
+                    and not (slot_def(x["parentId"], x["slotId"]) or {}).get("_required"):
+                its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
 
     # No bare mounts: one added that ended up carrying nothing comes off again.
     original = {x["_id"] for x in preset["_items"]}
@@ -1049,17 +1159,28 @@ def main():
             name = iid if k == 0 else f"{iid}_{k}"
             try:
                 if k == 0:
-                    make(name, kind, preset, items, streaming, weapon, stock=True)
+                    make(name, kind, preset, items, streaming, weapon, base=True)
                     continue
                 # A random build that came out with a part missing or loose is thrown away and
                 # another tried; the last try stands if none comes out whole.
-                for attempt in range(24):
+                for attempt in range(48):
                     check = []
                     build = random_build(items, preset, random.Random(f"{iid}-{k}-{attempt}"), streaming)
-                    if sorted(x["_tpl"] for x in build["_items"]) == sorted(x["_tpl"] for x in preset["_items"]) and attempt < 23:
+                    if attempt < 20 and not any(sight_kind(items, x["_tpl"]) for x in build["_items"]):
+                        continue
+                    if sorted(x["_tpl"] for x in build["_items"]) == sorted(x["_tpl"] for x in preset["_items"]) and attempt < 47:
                         print(f"   {name} try {attempt + 1} rejected: same as the stock build")
                         continue
-                    make(name, kind, build, items, streaming, weapon, check if attempt < 23 else None)
+                    if attempt == 47:
+                        # Out of tries: the build, with its lights and lasers off (most of what fails
+                        # is one of them in the wrong place), checked once more; as it is if that fails too.
+                        bare = without_tactical(build)
+                        check = []
+                        make(name, kind, bare, items, streaming, weapon, check)
+                        if not check:
+                            break
+                        print(f"   {name} bare build rejected too: {'; '.join(check)}")
+                    make(name, kind, build, items, streaming, weapon, check if attempt < 47 else None)
                     if not check:
                         break
                     print(f"   {name} try {attempt + 1} rejected: {'; '.join(check)}")
@@ -1071,33 +1192,79 @@ def main():
         print("FAILED: " + " ".join(failed))
 
 
-def attached(parts, gap=0.015, problems=None):
+def dense(tris):
+    """A mesh's corners, edge middles and face middles: enough points that a centimetre means touching."""
+    mids = (tris + tris[:, [1, 2, 0]]) / 2.0
+    return np.concatenate([tris.reshape(-1, 3), mids.reshape(-1, 3), tris.mean(axis=1)])
+
+
+def attached(parts, gap=0.01, problems=None):
     """
-    Drops any part with clear air all round it: one whose box does not come within gap
-    (metres) of another part's. A part seated wrong floats; a real one always touches.
+    Keeps what is joined to the weapon: each part must touch (come within gap, metres) the
+    weapon or a part already joined to it. Two parts touching each other but nothing else (a
+    grip on a mount that floats) are loose together, and both go.
     """
-    boxes = [(t.reshape(-1, 3).min(axis=0) - gap, t.reshape(-1, 3).max(axis=0) + gap) for _, _, t in parts]
+    n = len(parts)
+    pts = [dense(p[2]) for p in parts]
+    boxes = [(q.min(axis=0) - gap, q.max(axis=0) + gap) for q in pts]
+    trees = [None] * n
+
+    def touch(i, j):
+        if not (np.all(boxes[i][0] <= boxes[j][1]) and np.all(boxes[j][0] <= boxes[i][1])):
+            return False
+        if trees[j] is None:
+            trees[j] = cKDTree(pts[j])
+        return float(trees[j].query(pts[i], k=1)[0].min()) < gap
+
+    joined = {i for i, part in enumerate(parts) if part[0] == "weapon"}
+    frontier = list(joined)
+    while frontier:
+        j = frontier.pop()
+        for i in range(n):
+            if i not in joined and touch(i, j):
+                joined.add(i)
+                frontier.append(i)
     keep = []
     for i, part in enumerate(parts):
-        if part[0] == "weapon":
-            keep.append(part)
-            continue
-        lo, hi = boxes[i]
-        near = [j for j in range(len(parts)) if j != i and np.all(lo <= boxes[j][1]) and np.all(boxes[j][0] <= hi)]
-        touches = False
-        if near:
-            # Boxes overlap easily (a sight's box takes in the air above a rail); the points must
-            # come within a centimetre of another part's.
-            mine = part[2].reshape(-1, 3)
-            tree = cKDTree(np.concatenate([parts[j][2].reshape(-1, 3) for j in near]))
-            touches = float(tree.query(mine, k=1)[0].min()) < 0.02
-        if touches:
+        if i in joined:
             keep.append(part)
         else:
             print(f"   dropped floating part {part[1]}")
             if problems is not None:
                 problems.append(f"floating {part[1]}")
     return keep
+
+
+def gear_anchors(kind, verts):
+    """
+    Callout points on equipment, which has no slots to name: by kind, from its shape as it
+    stands (y up). Each is a point of the model itself.
+    """
+    lo, hi = verts.min(axis=0), verts.max(axis=0)
+    size = hi - lo
+
+    def at(p):
+        return verts[np.argmin(((verts - np.asarray(p)) ** 2).sum(axis=1))]
+
+    mid = (lo + hi) / 2
+    top = at([mid[0], hi[1], mid[2]])
+    bottom = at([mid[0], lo[1], mid[2]])
+    if kind in ("armor", "rig"):
+        out = [("gear_strap", at([lo[0] + size[0] * 0.25, hi[1], mid[2]]))]
+        out.append(("gear_plate", at([mid[0], lo[1] + size[1] * 0.6, hi[2]])))
+        return out
+    if kind == "helmet":
+        return [("gear_shell", top), ("gear_rim", at([hi[0], lo[1] + size[1] * 0.25, mid[2]]))]
+    if kind == "nvg":
+        long = 0 if size[0] >= size[2] else 2
+        end = mid.copy()
+        end[long] = hi[long]
+        return [("gear_optics", at(end)), ("gear_mount", top)]
+    if kind == "headset":
+        return [("gear_headband", top), ("gear_cup", at([hi[0], lo[1] + size[1] * 0.3, mid[2]]))]
+    if kind == "backpack":
+        return [("gear_lid", top), ("gear_body", at([mid[0], mid[1], hi[2]]))]
+    return [("gear_name", top)]
 
 
 def plated(items, preset):
@@ -1135,10 +1302,26 @@ def plates(tris):
     return np.array(out)
 
 
+def without_tactical(build):
+    """The build with its lights and lasers, and whatever was on them, taken off."""
+    its = build["_items"]
+    gone = set()
+    grew = True
+    while grew:
+        grew = False
+        for x in its:
+            if x["_id"] not in gone and (x.get("slotId", "").startswith("mod_tactical") or x.get("parentId") in gone):
+                gone.add(x["_id"])
+                grew = True
+    return {"_parent": build["_parent"], "_items": [x for x in its if x["_id"] not in gone]}
+
+
 STOCK_PROBLEMS = set()
+STOCK_LABELS = set()
+ESSENTIAL_LABELS = {"mod_magazine", "mod_stock", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel"}
 
 
-def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
+def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
     """
     One model: assembled, cut down, turned the right way up, written. With check (a random
     build), what went wrong putting it together is listed there and nothing is written if
@@ -1156,9 +1339,16 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
         check.extend(x for x in problems if x not in STOCK_PROBLEMS)
         if check:
             return
-    elif stock:
+    elif base:
         STOCK_PROBLEMS.clear()
         STOCK_PROBLEMS.update(problems)
+        STOCK_LABELS.clear()
+        STOCK_LABELS.update(p[0] for p in parts if p[0] in ESSENTIAL_LABELS)
+    if check is not None:
+        shown = {p[0] for p in parts}
+        check.extend(f"no {label[4:]}" for label in STOCK_LABELS if label not in shown)
+        if check:
+            return
     tris = np.concatenate([p[2] for p in parts])
     if kind in ("armor", "rig") and plated(items, preset):
         tris = np.concatenate([tris, plates(tris)])
@@ -1192,6 +1382,9 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
             middle = (pts.min(axis=0) + pts.max(axis=0)) / 2.0
             anchor_list.append((slot, pts[np.argmin(((pts - middle) ** 2).sum(axis=1))]))
 
+    if not weapon:
+        anchor_list = gear_anchors(kind, verts)
+
     if weapon:
         def anchor(name):
             for slot, p in anchor_list:
@@ -1208,7 +1401,9 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
         # Top up: the magazine and grip hang below the line of the barrel.
         below = [p for p in (anchor("mod_magazine"), anchor("mod_pistol_grip"), anchor("mod_pistolgrip")) if p is not None]
         line = muzzle if muzzle is not None else np.zeros(3)
-        if below:
+        if anchor("mod_scope") is not None:
+            flip_y = anchor("mod_scope")[1] < line[1]
+        elif below:
             flip_y = np.mean([p[1] for p in below]) > line[1]
         sign = np.array([-1.0 if flip_x else 1.0, -1.0 if flip_y else 1.0, 1.0])
         verts = verts * sign
@@ -1216,9 +1411,47 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
         if flip_x != flip_y:
             faces = faces[:, [0, 2, 1]]
 
+        # A muzzle device sits on the end of the barrel and reaches forward; one whose middle is
+        # back over the barrel has been put on the wrong way round.
+        # The shape checks below: what the stock build shows too is how the game models it.
+        geo = [] if check is not None or base else None
+        if geo is not None:
+            rest = [pts * sign for slot, name, pts in each if slot not in ("mod_muzzle", "mod_tactical", "mod_scope", "mount", "mod_foregrip")]
+            barrel = [pts * sign for slot, name, pts in each if slot in ("mod_barrel", "mod_muzzle")]
+            bore = float(np.median(np.concatenate(barrel)[:, 1])) if barrel else None
+            if rest:
+                tip = max(float(q[:, 0].max()) for q in rest)
+                for slot, name, pts in each:
+                    if slot.startswith("mod_stock") and bore is not None:
+                        q = pts * sign
+                        if q[:, 1].min() < bore - 0.17:
+                            geo.append(f"{name} hangs low")
+                    if slot == "mod_tactical" and not name.lower().startswith("mount") and bore is not None:
+                        q = pts * sign
+                        if (q[:, 1].max() + q[:, 1].min()) / 2 > bore + 0.045:
+                            geo.append(f"{name} sits on top")
+                    if slot == "mod_tactical" and not name.lower().startswith("mount"):
+                        q = pts * sign
+                        centred = q - q.mean(axis=0)
+                        if len(centred) >= 3 and float(np.ptp(q, axis=0).max()) > 0.04:
+                            _, sv, vt = np.linalg.svd(centred, full_matrices=False)
+                            if sv[0] > 1.8 * sv[1] and abs(vt[0][0]) < 0.85:
+                                geo.append(f"{name} does not point down the barrel")
+                    if slot == "mod_muzzle":
+                        q = pts * sign
+                        length = float(q[:, 0].max() - q[:, 0].min())
+                        if length > 0.03 and (q[:, 0].max() + q[:, 0].min()) / 2 < tip - 0.35 * length - 0.01:
+                            geo.append(f"{name} faces backwards")
+                        # And it lies along the barrel: a long one whose length points elsewhere is turned.
+                        centred = q - q.mean(axis=0)
+                        if len(centred) >= 3 and float(np.ptp(q, axis=0).max()) > 0.04:
+                            _, sv, vt = np.linalg.svd(centred, full_matrices=False)
+                            if sv[0] > 1.6 * sv[1] and abs(vt[0][0]) < 0.9:
+                                geo.append(f"{name} is not along the barrel")
+
         # Barrel along +x, top up now. A light or laser that stands up in front of the optic,
         # in line with it, blocks the sight picture: no one would build that.
-        if check is not None and by_slot.get("mod_scope"):
+        if geo is not None and by_slot.get("mod_scope"):
             sight = np.concatenate(by_slot["mod_scope"]) * sign
             s_lo, s_hi = sight.min(axis=0), sight.max(axis=0)
             for slot, name, pts in each:
@@ -1230,7 +1463,11 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, stock=False):
                 tall = q_hi[1] > s_lo[1] + 0.3 * (s_hi[1] - s_lo[1])
                 in_line = s_lo[2] - 0.004 <= (q_lo[2] + q_hi[2]) / 2 <= s_hi[2] + 0.004
                 if ahead and tall and in_line:
-                    check.append(f"{name} blocks the optic")
+                    geo.append(f"{name} blocks the optic")
+        if base:
+            STOCK_PROBLEMS.update(geo)
+        elif check is not None:
+            check.extend(x for x in geo if x not in STOCK_PROBLEMS)
             if check:
                 return
 

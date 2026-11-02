@@ -70,13 +70,15 @@ namespace CLASSIFIED
         private static readonly string[] BearWeapons =
         {
             "ak12", "ak105", "ak74m", "ak74n", "aks74", "aks74u", "ak103", "ak104", "svds", "sv98", "vss", "val", "vityaz",
-            "pkm", "pkp", "saiga12", "ash12", "sks", "mosin", "sr2m", "vepr", "pl15", "saiga9", "ks23", "veprhunter"
+            "pkm", "pkp", "saiga12", "ash12", "sks", "mosin", "sr2m", "vepr", "pl15", "saiga9", "ks23", "veprhunter",
+            "ak101", "ak102", "aks74n", "rpk16", "a91", "sr3m", "mp155", "svt40", "opsks", "mosininf", "ppsh"
         };
 
         private static readonly string[] UsecWeapons =
         {
             "m4a1", "hk416", "mk16", "mk17", "mcx", "spear", "mk47", "sr25", "g28", "rsass", "m1a", "rem700", "tx15", "mdr",
-            "aug", "m60", "mp5", "mp5k", "mpx", "ump", "vector", "m1911", "m9a3", "fiveseven", "usp", "rfb"
+            "aug", "m60", "mp5", "mp5k", "mpx", "ump", "vector", "m1911", "m9a3", "fiveseven", "usp", "rfb",
+            "ak545", "rd704", "g36", "uzi", "uzipro", "stm9", "m870", "m590", "m3", "aa12", "trg", "mk18", "deagle", "adar", "raptor"
         };
 
         private static readonly string[] BearGear =
@@ -84,15 +86,20 @@ namespace CLASSIFIED
             "6b47", "altyn", "ssh68", "kiver", "lshz2dtm", "vulkan5", "6b43", "6b13", "gzhel", "korundvm", "defender2", "6b3",
             "kirasa", "pnv10t", "gssh01", "6sh118", "salewa", "grizzly", "tushonka", "iskra", "intel", "cofdm",
             "zsh12m", "ulach", "redutm", "zhuk6a", "tv110", "tarzan", "azimut", "attack2", "berkut", "ifak", "cms", "propital",
-            "flash", "vpx", "virtex", "gpu", "battery", "gasan", "tetriz", "lion"
+            "flash", "vpx", "virtex", "gpu", "battery", "gasan", "tetriz", "lion",
+            "tor2", "ryst", "maska", "6b23", "korakulon", "zhuk3", "6b2", "umka", "bankrobber", "triton", "takedown", "pillbox",
+            "pnv57", "hdd", "gyro", "mcb", "labrys", "bluefolders", "smt", "defib", "raven", "carkit"
         };
 
         private static readonly string[] UsecGear =
         {
             "fast", "airframe", "exfil", "mich2001", "bastion", "avs", "slick", "cpc", "hexgrid", "gpnvg", "pvs14", "comtac",
             "blackjack", "nicecomm", "medpack", "betav2", "surv12", "ledx", "grizzly", "intel", "cofdm",
-            "caiman", "iotv", "otv", "paca", "commando", "thunderbolt", "pilgrim", "paratus", "sordin", "razor", "earmor", "n15",
-            "t7", "ifak", "cms", "propital", "flash", "vpx", "virtex", "gpu", "battery", "tetriz", "lion"
+            "iotv", "otv", "paca", "commando", "thunderbolt", "pilgrim", "paratus", "sordin", "razor", "earmor", "n15",
+            "t7", "ifak", "cms", "propital", "flash", "vpx", "virtex", "gpu", "battery", "tetriz", "lion",
+            "achhc", "tc800", "trooper", "a18", "thorcrv", "hpc", "drd", "d3crx", "idearig", "mmac", "strandhogg", "tv115",
+            "mech", "lbt", "trooper35", "satl", "dragonegg", "drawbridge", "xcel", "comtac5", "liberator", "tsport",
+            "aesa", "ultralink", "rfid", "catstatue", "defib", "carkit"
         };
 
         /// <summary>Each unit's own weapons and gear, which it shows more often than the rest of its side's. Null for none.</summary>
@@ -100,18 +107,18 @@ namespace CLASSIFIED
         {
             switch (unit)
             {
-                case ThemeChoice.BearCommand: return new[] { new[] { "ak12", "ak105", "ash12", "pl15" }, new[] { "6b47", "6b43", "gssh01", "korundvm", "vulkan5", "intel", "zhuk6a", "redutm", "flash" } };
-                case ThemeChoice.BearReconnaissance: return new[] { new[] { "svds", "sv98", "vss", "mosin", "veprhunter" }, new[] { "pnv10t", "6sh118", "6b47", "kirasa", "gssh01", "tarzan", "berkut" } };
-                case ThemeChoice.BearSignals: return new[] { new[] { "aks74u", "aks74", "sr2m", "saiga9" }, new[] { "gssh01", "cofdm", "iskra", "6b3", "lshz2dtm", "vpx", "virtex", "battery", "gasan" } };
-                case ThemeChoice.BearCounterintelligence: return new[] { new[] { "val", "vss", "vityaz", "sr2m", "pl15" }, new[] { "altyn", "intel", "6b13", "kiver", "defender2", "flash", "tetriz", "ulach" } };
-                case ThemeChoice.BearSupply: return new[] { new[] { "pkm", "pkp", "ak103", "sks", "ks23" }, new[] { "tushonka", "iskra", "6sh118", "gzhel", "6b3", "attack2", "azimut", "gpu", "lion" } };
-                case ThemeChoice.BearMedical: return new[] { new[] { "ak74m", "aks74", "ak74n", "saiga12" }, new[] { "salewa", "grizzly", "ssh68", "medpack", "kirasa", "cms", "ifak", "propital" } };
-                case ThemeChoice.UsecOperations: return new[] { new[] { "m4a1", "mk16", "mdr", "aug", "usp", "rfb" }, new[] { "fast", "avs", "pvs14", "cpc", "comtac", "caiman", "iotv", "earmor" } };
-                case ThemeChoice.UsecIntelligence: return new[] { new[] { "sr25", "m1a", "rem700", "g28", "rsass" }, new[] { "gpnvg", "intel", "exfil", "hexgrid", "bastion", "t7", "flash", "thunderbolt" } };
-                case ThemeChoice.UsecSignals: return new[] { new[] { "mcx", "mk47", "mpx", "fiveseven" }, new[] { "comtac", "cofdm", "nicecomm", "mich2001", "slick", "battery", "vpx", "razor", "gpu" } };
-                case ThemeChoice.UsecLogistics: return new[] { new[] { "m60", "mk47", "mk17", "rfb" }, new[] { "blackjack", "slick", "comtac", "betav2", "cpc", "pilgrim", "paratus", "commando", "tetriz" } };
-                case ThemeChoice.UsecMedical: return new[] { new[] { "mp5", "mp5k", "ump", "vector", "m9a3" }, new[] { "surv12", "ledx", "grizzly", "medpack", "mich2001", "cms", "ifak", "propital" } };
-                case ThemeChoice.UsecCommand: return new[] { new[] { "hk416", "mk16", "spear", "tx15", "m1911" }, new[] { "airframe", "slick", "gpnvg", "bastion", "hexgrid", "otv", "sordin", "n15" } };
+                case ThemeChoice.BearCommand: return new[] { new[] { "ak12", "ak105", "ash12", "pl15", "ak101", "rpk16" }, new[] { "6b47", "6b43", "gssh01", "korundvm", "vulkan5", "intel", "zhuk6a", "redutm", "flash", "tor2", "6b23" } };
+                case ThemeChoice.BearReconnaissance: return new[] { new[] { "svds", "sv98", "vss", "mosin", "veprhunter", "svt40", "mosininf" }, new[] { "pnv10t", "6sh118", "6b47", "kirasa", "gssh01", "tarzan", "berkut", "takedown", "pnv57" } };
+                case ThemeChoice.BearSignals: return new[] { new[] { "aks74u", "aks74", "sr2m", "saiga9", "a91" }, new[] { "gssh01", "cofdm", "iskra", "6b3", "lshz2dtm", "vpx", "virtex", "battery", "gasan", "mcb", "gyro" } };
+                case ThemeChoice.BearCounterintelligence: return new[] { new[] { "val", "vss", "vityaz", "sr2m", "pl15", "sr3m" }, new[] { "altyn", "intel", "6b13", "kiver", "defender2", "flash", "tetriz", "ulach", "labrys", "smt", "bluefolders" } };
+                case ThemeChoice.BearSupply: return new[] { new[] { "pkm", "pkp", "ak103", "sks", "ks23", "opsks", "ppsh" }, new[] { "tushonka", "iskra", "6sh118", "gzhel", "6b3", "attack2", "azimut", "gpu", "lion", "umka", "bankrobber" } };
+                case ThemeChoice.BearMedical: return new[] { new[] { "ak74m", "aks74", "ak74n", "saiga12", "mp155", "aks74n" }, new[] { "salewa", "grizzly", "ssh68", "medpack", "kirasa", "cms", "ifak", "propital", "defib", "carkit" } };
+                case ThemeChoice.UsecOperations: return new[] { new[] { "m4a1", "mk16", "mdr", "aug", "usp", "rfb", "adar", "m590" }, new[] { "fast", "avs", "pvs14", "cpc", "comtac", "iotv", "earmor" } };
+                case ThemeChoice.UsecIntelligence: return new[] { new[] { "sr25", "m1a", "rem700", "g28", "rsass", "trg", "mk18" }, new[] { "gpnvg", "intel", "exfil", "hexgrid", "bastion", "t7", "flash", "thunderbolt" } };
+                case ThemeChoice.UsecSignals: return new[] { new[] { "mcx", "mk47", "mpx", "fiveseven", "raptor", "stm9" }, new[] { "comtac", "cofdm", "nicecomm", "mich2001", "slick", "battery", "vpx", "razor", "gpu" } };
+                case ThemeChoice.UsecLogistics: return new[] { new[] { "m60", "mk47", "mk17", "rfb", "aa12", "m870" }, new[] { "blackjack", "slick", "comtac", "betav2", "cpc", "pilgrim", "paratus", "commando", "tetriz" } };
+                case ThemeChoice.UsecMedical: return new[] { new[] { "mp5", "mp5k", "ump", "vector", "m9a3", "uzi", "uzipro" }, new[] { "surv12", "ledx", "grizzly", "medpack", "mich2001", "cms", "ifak", "propital", "defib", "carkit" } };
+                case ThemeChoice.UsecCommand: return new[] { new[] { "hk416", "mk16", "spear", "tx15", "m1911", "ak545", "rd704", "deagle" }, new[] { "airframe", "slick", "gpnvg", "bastion", "hexgrid", "otv", "sordin", "n15" } };
                 default: return null;
             }
         }
@@ -123,7 +130,7 @@ namespace CLASSIFIED
         /// This launch's table for the unit: a weapon in one of its builds, then three pieces of
         /// gear. The weapon is the unit's own about half the time, else any of its side's, and
         /// over launches its side's whole armoury comes round before any repeats (Archive). Each
-        /// build is put together at random; the stock one is rare. The same
+        /// build is put together at random; the stock one never shows. The same
         /// <paramref name="random"/> draws the same table, so laying the screen out again keeps it.
         /// </summary>
         internal static string[] Draw(ThemeChoice unit, Faction faction, System.Random random)
@@ -137,7 +144,8 @@ namespace CLASSIFIED
             string weapon = random.Next(100) < 45
                 ? pools[0][random.Next(pools[0].Length)]
                 : side[Archive.PickShuffled("kit.weapon." + faction, new List<string>(side), random)];
-            int build = random.Next(100) < 10 ? 0 : 1 + random.Next(Builds - 1);
+            // Always one of the random builds: the stock ones carry no attachments to show.
+            int build = 1 + random.Next(Builds - 1);
 
             // Gear: the unit's own first, then its side's, three different pieces.
             var gear = new List<string>();
@@ -349,7 +357,7 @@ namespace CLASSIFIED
     {
         /// <summary>Rebuilds a second, at most, while it builds in; once whole, it turns slowly enough for fewer.</summary>
         private const float Rate = 60f;
-        private const float SettledRate = 40f;
+        private const float SettledRate = 30f;
         private const float Perspective = 0.14f;
 
         /// <summary>How far behind the build line a part takes to come to full strength, in model units.</summary>
@@ -470,6 +478,7 @@ namespace CLASSIFIED
         private readonly List<Vector2> _uvs = new List<Vector2>(16384);
         private readonly List<int> _indices = new List<int>(24576);
         private Vector3[] _turned = new Vector3[0];
+        private float[] _facing = new float[0];
         private static readonly Vector2 Solid = new Vector2(0.5f, 0.5f);
         private static readonly Vector2 EdgeLow = new Vector2(0.5f, 0f);
         private static readonly Vector2 EdgeHigh = new Vector2(0.5f, 1f);
@@ -486,6 +495,8 @@ namespace CLASSIFIED
                 _mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
                 _mesh.MarkDynamic();
             }
+            // Counted with the terminal's own work, so the log's ms/frame includes the hologram.
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
             _positions.Clear();
             _colors.Clear();
             _uvs.Clear();
@@ -497,6 +508,7 @@ namespace CLASSIFIED
             _mesh.SetUVs(0, _uvs);
             _mesh.SetTriangles(_indices, 0, false);
             canvasRenderer.SetMesh(_mesh);
+            StartupTracker.NoteTerminal((System.Diagnostics.Stopwatch.GetTimestamp() - start) / (float)System.Diagnostics.Stopwatch.Frequency, frame: false);
         }
 
         protected override void OnDestroy()
@@ -530,11 +542,13 @@ namespace CLASSIFIED
             {
                 _front = new bool[faces];
                 _turned = new Vector3[faces];
+                _facing = new float[faces];
             }
             for (int f = 0; f < faces; f++)
             {
                 _turned[f] = _rotation.MultiplyVector(m.Normals[f]);
                 _front[f] = _turned[f].z > -Grazing;
+                _facing[f] = Facing(_turned[f].z);
             }
 
             // The build line runs along x from one end to the other, with room for the soft edge.
@@ -589,7 +603,7 @@ namespace CLASSIFIED
                     continue;
                 }
                 float lit = Mathf.Max(0f, Vector3.Dot(_turned[f], light));
-                Color32 color = Tint(((10f + 34f * lit + 30f * ScanGlow(x, m)) * built + 40f * Leading(x, cut)) * Facing(_turned[f].z));
+                Color32 color = Tint(((10f + 34f * lit + 30f * ScanGlow(x, m)) * built + 40f * Leading(x, cut)) * _facing[f]);
                 if (color.a == 0)
                 {
                     continue;
@@ -624,12 +638,12 @@ namespace CLASSIFIED
             {
                 int f0 = m.EdgeF0[e];
                 int f1 = m.EdgeF1[e];
-                float z0 = _turned[f0].z;
-                float z1 = f1 >= 0 ? _turned[f1].z : -1f;
+                float k0 = _facing[f0];
+                float k1 = f1 >= 0 ? _facing[f1] : 0f;
                 // An outline where one side faces the viewer and the other away, as strongly as the
                 // two disagree; a crease as strongly as its nearer side faces the viewer.
-                float outlineK = f1 < 0 ? Facing(z0) : Mathf.Abs(Facing(z0) - Facing(z1));
-                float creaseK = m.Crease[e] ? Facing(Mathf.Max(z0, z1)) : 0f;
+                float outlineK = f1 < 0 ? k0 : Mathf.Abs(k0 - k1);
+                float creaseK = m.Crease[e] ? Mathf.Max(k0, k1) : 0f;
                 if (outlineK < 0.02f && creaseK < 0.02f)
                 {
                     continue;

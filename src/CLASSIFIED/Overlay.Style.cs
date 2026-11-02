@@ -178,7 +178,7 @@ namespace CLASSIFIED
             _powerLine.color = _variant.Intro == IntroKind.Crt ? Color32.Lerp(Accent, new Color32(255, 255, 255, 255), 0.6f) : Accent;
             _introTitle.color = Text;
             _introSub.color = Accent;
-            _introSub.text = Cyr(Lang.Bear(theme.TitleCard));
+            _introSub.text = Words(_variant.Motto.Ru, _variant.Motto.En);
             ApplyIntroText();
             _flash.color = Accent;
         }

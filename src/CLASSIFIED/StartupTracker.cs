@@ -676,8 +676,8 @@ namespace CLASSIFIED
             return Math.Min(StepElapsed / Math.Max(Usual(Current), 0.05f), 0.95f);
         }
 
-        /// <summary>Time the terminal's own per-frame work took, in seconds.</summary>
-        internal static void NoteTerminal(float seconds)
+        /// <summary>Time the terminal's own work took, in seconds: once a frame for its update (frame), and again for what it draws later in the frame.</summary>
+        internal static void NoteTerminal(float seconds, bool frame = true)
         {
             if (!Active)
             {
@@ -685,7 +685,10 @@ namespace CLASSIFIED
             }
             _stepTerminal += seconds;
             _runTerminal += seconds;
-            _runFrames++;
+            if (frame)
+            {
+                _runFrames++;
+            }
         }
 
         /// <summary>Called once per drawn frame while a run is going.</summary>

@@ -205,39 +205,6 @@ namespace CLASSIFIED
             }
         }
 
-        /// <summary>
-        /// An arc whose colour and thickness run smoothly from one end to the other, for a trail
-        /// that fades out behind something moving. <paramref name="sweepDegrees"/> may be negative.
-        /// </summary>
-        internal void ArcGradient(float radius, float startDegrees, float sweepDegrees,
-            float startThickness, float endThickness, Color32 startColor, Color32 endColor)
-        {
-            int steps = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(sweepDegrees) / 1.5f));
-            int start = _vertices.Count;
-            for (int i = 0; i <= steps; i++)
-            {
-                float f = i / (float)steps;
-                Vector2 d = Direction(startDegrees + sweepDegrees * f);
-                float half = Mathf.Lerp(startThickness, endThickness, f) * 0.5f;
-                Color32 color = Color32.Lerp(startColor, endColor, f);
-                Color32 clear = Clear(color);
-                Add(d * (radius - half - Feather), clear);
-                Add(d * (radius - half), color);
-                Add(d * (radius + half), color);
-                Add(d * (radius + half + Feather), clear);
-            }
-            for (int i = 0; i < steps; i++)
-            {
-                int a = start + i * 4;
-                int b = a + 4;
-                for (int k = 0; k < 3; k++)
-                {
-                    Index(a + k, a + k + 1, b + k + 1);
-                    Index(a + k, b + k + 1, b + k);
-                }
-            }
-        }
-
         private void Cap(float degrees, float inner, float outer, float sign, Color32 color)
         {
             Vector2 d = Direction(degrees);
