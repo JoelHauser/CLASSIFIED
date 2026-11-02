@@ -160,8 +160,6 @@ namespace CLASSIFIED
                     return;
                 }
                 _zone = zone;
-                float since = Mathf.Max(0f, O._animClock - O._debriefAt);
-                _yaw = Range(0f, Mathf.PI * 2f) + since * Turn;
                 bool roomy = zone.height >= 300f;
                 _titleHeight = roomy ? 98f : 34f;
 
@@ -193,11 +191,35 @@ namespace CLASSIFIED
                 _holo.Ink = A(T.Accent, 255);
                 _leaders = Draw();
                 // Where the table had got to: a layout partway through must not start it again.
+                float since = Mathf.Max(0f, O._animClock - O._debriefAt);
                 int shown = Mathf.FloorToInt(since / Cycle);
                 ShowItem(shown % _kit.Length, O._debriefAt + shown * Cycle);
             }
 
             private const float Turn = 0.34f;
+
+            /// <summary>How long an item holds side on, its callouts showing, before it starts to turn.</summary>
+            private const float SideOn = BuildTime + 3f;
+
+            /// <summary>How long the turn takes to come up to speed.</summary>
+            private const float SpinUp = 2f;
+
+            /// <summary>
+            /// The item's turn, from its time on the table: side on while it builds and for a few
+            /// seconds after, with the barest drift, then easing into a steady turn. Each item starts
+            /// side on, so its callouts are always seen; they fade as it turns away.
+            /// </summary>
+            private static float YawAt(float age)
+            {
+                float drift = 0.06f * Mathf.Sin(age * 0.7f);
+                float s = age - SideOn;
+                if (s <= 0f)
+                {
+                    return drift;
+                }
+                float turned = s < SpinUp ? Turn * s * s / (2f * SpinUp) : Turn * (s - SpinUp * 0.5f);
+                return drift * Mathf.Exp(-s) + turned;
+            }
 
             /// <summary>One item's whole time on the table: building in, turning, dissolving.</summary>
             private const float Cycle = BuildTime + ItemTime + DissolveTime;
@@ -363,7 +385,7 @@ namespace CLASSIFIED
                 float reveal = _dissolving ? 1f - Mathf.Clamp01((age - dissolveAt) / DissolveTime) : build;
                 _holo.Reveal = reveal;
 
-                _yaw += Dt * Turn;
+                _yaw = YawAt(age);
                 _holo.Yaw = _yaw;
                 _holo.Pitch = 0.30f + 0.05f * Mathf.Sin(t * 0.4f);
                 _holo.TableTurn = -t * 0.25f;

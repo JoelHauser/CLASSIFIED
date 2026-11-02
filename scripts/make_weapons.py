@@ -21,6 +21,7 @@ import os
 import struct
 import sys
 
+import re
 import numpy as np
 from scipy.spatial import cKDTree
 import UnityPy
@@ -414,6 +415,13 @@ class Part:
                 lod = int(level) if level.isdigit() else 0
             found.setdefault(base, {})[lod] = (mesh, key)
 
+        # A part modelled in more than one position (a flip-to-side magnifier's _pos_1 and _pos_2
+        # beside its plain body) is drawn once: the plain one, else the first position.
+        for base in list(found):
+            pos = re.match(r"(.+)_pos_(\d+)$", base)
+            if pos and (pos.group(1) in found or any(re.match(re.escape(pos.group(1)) + r"_pos_(\d+)$", other)
+                                                     and int(other.rsplit("_", 1)[1]) < int(pos.group(2)) for other in found)):
+                del found[base]
         out = []
         heavy = []
         for base, lods in found.items():
@@ -459,7 +467,8 @@ def assemble(streaming, items, preset, weapon, problems=None, names=None):
             if sight_kind(items, item["_tpl"]):
                 label = "mod_scope"
             elif label.startswith("mod_scope"):
-                label = "mount"
+                # Rings and risers are mounts; an iron sight there (an ASh-12's) is a rear sight.
+                label = "mod_sight_rear" if "IronSight" in kinds_of(items, item["_tpl"]) else "mount"
             else:
                 for kind in ("mod_tactical", "mod_muzzle", "mod_foregrip"):
                     if label.startswith(kind):
@@ -560,6 +569,9 @@ def is_mount(items, tpl):
 
 # The kinds of attachment a build's loadout picks from, and the slot each goes in.
 LOADOUT = ("optic", "light", "grip", "muzzle")
+
+# Weapons whose stock is a set of pieces seated on one another (the SCAR's folding stock): never swapped.
+KEEP_STOCK = ("weapon_fn_mk16", "weapon_fn_mk17")
 CATEGORY = {"mod_scope": "optic", "mod_tactical": "light", "mod_foregrip": "grip", "mod_muzzle": "muzzle"}
 
 
@@ -653,6 +665,8 @@ def random_build(items, preset, rng, streaming):
     for it in list(its):
         slot = it.get("slotId")
         if not slot or slot not in REPLACE or it not in its or rng.random() > REPLACE[slot]:
+            continue
+        if slot.startswith("mod_stock") and items[preset_root(preset)]["_name"].startswith(KEEP_STOCK):
             continue
         if slot == "mod_muzzle" and "muzzle" not in want:
             continue
@@ -927,14 +941,26 @@ def random_build(items, preset, rng, streaming):
                     and not (slot_def(x["parentId"], x["slotId"]) or {}).get("_required"):
                 its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
 
-    # No bare mounts: one added that ended up carrying nothing comes off again.
-    original = {x["_id"] for x in preset["_items"]}
+    # No bare mounts: a mount carrying nothing, or a sight mount (rings, a riser) with no sight
+    # anywhere on it, comes off, whether the build added it or the preset had it; unless the
+    # weapon cannot do without it.
+    def required(x):
+        sl = slot_def(x["parentId"], x["slotId"]) if x.get("parentId") else None
+        return bool(sl and sl.get("_required"))
+
+    def scope_mount(t):
+        return is_mount(items, t) and any(s2["_name"].startswith("mod_scope") for s2 in items[t]["_props"].get("Slots", []))
+
     changed = True
     while changed:
         changed = False
         for x in list(its):
-            if x["_id"] not in original and is_mount(items, x["_tpl"]) and not children(x["_id"]):
-                its.remove(x)
+            if x not in its or not is_mount(items, x["_tpl"]) or required(x):
+                continue
+            bare = not children(x["_id"])
+            sightless = scope_mount(x["_tpl"]) and not any(sight_kind(items, y["_tpl"]) for y in its if y["_id"] in subtree(x["_id"]))
+            if bare or sightless:
+                its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
                 changed = True
     return {"_parent": preset["_parent"], "_items": its, "_want": sorted(want)}
 
@@ -1400,7 +1426,8 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
     # game holds it, y up.
     c = (verts.max(axis=0) + verts.min(axis=0)) / 2.0
     if weapon:
-        hang = [p[2].reshape(-1, 3) for p in parts if p[0] in ("mod_magazine", "mod_pistol_grip", "mod_pistolgrip")]
+        # The pistol grip hangs straight down; a magazine may hang to one side (an M60's box).
+        hang = [p[2].reshape(-1, 3) for p in parts if p[0].startswith(("mod_pistol_grip", "mod_pistolgrip"))]             or [p[2].reshape(-1, 3) for p in parts if p[0] == "mod_magazine"]
         bore = [p[2].reshape(-1, 3) for p in parts if p[0] in ("mod_barrel", "mod_muzzle")]
         down = np.concatenate(hang).mean(axis=0) - np.concatenate(bore).mean(axis=0) if hang and bore else None
         verts, axes = orient(verts, down)
@@ -1443,7 +1470,8 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
         elif muzzle is not None:
             flip_x = muzzle[0] < 0
         # Top up: the magazine and grip hang below the line of the barrel.
-        below = [p for p in (anchor("mod_magazine"), anchor("mod_pistol_grip"), anchor("mod_pistolgrip")) if p is not None]
+        grips = [p for slot, p in anchor_list if slot.split("|")[0].startswith(("mod_pistol_grip", "mod_pistolgrip"))]
+        below = grips or [p for p in (anchor("mod_magazine"),) if p is not None]
         line = muzzle if muzzle is not None else np.zeros(3)
         if anchor("mod_scope") is not None:
             flip_y = anchor("mod_scope")[1] < line[1]

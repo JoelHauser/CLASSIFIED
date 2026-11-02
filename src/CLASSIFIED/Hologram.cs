@@ -367,7 +367,7 @@ namespace CLASSIFIED
     {
         /// <summary>Rebuilds a second, at most, while it builds in; once whole, it turns slowly enough for fewer.</summary>
         private const float Rate = 60f;
-        private const float SettledRate = 30f;
+        private const float SettledRate = 60f;
         private const float Perspective = 0.14f;
 
         /// <summary>How far behind the build line a part takes to come to full strength, in model units.</summary>
