@@ -5,7 +5,8 @@
   The Forge allows no background or styling of its own (raw HTML is stripped), so the look
   comes from images, plus three Forge extras:
     - a blockquote followed by a line "{.is-info}" / "{.is-danger}" becomes a coloured box;
-    - "## Title {.tabset}" turns the ### headings under it into tabs, up to "{.endtabset}";
+    - "## Title {.tabset}" turns the ### headings under it into tabs, up to the next ## heading
+      (there is no closing marker: a stray "{.endtabset}" shows as text);
     - a YouTube link on a line of its own embeds a player.
   Check it in the Forge editor's preview before saving.
 
@@ -130,7 +131,7 @@ In the F12 menu, under **CLASSIFIED**:
 
 Delete `BepInEx\plugins\CLASSIFIED.dll`. To remove its settings and launch history too, delete the files starting with `com.mybutthasarash.classified` in `BepInEx\config`.
 
-{.endtabset}
+## End of transmission
 
 ![](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/wireframes/svds_2.png)
 

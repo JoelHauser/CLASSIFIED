@@ -107,6 +107,86 @@ def edges_of(v, f, crease_deg=32.0):
     return n, edges
 
 
+def visible(pv, pn, f, edges, P, W, H):
+    """
+    What the eye sees of the model, so hidden parts do not show through: a depth buffer of its
+    faces, each pixel's light from the nearest face (NaN where empty), and the outline and crease
+    segments not behind anything, each as (points, is_outline).
+    """
+    light = np.array([0.25, 0.75, 0.6])
+    light /= np.linalg.norm(light)
+    sx = np.array([P(p)[0] for p in pv])
+    sy = np.array([P(p)[1] for p in pv])
+    sz = pv[:, 2]
+    zbuf = np.full((H, W), -np.inf)
+    lit = np.full((H, W), np.nan)
+    shade = np.clip(np.abs(pn @ light), 0, 1)
+    for i, (a, b, c) in enumerate(f):
+        x0, x1 = int(max(0, min(sx[a], sx[b], sx[c]))), int(min(W - 1, max(sx[a], sx[b], sx[c]) + 1))
+        y0, y1 = int(max(0, min(sy[a], sy[b], sy[c]))), int(min(H - 1, max(sy[a], sy[b], sy[c]) + 1))
+        if x1 < x0 or y1 < y0:
+            continue
+        area = (sx[b] - sx[a]) * (sy[c] - sy[a]) - (sx[c] - sx[a]) * (sy[b] - sy[a])
+        if abs(area) < 1e-9:
+            continue
+        gx, gy = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
+        w0 = ((sx[b] - gx) * (sy[c] - gy) - (sx[c] - gx) * (sy[b] - gy)) / area
+        w1 = ((sx[c] - gx) * (sy[a] - gy) - (sx[a] - gx) * (sy[c] - gy)) / area
+        w2 = 1 - w0 - w1
+        inside = (w0 >= 0) & (w1 >= 0) & (w2 >= 0)
+        if not inside.any():
+            continue
+        z = w0 * sz[a] + w1 * sz[b] + w2 * sz[c]
+        zb = zbuf[y0:y1 + 1, x0:x1 + 1]
+        near = inside & (z > zb)
+        zb[near] = z[near]
+        lit[y0:y1 + 1, x0:x1 + 1][near] = shade[i]
+    # An edge point is seen if, close by, nothing stands in front of it by more than a hair.
+    span = float(sz.max() - sz.min())
+    eps = span * 0.012
+    reach = 2
+    nearest = zbuf.copy()
+    pad = np.pad(zbuf, reach, constant_values=-np.inf)
+    for dy in range(-reach, reach + 1):
+        for dx in range(-reach, reach + 1):
+            nearest = np.minimum(nearest, pad[reach + dy:reach + dy + H, reach + dx:reach + dx + W])
+    front = pn[:, 2] > 0
+    segments = []
+    for a, b, f0, f1, crease in edges:
+        outline = f1 < 0 or front[f0] != front[f1]
+        seen = front[f0] or (f1 >= 0 and front[f1])
+        if not (outline or (crease and seen)):
+            continue
+        length = math.hypot(sx[b] - sx[a], sy[b] - sy[a])
+        k = max(2, int(length / 1.5) + 1)
+        t = np.linspace(0, 1, k)
+        xs, ys, zs = sx[a] + (sx[b] - sx[a]) * t, sy[a] + (sy[b] - sy[a]) * t, sz[a] + (sz[b] - sz[a]) * t
+        ix, iy = np.clip(xs.astype(int), 0, W - 1), np.clip(ys.astype(int), 0, H - 1)
+        ok = nearest[iy, ix] <= zs + eps
+        # Runs of seen points become segments.
+        j = 0
+        while j < k:
+            if not ok[j]:
+                j += 1
+                continue
+            e = j
+            while e + 1 < k and ok[e + 1]:
+                e += 1
+            if e > j:
+                segments.append(([(xs[j], ys[j]), (xs[e], ys[e])], outline))
+            j = e + 1
+    return lit, segments
+
+
+def shaded(lit, colour, base, gain):
+    """The nearest faces in one colour, their alpha rising with the light on them."""
+    alpha = np.where(np.isnan(lit), 0, base + gain * np.nan_to_num(lit)).astype(np.uint8)
+    rgba = np.empty(lit.shape + (4,), np.uint8)
+    rgba[..., :3] = colour
+    rgba[..., 3] = alpha
+    return Image.fromarray(rgba, "RGBA")
+
+
 def font(size):
     return ImageFont.truetype(FONT, int(size * SS))
 
@@ -166,26 +246,12 @@ def card(iid, unit, specs, yaw=0.42, pitch=0.30):
     bg = Image.alpha_composite(bg, table)
 
     # Faces: faint, lit from above and in front; then outlines and creases over them, with a glow.
-    faces = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    fd = ImageDraw.Draw(faces)
-    light = np.array([0.25, 0.75, 0.6])
-    light /= np.linalg.norm(light)
-    depth = pv[f].mean(axis=1)[:, 2]
-    for i in np.argsort(depth):
-        z = pn[i][2]
-        if z <= 0:
-            continue
-        lit = max(0.0, float(pn[i] @ light))
-        fd.polygon([P(pv[j]) for j in f[i]], fill=accent + (int(14 + 40 * lit),))
+    lit, segments = visible(pv, pn, f, edges, P, W, H)
+    faces = shaded(lit, accent, 14, 40)
     lines = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ld = ImageDraw.Draw(lines)
-    front = pn[:, 2] > 0
-    for a, b, f0, f1, crease in edges:
-        outline = f1 < 0 or front[f0] != front[f1]
-        seen = front[f0] or (f1 >= 0 and front[f1])
-        if not (outline or (crease and seen)):
-            continue
-        ld.line([P(pv[a]), P(pv[b])], fill=accent + (235 if outline else 130,), width=int((1.6 if outline else 1.1) * SS))
+    for pts, outline in segments:
+        ld.line(pts, fill=accent + (235 if outline else 130,), width=int((1.6 if outline else 1.1) * SS))
     blur = lines.filter(ImageFilter.GaussianBlur(5 * SS))
     bg = Image.alpha_composite(bg, faces)
     bg = Image.alpha_composite(bg, blur)
@@ -288,25 +354,13 @@ def bare(iid, colour, width=1600, yaw=0.42, pitch=0.30):
     def P(p):
         return (W / 2 + (p[0] - mid[0]) * scale, H / 2 - (p[1] - mid[1]) * scale)
 
-    faces = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    fd = ImageDraw.Draw(faces)
-    light = np.array([0.25, 0.75, 0.6])
-    light /= np.linalg.norm(light)
-    for i in np.argsort(pv[f].mean(axis=1)[:, 2]):
-        if pn[i][2] <= 0:
-            continue
-        lit = max(0.0, float(pn[i] @ light))
-        fd.polygon([P(pv[j]) for j in f[i]], fill=colour + (int(16 + 44 * lit),))
+    lit, segments = visible(pv, pn, f, edges, P, W, H)
+    faces = shaded(lit, colour, 16, 44)
     lines = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ld = ImageDraw.Draw(lines)
-    front = pn[:, 2] > 0
     thick = W / (1600 * SS)
-    for a, b, f0, f1, crease in edges:
-        outline = f1 < 0 or front[f0] != front[f1]
-        seen = front[f0] or (f1 >= 0 and front[f1])
-        if not (outline or (crease and seen)):
-            continue
-        ld.line([P(pv[a]), P(pv[b])], fill=colour + (255 if outline else 175,), width=max(1, int((2.4 if outline else 1.5) * SS * thick)))
+    for pts, outline in segments:
+        ld.line(pts, fill=colour + (255 if outline else 175,), width=max(1, int((2.4 if outline else 1.5) * SS * thick)))
     # A tight glow, half strength: it lifts the lines on a dark page without blurring them on a light one.
     glow = lines.filter(ImageFilter.GaussianBlur(3 * SS * thick))
     glow.putalpha(glow.getchannel("A").point(lambda a: a // 2))
