@@ -308,6 +308,7 @@ class Part:
 
     def __init__(self, streaming, prefab, template, weapon=True, deps=False, root=False):
         self.weapon = weapon
+        self.template = template.lower()
         # The weapon's own model, whose heavy detail-only meshes are its internals; on an
         # attachment such a mesh is its body (a magazine's shell, a scope's tube).
         self.root_part = root
@@ -439,9 +440,10 @@ class Part:
             idx = np.array(tris, dtype=np.int64)
             m = self.world[key]
             w = (np.c_[v, np.ones(len(v))] @ m.T)[:, :3]
-            if self.weapon and self.root_part and lod == 0 and len(tris) > 1500:
+            if self.weapon and self.root_part and lod == 0 and len(tris) > 1500 and base != self.template:
                 # Only a detailed version, and a heavy one: an internal part, mostly. Kept
-                # aside for a part that has nothing else (a handguard, a stock, an ACOG).
+                # aside for a part that has nothing else (a handguard, a stock, an ACOG). The
+                # body named after the weapon is never internal (the MP-155's receiver).
                 heavy.append((base, w[idx]))
                 continue
             out.append((base, w[idx]))
