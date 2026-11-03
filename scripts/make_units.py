@@ -62,7 +62,7 @@ def fit(draw, text, size, width, weight=None):
     return kit.font(8, weight)
 
 
-def tile(faction, entry, theme, insignia):
+def tile(faction, entry, theme, insignia, final=(TILE_W, TILE_H)):
     unit, name, second, motto, table, backdrop = entry
     s = SS
     w, h = TILE_W * s, TILE_H * s
@@ -131,7 +131,7 @@ def tile(faction, entry, theme, insignia):
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius=10 * s, fill=255)
     img.putalpha(mask)
     ImageDraw.Draw(img).rounded_rectangle([0, 0, w - 1, h - 1], radius=10 * s, outline=mix(ink, primary, 0.45) + (255,), width=s)
-    return img.resize((TILE_W, TILE_H), Image.LANCZOS)
+    return img.resize(final, Image.LANCZOS)
 
 
 def main():
