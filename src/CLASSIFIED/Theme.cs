@@ -402,6 +402,7 @@ namespace CLASSIFIED
         internal UnitNames.Pair Boot;
         internal UnitNames.Pair SignIn;
         internal UnitNames.Pair Deploy;
+        internal UnitNames.Pair Return;
         internal string TopRight;
         internal string GrantText;
         internal bool Greet;
@@ -438,6 +439,7 @@ namespace CLASSIFIED
             Boot = from.Boot;
             SignIn = from.SignIn;
             Deploy = from.Deploy;
+            Return = from.Return;
             TopRight = from.TopRight;
             Milestone = from.Milestone;
         }
@@ -506,6 +508,7 @@ namespace CLASSIFIED
             v.Boot = UnitNames.Booting[random.Next(UnitNames.Booting.Length)];
             v.SignIn = UnitNames.SigningIn[random.Next(UnitNames.SigningIn.Length)];
             v.Deploy = UnitNames.Deploying[random.Next(UnitNames.Deploying.Length)];
+            v.Return = UnitNames.Returning[random.Next(UnitNames.Returning.Length)];
 
             v.Header = Lang.Bear(t.Headers[random.Next(t.Headers.Length)]);
             string service = t.Faction == Faction.Bear ? $"{(Overlay.BearRussian ? "АБВГДЕКМНТ" : "ABVGDEKMNT")[random.Next(10)]}-{random.Next(100000, 1000000)}"

@@ -65,6 +65,19 @@ namespace CLASSIFIED
             }
             ApplyDeploy(harmony);
 
+            // After the after-action report (or a raid that ended without one) the game unloads
+            // the raid and loads the menu again; the launch's own steps from the item database on
+            // mark the rest of the way.
+            MethodInfo comeback = AccessTools.Method(typeof(TarkovApplication), nameof(TarkovApplication.ComebackToMainMenu));
+            if (comeback != null)
+            {
+                harmony.Patch(comeback, prefix: new HarmonyMethod(typeof(Patches), nameof(ComingBack)));
+            }
+            else
+            {
+                ClassifiedPlugin.Log.LogWarning("TarkovApplication.ComebackToMainMenu not found; the terminal will not show after raids.");
+            }
+
             MethodInfo show = AccessTools.Method(typeof(ProfileLoadingScreen), nameof(ProfileLoadingScreen.Show), new[] { typeof(bool) });
             if (show == null)
             {
@@ -262,6 +275,23 @@ namespace CLASSIFIED
             {
                 // Never let the terminal stand between the player and a raid.
                 ClassifiedPlugin.Log.LogError("Raid-loading terminal failed to start: " + e);
+                Overlay.HideNow();
+            }
+        }
+
+        private static void ComingBack()
+        {
+            try
+            {
+                if (ClassifiedPlugin.ShowThisReturn() && StartupTracker.BeginReturn())
+                {
+                    Overlay.BeginReturn();
+                }
+            }
+            catch (Exception e)
+            {
+                // Never let the terminal stand between the player and the menu.
+                ClassifiedPlugin.Log.LogError("After-raid terminal failed to start: " + e);
                 Overlay.HideNow();
             }
         }

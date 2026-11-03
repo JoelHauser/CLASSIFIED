@@ -65,6 +65,17 @@ namespace CLASSIFIED
         /// <summary>If the game hides its screen and the menu never comes, give up after this long.</summary>
         private const float GiveUpAfter = 15f;
 
+        /// <summary>
+        /// A raid load and the way back cover the game's screen from the first frame. Fading in,
+        /// the game's own screen showed through, and the long frames as those loads start (the
+        /// intro runs on drawn frames) stretched the fade to a second or more. A launch fades in
+        /// over the splash, which is already dark.
+        /// </summary>
+        private static bool CoversAtOnce => StartupTracker.Kind != RunKind.Launch;
+
+        /// <summary>The way back from a raid has no screen to lose: if the menu never comes, give up after this long.</summary>
+        private const float ReturnGiveUpAfter = 120f;
+
         /// <summary>Over this far past its usual time, a step's readout turns to the warning colour.</summary>
         private const float SlowAfter = 1.5f;
 
@@ -222,6 +233,28 @@ namespace CLASSIFIED
             }
         }
 
+        /// <summary>
+        /// Called when the game leaves the after-action report for the main menu: the terminal
+        /// covers the raid unloading and the menu loading, and signs in when the menu shows.
+        /// </summary>
+        internal static void BeginReturn()
+        {
+            if (_instance == null)
+            {
+                FindBootFont(null, out TMP_FontAsset font, out Material material);
+                Create(font, material);
+            }
+            if (_instance._previewing)
+            {
+                _instance.Hide();
+            }
+            if (_instance._phase == Phase.Hidden)
+            {
+                _instance.StartLoading(null);
+                ClassifiedPlugin.Log.LogInfo("Back from the raid: the terminal is showing the way to the main menu.");
+            }
+        }
+
         private static void Create(TMP_FontAsset font, Material material)
         {
             var go = new GameObject("ClassifiedLoading", typeof(RectTransform), typeof(CanvasGroup));
@@ -287,8 +320,8 @@ namespace CLASSIFIED
 
         /// <summary>A load step's name for the readout, in the terminal's language.</summary>
         private string StepName(int step) => _variant != null && _variant.Faction == Faction.Bear && BearRussian
-            ? Cyr(StartupTracker.LabelsRu[step].ToUpperInvariant())
-            : StartupTracker.Labels[step].ToUpperInvariant();
+            ? Cyr(StartupTracker.LabelRu(step).ToUpperInvariant())
+            : StartupTracker.Label(step).ToUpperInvariant();
 
         /// <summary>The game is showing an error: get out of its way at once.</summary>
         internal static void HideNow()
@@ -562,7 +595,7 @@ namespace CLASSIFIED
             _slow = false;
             _emblem.localScale = Vector3.one;
             _laidOutSize = Vector2.zero;
-            _group.alpha = 0f;
+            _group.alpha = CoversAtOnce && !_showreel ? 1f : 0f;
             ResetFx();
             Roll();
             _debriefAt = _animClock;
@@ -774,7 +807,9 @@ namespace CLASSIFIED
 
             if (_phase == Phase.Loading)
             {
-                _group.alpha = _showreel ? ShowreelAlpha() : Mathf.Clamp01(_introClock * (_variant.Intro == IntroKind.Fade ? 3f : 8f));
+                _group.alpha = _showreel ? ShowreelAlpha()
+                    : CoversAtOnce ? 1f
+                    : Mathf.Clamp01(_introClock * (_variant.Intro == IntroKind.Fade ? 3f : 8f));
                 UpdateProgress(StartupTracker.Fraction());
                 UpdateSteps(t);
                 UpdateChatter(t);
@@ -909,6 +944,11 @@ namespace CLASSIFIED
             {
                 Grant(realTime);
             }
+            else if (StartupTracker.Kind == RunKind.Return && StartupTracker.Elapsed > ReturnGiveUpAfter)
+            {
+                ClassifiedPlugin.Log.LogWarning("Back from the raid: the main menu never showed; stepping aside.");
+                Grant(realTime);
+            }
         }
 
         /// <summary>Everything that depends only on the screen size. Units are 1080p pixels scaled to the screen.</summary>
@@ -973,8 +1013,11 @@ namespace CLASSIFIED
             SetText(_topRight, halfW - cornerWidth * 0.5f, halfH - 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomLeft, -halfW + cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
             SetText(_bottomRight, halfW - cornerWidth * 0.5f, -halfH + 9f * u, cornerWidth, 18f * u, 12f * u, 8f);
-            float last = Deploying ? StartupTracker.LastDeployTotal : StartupTracker.LastTotal;
-            string lastName = Deploying ? Words("ПРЕД. ВЫХОД", "LAST DEPLOY") : Words("ПРЕД. СЕАНС", "LAST SYNC");
+            bool returning = StartupTracker.Kind == RunKind.Return;
+            float last = Deploying ? StartupTracker.LastDeployTotal : returning ? StartupTracker.LastReturnTotal : StartupTracker.LastTotal;
+            string lastName = Deploying ? Words("ПРЕД. ВЫХОД", "LAST DEPLOY")
+                : returning ? Words("ПРЕД. ВОЗВРАТ", "LAST RETURN")
+                : Words("ПРЕД. СЕАНС", "LAST SYNC");
             string lastSync = last > 0f
                 ? lastName + $" <mspace=0.62em>{last:0.0}</mspace>" + Words("с", "s")
                 : lastName + "  --";

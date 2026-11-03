@@ -179,7 +179,9 @@ namespace CLASSIFIED
         /// <summary>The second half of the subtitle: what stage the game is at.</summary>
         private string Stage(bool boot)
         {
-            UnitNames.Pair stage = Deploying ? _variant.Deploy : boot ? _variant.Boot : _variant.SignIn;
+            UnitNames.Pair stage = Deploying ? _variant.Deploy
+                : StartupTracker.Kind == RunKind.Return && StartupTracker.Active ? _variant.Return
+                : boot ? _variant.Boot : _variant.SignIn;
             return Words(stage.Ru, stage.En);
         }
 

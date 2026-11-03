@@ -88,7 +88,7 @@ namespace CLASSIFIED
             }
             Overlay o = _instance;
             o.ResetPreviewControls(captionHidden: false);
-            o._previewKind = ClassifiedPlugin.PreviewLoad.Value;
+            o._previewKind = ClassifiedPlugin.PreviewLoad.Value == PreviewKind.Deploy ? RunKind.Deploy : RunKind.Launch;
             o._previewPins = Pins.FromConfig();
             o._previewGlitches = ClassifiedPlugin.Glitches.Value;
             o.PlayPreview(o.RollPreview(ClassifiedPlugin.Theme.Value));

@@ -36,7 +36,7 @@ namespace CLASSIFIED
                 case ThemeChoice.BearSupply: return new[] { P("ТЫЛ", "SUPPLY"), P("СЛУЖБА ТЫЛА", "REAR SERVICES"), P("ВЕЩЕВОЙ СКЛАД", "QUARTERMASTER STORES"), P("АВТОКОЛОННА", "TRANSPORT COLUMN"), P("СКЛАД ГСМ", "FUEL DEPOT") };
                 case ThemeChoice.BearMedical: return new[] { P("МЕДСЛУЖБА", "MEDICAL SERVICE"), P("МЕДПУНКТ", "AID POST"), P("МЕДСАНБАТ", "MEDICAL BATTALION"), P("ЭВАКОГРУППА", "EVACUATION TEAM") };
                 case ThemeChoice.UsecOperations: return new[] { E("TACTICAL OPERATIONS CENTER"), E("S3 OPERATIONS"), E("CURRENT OPERATIONS"), E("BATTLE WATCH"), E("JOINT OPERATIONS CELL") };
-                case ThemeChoice.UsecIntelligence: return new[] { E("S2 INTELLIGENCE"), E("ALL-SOURCE ANALYSIS"), E("TARGETING CELL"), E("ISR COORDINATION"), E("HUMINT SECTION") };
+                case ThemeChoice.UsecIntelligence: return new[] { E("S2 INTELLIGENCE"), E("ALL-SOURCE ANALYSIS"), E("TARGETING CELL"), E("ISR COORDINATION"), E("FIELD INTELLIGENCE") };
                 case ThemeChoice.UsecSignals: return new[] { E("S6 COMMUNICATIONS"), E("NETWORK OPERATIONS"), E("SIGNAL SECTION"), E("COMSEC CUSTODIAN"), E("RETRANS TEAM") };
                 case ThemeChoice.UsecLogistics: return new[] { E("S4 LOGISTICS"), E("SUPPORT OPERATIONS"), E("FORWARD SUPPLY POINT"), E("MOTOR POOL"), E("MOVEMENT CONTROL") };
                 case ThemeChoice.UsecMedical: return new[] { E("MEDICAL // CASEVAC"), E("ROLE 1 AID STATION"), E("FORWARD SURGICAL TEAM"), E("PATIENT MOVEMENT"), E("COMBAT MEDIC SECTION") };
@@ -85,6 +85,13 @@ namespace CLASSIFIED
         {
             P("ВЫДВИЖЕНИЕ", "DEPLOYING"), P("ВЫХОД НА ЗАДАНИЕ", "MOVING OUT"), P("НА МАРШРУТЕ", "EN ROUTE"),
             P("ПРОНИКНОВЕНИЕ", "INFILTRATING"), P("ВЫСАДКА", "INSERTION")
+        };
+
+        /// <summary>The way back from a raid's stage.</summary>
+        internal static readonly Pair[] Returning =
+        {
+            P("ВОЗВРАЩЕНИЕ", "RETURNING"), P("ЭВАКУАЦИЯ", "EXFILTRATING"), P("ОТХОД НА БАЗУ", "FALLING BACK"),
+            P("ДОКЛАД О ЗАДАНИИ", "DEBRIEFING"), P("ВОЗВРАТ НА БАЗУ", "RETURNING TO BASE")
         };
     }
 }
