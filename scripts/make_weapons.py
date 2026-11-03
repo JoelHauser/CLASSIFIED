@@ -356,10 +356,10 @@ class Part:
         self.root = max(named or own or roots, key=self.count)
         self.world = {}
         self.walk(self.root, np.eye(4), top=True)
-        # Imported y-up (Unity's turn on a node below the root that is not a slot): such a part
-        # sits on a z-up slot turned back a quarter. One modelled z-up sits on it as it is.
-        self.y_up = any(imported_turn(self.transforms[k]) and k != self.root
-                        and not self.name(self.transforms[k]).startswith("mod_") for k in self.world)
+        # Imported y-up (Unity's turn on a node below the root, a mesh or a slot; some meshes, the
+        # LVOA's, were re-exported without it but keep it on their slots): such a part sits on a
+        # z-up slot turned back a quarter. One modelled z-up sits on it as it is.
+        self.y_up = any(imported_turn(self.transforms[k]) and k != self.root for k in self.world)
 
     @staticmethod
     def file(obj):
@@ -450,6 +450,17 @@ class Part:
         return out or heavy
 
 
+def stock_runs_back(template, shown):
+    """
+    A stock with neither a turned mesh nor a turned slot to go by (a UBR, say) is y-up if it runs
+    back along -z, as those do; a z-up one runs along +y.
+    """
+    if not template.startswith("stock_") or not shown:
+        return False
+    v = np.concatenate([tris.reshape(-1, 3) for _, tris in shown])
+    return -v[:, 2].min() > v[:, 1].max()
+
+
 def assemble(streaming, items, preset, weapon, problems=None, names=None):
     parts = []  # (slot, part name, triangles)
     names = {} if names is None else names  # callout label -> the template of the first item under it
@@ -482,7 +493,7 @@ def assemble(streaming, items, preset, weapon, problems=None, names=None):
             # manifest says it needs (only then: doing it for every part broke the PKM).
             part = Part(streaming, prefab, tpl["_name"], weapon, deps=True, root=root)
             shown = part.meshes()
-        if weapon and item.get("slotId") and part.y_up:
+        if weapon and item.get("slotId") and (part.y_up or stock_runs_back(tpl["_name"], shown)):
             matrix = matrix @ SEAT
         if not shown and item.get("slotId"):
             problems.append(f"{tpl['_name']} shows nothing")

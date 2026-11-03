@@ -43,6 +43,10 @@
 - **Notices while you load.** Orders, intel on bosses, enemy teams and traders, and intercepted enemy radio: up to six a load, one after another. Some mention your nickname, and some your active tasks.
 - **BEAR speaks Russian.** Steps, orders and labels, with one setting to switch it all to English.
 
+## See it in action
+
+https://youtu.be/wbX81HLFuTI
+
 ## The twelve units
 
 Six for each faction, shuffled so the same one doesn't come back for several launches. Your profile's faction decides which six you get.
