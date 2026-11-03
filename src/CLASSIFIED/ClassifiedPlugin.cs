@@ -293,7 +293,7 @@ namespace CLASSIFIED
                 "Which load the preview pretends to be when it opens: the game launching, or a raid loading. T switches while it shows."));
             RaidLoading = Config.Bind("Raid Loading", "Show While Loading Raids", false,
                 "Also show the terminal while a raid loads, from the deploy screen to the raid: the same unit you signed in to, the game's real load steps, "
-                + "the countdown, then into the raid. One notice at most. Esc cancels the raid while the game allows it.");
+                + "the countdown, then into the raid, with the traffic coming in as it loads. Esc cancels the raid while the game allows it.");
             WithDeployScreen = Config.Bind("Raid Loading", "With Deploy Screen Overhaul", DeployScreenMode.StandAside,
                 "Only matters when Deploy Screen Overhaul is installed too, since both draw the raid loading screen. "
                 + "Stand Aside leaves raid loads to it; Take Turns alternates raids; Always Terminal shows this terminal every raid.");

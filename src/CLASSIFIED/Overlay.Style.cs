@@ -21,10 +21,10 @@ namespace CLASSIFIED
     {
         private const float TickerSpeed = 60f;
         private const float MemoIn = 0.55f;
-        private const float MemoHold = 10f;
+        private const float MemoHold = 7f;
 
         /// <summary>The least time from one notice leaving to the next arriving, outside a preview.</summary>
-        private const float MemoGap = 15f;
+        private const float MemoGap = 4f;
 
         private float _memoGoneAt = -100f;
         private const float SheenTime = 0.9f;

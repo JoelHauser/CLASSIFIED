@@ -18,7 +18,7 @@ For SPT 4.1.x. Client only.
 - **The factions' own insignia.** The BEAR and USEC logos, flying together piece by piece as the terminal comes on.
 - **Traffic.** Orders signed by officers of your side, priority intel on the region, the other side's radio intercepts, and a ticker of headlines and the day's readings. Nothing repeats until you have seen the rest.
 - **A first launch** shows either side and switches to yours when your profile loads. After that it remembers your faction.
-- **Raid loads too, if you like.** Switch on F12 > Raid Loading > **Show While Loading Raids**: the game's real deploy steps, the countdown, Esc to cancel while the game allows it, one notice at most. It stands aside for Deploy Screen Overhaul by default, and takes turns with ACCESS GRANTED's raid terminal.
+- **Raid loads too, if you like.** Switch on F12 > Raid Loading > **Show While Loading Raids**: the game's real deploy steps, the countdown, the traffic coming in as it loads, Esc to cancel while the game allows it. It stands aside for Deploy Screen Overhaul by default, and takes turns with ACCESS GRANTED's raid terminal.
 - **The way back, too.** Once the after-action report is done, the terminal you signed in to covers the raid unloading and the menu loading (F12 > Raid Loading > **Show After Raids**, on by default).
 
 ## With ACCESS GRANTED

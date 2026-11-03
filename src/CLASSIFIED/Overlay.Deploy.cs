@@ -9,8 +9,8 @@ namespace CLASSIFIED
     /// <summary>
     /// The terminal over a raid's load, when switched on: it comes up over the deploy screen,
     /// follows the statuses the game sends that screen (see StartupTracker), counts down with
-    /// the final countdown, and leaves for the raid the moment the raid starts. Notices are kept
-    /// to one, and it never holds the raid back.
+    /// the final countdown, and leaves for the raid the moment the raid starts. Its notices come
+    /// one at a time over the load, and it never holds the raid back.
     ///
     /// The deploy screen stays underneath, live: the terminal never takes input, so the game
     /// behaves exactly as without it. Its Cancel button is hidden behind the terminal, so Esc
@@ -154,7 +154,7 @@ namespace CLASSIFIED
             return $"{n}{letter}";
         }
 
-        /// <summary>What a raid load changes in a roll: no fake denial or greeting holding up the raid, its own lines, one notice at most.</summary>
+        /// <summary>What a raid load changes in a roll: no fake denial or greeting holding up the raid, and its own lines.</summary>
         private void DeployRoll()
         {
             if (!Deploying)
@@ -170,10 +170,6 @@ namespace CLASSIFIED
             _variant.TopRight = bear && BearRussian
                 ? $"ВЫХОД  //  РАЙОН {header[0]}  //  {(header[1] == "SCAV" ? "ДИКИЙ" : "ЧВК")}"
                 : $"DEPLOYMENT  //  {(header[0].Length <= 4 ? "SITE " : string.Empty)}{header[0]}  //  {header[1]}";
-            if (_variant.Notices != null && _variant.Notices.Length > 1)
-            {
-                _variant.Notices = new[] { _variant.Notices[0] };
-            }
         }
 
         /// <summary>The second half of the subtitle: what stage the game is at.</summary>

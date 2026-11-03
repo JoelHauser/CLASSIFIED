@@ -535,13 +535,20 @@ namespace CLASSIFIED
 
             v.Ticker = BuildTicker(random, t);
 
-            // Two or three notices a launch, spread over it: the unit's orders, orders from
-            // elsewhere in the faction, regional intel, the enemy's radio traffic, and now and
-            // then something nobody admits to sending.
-            // Few, and spread out: a launch two, a shorter load (back from a raid) one. A
-            // preview shows three, to look at.
-            int count = preview ? 3 : StartupTracker.FirstStep == 0 ? 2 : 1;
-            float[] at = count == 1 ? new[] { 0.45f } : count == 2 ? new[] { 0.2f, 0.62f } : new[] { 0.12f, 0.4f, 0.68f };
+            // The traffic, spread over the load: the unit's orders, orders from elsewhere in the
+            // faction, regional intel, the enemy's radio traffic, and now and then something
+            // nobody admits to sending. Plenty of it: five on a launch, six over a raid's long
+            // load, three on the way back from one. They queue, one at a time, so a load that
+            // ends early just leaves the rest unread. A preview shows three, to look at.
+            int count = preview ? 3
+                : StartupTracker.Kind == RunKind.Deploy ? 6
+                : StartupTracker.Kind == RunKind.Return ? 3
+                : 5;
+            var at = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                at[i] = count == 1 ? 0.45f : 0.08f + 0.74f * i / (count - 1);
+            }
             v.Notices = new Notice[count];
             List<string> divisionMemos = Correspondence.MemosFor(t);
             string[][] common = Correspondence.CommonMemos(t.Faction);

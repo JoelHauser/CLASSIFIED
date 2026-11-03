@@ -121,7 +121,7 @@ The Signals units type these out on a radio spectrum while you load. The orders 
 - **A weapons debrief.** A weapon and three pieces of gear build themselves on the table, one after another, with callouts naming the parts: a different optic, stock, magazine, grip or suppressor each time.
 - **A second panel that changes every launch.** An operations map in each army's conventions, drone imagery with a firefight on the ground that goes over to infrared as the picture closes in, a radio spectrum with the transcript typing out, a wanted operator's personnel file, team and supply reports.
 - **It knows your quests.** Your active tasks turn up on the tasking board and in the intelligence that comes in.
-- **Traffic.** Orders, priority intel, intercepted enemy radio and a news ticker, slower on raid loads. Nothing repeats until you've seen the rest.
+- **Traffic, and plenty of it.** Orders from your unit and the rest of your side, priority intel on bosses, enemy teams and traders, intercepted enemy radio and a news ticker: five or six notices a load, one after another. Hundreds of lines, and nothing repeats until you've seen the rest.
 - **BEAR speaks Russian.** Steps, orders, chatter and labels. One setting turns it all to English.
 - **The way home.** Once the after-action report is done, the terminal you signed in to covers the raid unloading and the menu loading. On by default.
 - **Raid loading (optional).** The same terminal from the moment you press Ready, through the game's real load steps and the countdown, into the raid.
