@@ -11,18 +11,20 @@
   Check it in the Forge editor's preview before saving.
 
   Images are served from the repository (docs/images), so they show once pushed to main.
-  They come from scripts/make_showcase.py; hero.webp (animated, 8 s loop) from scripts/make_hero.py.
-  Thumbnail: a square image, the Forge crops to 1:1.
+    hero-v4.webp (animated, 8 s loop) and thumbnail.png: scripts/make_title.py (--thumb for the thumbnail)
+    units.png: scripts/make_units.py; both share scripts/art_kit.py
+    armoury.png and wireframes/: scripts/make_showcase.py
+  Thumbnail: thumbnail.png, square; the Forge crops to 1:1.
 
   Short-description field:
     "Your launch becomes your faction's field terminal: the real load steps, 3D weapon debriefs and live operations, in a different BEAR or USEC unit every time."
 -->
 
-![CLASSIFIED: a BEAR or USEC field terminal over your load](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/hero.webp)
+![CLASSIFIED: the BEAR and USEC field terminal, with a weapon on the debrief table](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/hero-v4.webp)
 
-From the splash screen to the main menu, your launch becomes your faction's field terminal. It shows what EFT is really loading, timed against your own launches, while a different BEAR or USEC unit briefs you on the table beside it: 3D weapons, live operations and intercepted radio traffic.
+From the splash screen to the main menu, your launch becomes your faction's field terminal. It shows what EFT is really loading, timed against your own launches, while a different BEAR or USEC unit briefs you on the table beside it: 3D weapons, live operations and intercepted radio traffic. And when the raid is over, it's there to bring you home.
 
-> **USEC  //  S3 OPERATIONS  //  SECRET**
+> **USEC  //  S3 OPERATIONS  //  SECRET//REL USEC**
 >
 > **TO:** All teams
 >
@@ -48,23 +50,31 @@ From the splash screen to the main menu, your launch becomes your faction's fiel
 >
 > *Every fighter signs in at start-up. Reading the enemy's intercepted traffic aloud is forbidden.*
 >
+> *Приложение: перехваченное сообщение USEC «BEAR is not reading this». Прочитано.*
+>
+> *Attached: intercepted USEC message "BEAR is not reading this". Read.*
+>
 > *ПОДПИСЬ: [ИЗЪЯТО], НАЧАЛЬНИК ШТАБА*
 
 {.is-danger}
 
 ## Why you're seeing this
 
-Norvinsk is cut off, and the contract that brought you here ended the day the lockdown began. But the networks are still up.
+Norvinsk is cut off, and the contract that brought you here ended the day the lockdown began. Nobody came to collect the equipment.
 
-Every time you start EFT, your terminal signs in to your side's net and lands on whichever section has the watch. You see what they see: their orders, their map, the kit on their table, and whatever they've picked up from the other side's radios.
+The networks are still up. Every time you start EFT, your terminal signs in to your side's net and lands on whichever section has the watch. You see what they see: their orders, their map, the kit on their table, and whatever they've picked up from the other side's radios.
 
 It knows your name. It knows your faction. It knows which tasks you've taken on, and it will ask how they're going.
+
+When you come back from a raid, it's already waiting. It doesn't ask how it went. It already read the after-action report.
 
 The other side's terminal says the same about you.
 
 ## Order of battle
 
 Twelve units, six a side, each with its own colours, insignia frame, background, intro, progress bar and ending, shuffled so the same one won't come back for several launches. Your profile's faction decides which six you get.
+
+![Each unit's title card, six BEAR and six USEC](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/units.png)
 
 | BEAR | USEC | On the table |
 |---|---|---|
@@ -83,6 +93,26 @@ Nearly eighty weapons and over a hundred pieces of gear, drawn as turning 3D hol
 
 ![Nine weapons as they appear on the debrief table](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/armoury.png)
 
+## Intercepted traffic
+
+> **ПЕРЕХВАТ 0412  //  INTERCEPT 0412  //  CUSTOMS AO**
+>
+> **USEC-2:** Overwatch, Two. Three BEAR moving west past the gas station.
+>
+> **USEC-6:** Copy, Two. Hold. Do not engage.
+>
+> **USEC-2:** They're going through our crate.
+>
+> **USEC-6:** Hold.
+>
+> **USEC-2:** They found the coffee.
+>
+> **UNKNOWN:** Спасибо за кофе. *(Thanks for the coffee.)*
+>
+> *TRANSCRIPT ENDS. FREQUENCY COMPROMISED. COFFEE NOT RECOVERED.*
+
+The Signals units type these out on a radio spectrum while you load. The orders that come in alongside them sometimes mention you by name. Usually not to say well done.
+
 ## Field manual {.tabset}
 
 ### What it does
@@ -93,7 +123,8 @@ Nearly eighty weapons and over a hundred pieces of gear, drawn as turning 3D hol
 - **It knows your quests.** Your active tasks turn up on the tasking board and in the intelligence that comes in.
 - **Traffic.** Orders, priority intel, intercepted enemy radio and a news ticker, slower on raid loads. Nothing repeats until you've seen the rest.
 - **BEAR speaks Russian.** Steps, orders, chatter and labels. One setting turns it all to English.
-- **Raid loading (optional).** The same terminal from the deploy screen into the raid, with the game's real load steps and the countdown.
+- **The way home.** Once the after-action report is done, the terminal you signed in to covers the raid unloading and the menu loading. On by default.
+- **Raid loading (optional).** The same terminal from the moment you press Ready, through the game's real load steps and the countdown, into the raid.
 
 The terminal only draws over the load. It doesn't hold the game up.
 
@@ -111,14 +142,15 @@ In the F12 menu, under **CLASSIFIED**:
 - **BEAR Language** is Russian or English.
 - **Unit** keeps one unit, or leaves it on Random.
 - **Glitches** can be Off, Subtle or Heavy.
-- **Layout, Background, Insignia Frame, Intro, Progress Bar, Ending** each pin one part instead of letting the unit choose.
-- **Raid Loading** switches on the terminal for raid loads. It's off by default.
+- **Raid Loading** switches on the terminal for raid loads (off by default) and for the way back after a raid (on by default).
 
-**Want a look without relaunching?** Press **Ctrl+F6** in the main menu to play the terminal over a pretend load; the keys are listed along the bottom. **Showreel**, under Preview in the F12 menu, plays every unit in turn.
+Tick **Advanced settings** for the rest: **Layout, Background, Insignia Frame, Intro, Progress Bar, Ending** each pin one part instead of letting the unit choose, and the **Preview** section holds the preview and the showreel.
+
+**Want a look without relaunching?** Press **Ctrl+F6** in the main menu to play the terminal over a pretend load; the keys are listed along the bottom. **Showreel**, under Preview, plays every unit in turn.
 
 ### Compatibility
 
-- [ACCESS GRANTED](https://github.com/JoelHauser/ACCESSGRANTED): the two take turns, launch by launch. **With ACCESS GRANTED** can always show one of them instead. Raid loads take turns too if both have theirs switched on.
+- [ACCESS GRANTED](https://github.com/JoelHauser/ACCESSGRANTED): the two take turns, launch by launch. **With ACCESS GRANTED** can always show one of them instead. Raid loads and the way back go to whichever terminal you signed in to.
 - [Deploy Screen Overhaul](https://github.com/JoelHauser/LoadingRaid): both draw the raid loading screen, so this terminal stands aside for raid loads by default. **With Deploy Screen Overhaul** can take turns, or always show the terminal.
 
 ### Good to know
@@ -134,5 +166,7 @@ Delete `BepInEx\plugins\CLASSIFIED.dll`. To remove its settings and launch histo
 ## End of transmission
 
 ![](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/wireframes/svds_2.png)
+
+*This page will be declassified in 75 years.*
 
 *Конец связи. Out.*
