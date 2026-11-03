@@ -15,7 +15,6 @@
   Images are served from the repository (docs/images), so they show once pushed to main.
     hero-v4.webp (animated, 8 s loop) and thumbnail.png: scripts/make_title.py (--thumb for the thumbnail)
     units.png: scripts/make_units.py; both share scripts/art_kit.py
-    armoury.png and wireframes/: scripts/make_showcase.py
   Thumbnail: thumbnail.png, square; the Forge crops to 1:1.
 
   Short-description field:
@@ -52,12 +51,6 @@ https://youtu.be/wbX81HLFuTI
 Six for each faction, shuffled so the same one doesn't come back for several launches. Your profile's faction decides which six you get.
 
 ![Each unit's title card, six BEAR and six USEC](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/units.png)
-
-## The weapons
-
-Nearly eighty weapons and over a hundred pieces of gear, drawn from the game's own models. Each weapon comes in seven random builds made from parts that really fit it.
-
-![Nine weapons as they appear on the debrief table](https://raw.githubusercontent.com/JoelHauser/CLASSIFIED/main/docs/images/armoury.png)
 
 ## The idea
 
