@@ -480,6 +480,15 @@ namespace CLASSIFIED
             private int _shownScale = -1;
             private float _heat;
             private float _imageryAt = -1f;
+            private int _zoomStep = -1;
+            private float _zoomFrom;
+            private float _zoomLevel;
+            private float _zoomAt;
+            private readonly float[] _tagWidth = new float[6];
+            private readonly bool[] _tagShow = new bool[6];
+            private readonly Vector2[] _tagAt = new Vector2[6];
+            private readonly float[] _tagBox = new float[6];
+            private readonly List<Rect> _tagTaken = new List<Rect>();
             private bool _infrared;
             private bool _drawnInfrared;
             private float _infraredAt = -1f;
@@ -605,6 +614,7 @@ namespace CLASSIFIED
                         : _parked[i].Netted ? Ru($"{i + 1:00} МАСКСЕТЬ", $"{i + 1:00} CAMO NET")
                         : _parked[i].Armoured ? Ru($"{i + 1:00} БТР", $"{i + 1:00} APC") : Ru($"{i + 1:00} ГРУЗ", $"{i + 1:00} TRUCK");
                     _tags[i] = Label(text, 0f, 0f, 80f, 7f, A(mover ? T.Accent : T.Warn, 230), TextAlignmentOptions.Left);
+                    _tagWidth[i] = text.Length == 0 ? 0f : _tags[i].GetPreferredValues(text).x / U + 2f;
                     _tags[i].gameObject.SetActive(false);
                 }
                 // The analyst's notes on the objective, for the last, closest look.
@@ -1251,14 +1261,23 @@ namespace CLASSIFIED
             private void AnimateImagery(float t)
             {
                 Rect a = _panel;
-                // Zoom in on the objective in steps: each step a quick ease, then a hold, like an analyst's "enhance".
+                // Zoom in on the objective in steps, like an analyst's "enhance": the load decides when
+                // the next step is due, and each one eases in over the same time however fast the load
+                // runs, so a jump in the load never snaps the picture.
                 float p = Progress;
                 const int Steps = 4;
-                float raw = p * Steps;
-                int step = Mathf.Min(Steps - 1, Mathf.FloorToInt(raw));
-                float within = Mathf.Clamp01((raw - step) * 4f);
+                const float EnhanceTime = 0.9f;
+                int step = Mathf.Min(Steps - 1, Mathf.FloorToInt(p * Steps));
+                if (step != _zoomStep)
+                {
+                    _zoomFrom = _zoomStep < 0 ? step : _zoomLevel;
+                    _zoomStep = step;
+                    _zoomAt = t;
+                }
+                float within = _zoomFrom == step ? 1f : Mathf.Clamp01((t - _zoomAt) / EnhanceTime);
                 float ease = within * within * (3f - 2f * within);
-                float zoom = Mathf.Pow(1.7f, step + ease);
+                _zoomLevel = Mathf.Lerp(_zoomFrom, step, ease);
+                float zoom = Mathf.Pow(1.7f, _zoomLevel);
                 float scale = _metre * zoom;
                 // The view slides toward the objective as it closes, never past the scene's edges.
                 Vector2 half = new Vector2(a.width, a.height) * (0.5f / scale);
@@ -1346,6 +1365,10 @@ namespace CLASSIFIED
                     tagAt.y = mid.y - size.y * 0.5f - 9f;
                 }
                 PlaceAt(_targetLabel, tagAt);
+                // The vehicles and the traffic tagged: each bracketed, its name at whichever corner of
+                // its bracket is clear of the other brackets and names; none if no corner is.
+                _tagTaken.Clear();
+                _tagTaken.Add(new Rect(tagAt.x - 60f, tagAt.y - 5f, 120f, 10f));
                 for (int i = 0; i < _tags.Length; i++)
                 {
                     bool show;
@@ -1353,7 +1376,8 @@ namespace CLASSIFIED
                     float box;
                     if (i < 4)
                     {
-                        show = step >= 2 && i < _parked.Count;
+                        // The parked vehicles once the picture has settled on its closer look.
+                        show = step >= 2 && within >= 1f && i < _parked.Count;
                         q = show ? ToPanel(_parked[i].Centre) : Vector2.zero;
                         box = show ? _parked[i].Length * scale + 4f : 0f;
                     }
@@ -1364,16 +1388,44 @@ namespace CLASSIFIED
                         box = Mathf.Max(10f, 7f * scale + 4f);
                     }
                     show &= q.x > a.xMin + 10f && q.x < a.xMax - 10f && q.y > a.yMin + 10f && q.y < a.yMax - 30f;
+                    _tagShow[i] = show;
+                    _tagAt[i] = q;
+                    _tagBox[i] = box;
+                    if (show)
+                    {
+                        _tagTaken.Add(new Rect(q.x - box * 0.5f, q.y - box * 0.5f, box, box));
+                    }
+                }
+                for (int i = 0; i < _tags.Length; i++)
+                {
+                    bool show = _tagShow[i];
+                    Vector2 q = _tagAt[i];
+                    float box = _tagBox[i];
+                    Rect spot = default;
+                    bool placed = false;
+                    if (show)
+                    {
+                        Brackets(q, new Vector2(box, box), Mathf.Max(3f, box * 0.25f), 1.1f, A(i < 4 ? T.Warn : T.Accent, 220));
+                        float w = _tagWidth[i];
+                        for (int c = 0; c < 4 && !placed; c++)
+                        {
+                            float x0 = c % 2 == 0 ? q.x + box * 0.5f + 3f : q.x - box * 0.5f - 3f - w;
+                            float y = c < 2 ? q.y + box * 0.5f + 1f : q.y - box * 0.5f - 1f;
+                            spot = new Rect(x0, y - 4.5f, w, 9f);
+                            placed = spot.xMin > a.xMin + 4f && spot.xMax < a.xMax - 4f && !Overlapping(spot);
+                        }
+                    }
+                    show &= placed;
                     if (_tags[i].gameObject.activeSelf != show)
                     {
                         _tags[i].gameObject.SetActive(show);
                     }
-                    if (!show)
+                    if (show)
                     {
-                        continue;
+                        _tagTaken.Add(spot);
+                        // The label is 80 wide, its text from its left edge.
+                        PlaceAt(_tags[i], new Vector2(spot.xMin + 40f, spot.center.y));
                     }
-                    Brackets(q, new Vector2(box, box), Mathf.Max(3f, box * 0.25f), 1.1f, A(i < 4 ? T.Warn : T.Accent, 220));
-                    PlaceAt(_tags[i], new Vector2(q.x + box * 0.5f + 42f, q.y + box * 0.5f));
                 }
 
                 // The notes on the objective at the closest look, each on a short leader.
@@ -1419,7 +1471,7 @@ namespace CLASSIFIED
                 {
                     // The sensor changing over: a white flash, gone in a moment.
                     float flash = 1f - (t - _infraredAt) / 0.4f;
-                    _reticle.RoundedRect(P(a.center.x, a.center.y), a.width * U, a.height * U, 0f, new Color32(255, 255, 255, (byte)(200f * flash * flash)));
+                    _reticle.RoundedRect(P(a.center.x, a.center.y), a.width * U, a.height * U, 0f, new Color32(255, 255, 255, (byte)(90f * flash * flash)));
                 }
                 _reticle.Commit();
 
@@ -1479,11 +1531,11 @@ namespace CLASSIFIED
                     alive += p < _fallsAt[i] ? 1 : 0;
                 }
 
-                // Tracers: a few bursts at a time, eight moments a second, each a short streak flying shooter to target.
+                // Tracers: a few bursts at a time, four moments a second, each a short streak flying shooter to target.
                 if (contact && alive > 0)
                 {
-                    int moment = Mathf.FloorToInt(t * 8f);
-                    float within = t * 8f - moment;
+                    int moment = Mathf.FloorToInt(t * 4f);
+                    float within = t * 4f - moment;
                     for (int b = 0; b < 3; b++)
                     {
                         if (Chance(moment, b) < 0.35f)
@@ -1499,11 +1551,16 @@ namespace CLASSIFIED
                         bool outgoing = Chance(moment, b + 30) < 0.6f;
                         Vector2 from = ToPanel(outgoing ? team[ti] : WalkerAt(wi, t));
                         Vector2 to = ToPanel(outgoing ? WalkerAt(wi, t) : team[ti]);
-                        float k = Mathf.Clamp01(within * 1.6f);
-                        Vector2 head = Vector2.Lerp(from, to, Mathf.Min(1f, k + 0.25f));
-                        Vector2 tail = Vector2.Lerp(from, to, k);
+                        // Each streak flies over the first half of its moment, the rest a pause.
+                        float k = within * 2f;
+                        if (k >= 1.2f)
+                        {
+                            continue;
+                        }
+                        Vector2 head = Vector2.Lerp(from, to, Mathf.Min(1f, k));
+                        Vector2 tail = Vector2.Lerp(from, to, Mathf.Clamp01(k - 0.2f));
                         _traffic.Line(P(tail.x, tail.y), P(head.x, head.y), 1.2f * U, Tracer);
-                        if (within < 0.2f)
+                        if (within < 0.1f)
                         {
                             _traffic.Disc(P(from.x, from.y), 2.2f * U, new Color32(255, 240, 200, 220));
                         }
@@ -1585,6 +1642,18 @@ namespace CLASSIFIED
                         _reticle.Line(P(corner.x, corner.y), P(corner.x, corner.y - sy * arm), width * U, color);
                     }
                 }
+            }
+
+            private bool Overlapping(Rect rect)
+            {
+                foreach (Rect taken in _tagTaken)
+                {
+                    if (taken.Overlaps(rect))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             private void PlaceAt(TextMeshProUGUI label, Vector2 at)

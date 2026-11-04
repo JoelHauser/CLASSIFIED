@@ -901,19 +901,41 @@ namespace CLASSIFIED
                     }
                     default:
                     {
-                        // A subject's movements: sightings along a winding track.
-                        _path = Wander(M(0.08f, 0.2f), M(0.85f, 0.75f), 0.18f, 14);
+                        // A subject's movements: out of the house where the watch on them began, along
+                        // the road, off it to a meeting; sighted on the way, the times in order.
+                        Vector2[] road = _path;
+                        float from = Range(0.1f, 0.22f), to = Range(0.78f, 0.9f);
+                        Vector2 side = Side(road, from);
+                        Vector2 house = Along(road, from) + side * 26f;
+                        Vector2 meet = Along(road, to) + Side(road, to) * (Rng.Next(2) == 0 ? 26f : -26f);
+                        const int Steps = 24;
+                        var track = new Vector2[Steps + 3];
+                        track[0] = house;
+                        for (int i = 0; i <= Steps; i++)
+                        {
+                            track[i + 1] = Along(road, Mathf.Lerp(from, to, i / (float)Steps));
+                        }
+                        track[Steps + 2] = meet;
+                        _path = track;
+                        Building(s, house, Ru("АДРЕС", "RESIDENCE"));
+                        Building(s, meet, Ru("МЕСТО ВСТРЕЧИ", "MEETING POINT"));
+                        int minute = Rng.Next(6, 10) * 60 + Rng.Next(0, 60);
                         for (int i = 0; i < 4; i++)
                         {
-                            Vector2 at = Along(_path, 0.2f + i * 0.22f);
+                            Vector2 at = Along(_path, 0.18f + i * 0.2f);
                             s.Line(P(at.x - 5f, at.y - 5f), P(at.x + 5f, at.y + 5f), 1.6f * U, A(Enemy, 200));
                             s.Line(P(at.x - 5f, at.y + 5f), P(at.x + 5f, at.y - 5f), 1.6f * U, A(Enemy, 200));
                             Reserve(at, 14f, 14f);
                         }
                         for (int i = 0; i < 4; i++)
                         {
-                            Vector2 at = Along(_path, 0.2f + i * 0.22f);
-                            MapLabel($"{Rng.Next(0, 24):00}:{Rng.Next(0, 60):00}", at, 8f, A(Enemy, 200));
+                            minute += Rng.Next(8, 40);
+                            MapLabel($"{minute / 60 % 24:00}:{minute % 60:00}", Along(_path, 0.18f + i * 0.2f), 8f, A(Enemy, 200));
+                        }
+                        // Our teams watch from off the track.
+                        foreach (Vector2 point in _path)
+                        {
+                            Reserve(point, 16f, 16f);
                         }
                         Units(s, 2, 0.3f, 0.6f, true);
                         break;
@@ -1338,6 +1360,23 @@ namespace CLASSIFIED
                 s.Line(P(at.x - 5f, at.y), P(at.x + 5f, at.y), 1.6f * U, c);
                 Reserve(at, 32f, 32f);
                 MapLabel(name, at - new Vector2(0f, 26f), 8f, c, centred: true);
+            }
+
+            /// <summary>A building the subject uses: a block with its roof ridge, its name under it.</summary>
+            private void Building(Shape s, Vector2 at, string name)
+            {
+                Color32 c = A(Enemy, 210);
+                Outline(s, at.x, at.y, 14f, 10f, 1.6f, c);
+                s.Line(P(at.x - 7f, at.y), P(at.x + 7f, at.y), U, c);
+                Reserve(at, 20f, 16f);
+                MapLabel(name, at - new Vector2(0f, 15f), 8f, c, centred: true);
+            }
+
+            /// <summary>The way across the path at f, a unit long.</summary>
+            private static Vector2 Side(Vector2[] path, float f)
+            {
+                Vector2 d = (Along(path, Mathf.Min(1f, f + 0.02f)) - Along(path, Mathf.Max(0f, f - 0.02f))).normalized;
+                return new Vector2(-d.y, d.x);
             }
 
             private void AidStation(Shape s, Vector2 at, string name)
