@@ -16,7 +16,11 @@ namespace CLASSIFIED
         {
             internal readonly string Id;
 
-            /// <summary>weapon, helmet, armor, nvg, headset, backpack, med, device, food, intel or radio.</summary>
+            /// <summary>
+            /// weapon, helmet, armor, rig, nvg, headset, backpack, med, device, food, intel, radio,
+            /// tech, valuable; since 1.1.0 also key, keycard, ammo, grenade, container, face,
+            /// eyewear, optic and suppressor.
+            /// </summary>
             internal readonly string Kind;
             internal readonly string KindEn;
             internal readonly string KindRu;
@@ -64,8 +68,62 @@ namespace CLASSIFIED
             return All[0];
         }
 
-        /// <summary>How many builds each weapon has: its default (no suffix) and _1 to _7, put together at random.</summary>
-        private const int Builds = 8;
+        /// <summary>One of the game's own named builds of a weapon (Kit.Pools.cs): drawn as weapon_number.</summary>
+        internal sealed class NamedBuild
+        {
+            internal readonly string Weapon;
+            internal readonly int Number;
+            internal readonly string En;
+            internal readonly string Ru;
+
+            internal NamedBuild(string weapon, int number, string en, string ru)
+            {
+                Weapon = weapon;
+                Number = number;
+                En = en;
+                Ru = ru;
+            }
+        }
+
+        /// <summary>The name of the build drawn (p90_12 is "SBR"), or null for a random build or equipment.</summary>
+        internal static NamedBuild NameOf(string id)
+        {
+            foreach (NamedBuild n in Named)
+            {
+                if (id.Length == n.Weapon.Length + 1 + n.Number.ToString().Length && id.StartsWith(n.Weapon + "_")
+                    && id.EndsWith("_" + n.Number))
+                {
+                    return n;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// How many builds each weapon has: its default (no suffix) and _1 to _11, put together at
+        /// random; the game's named builds follow from _12 (Kit.Pools.cs).
+        /// </summary>
+        private const int Builds = 12;
+
+        /// <summary>How a side's whole table reads: the hand-picked items, then what 1.1.0 added.</summary>
+        private static string[] Side(string[] picked, string[] more)
+        {
+            var all = new List<string>(picked);
+            foreach (string id in more)
+            {
+                if (!all.Contains(id))
+                {
+                    all.Add(id);
+                }
+            }
+            return all.ToArray();
+        }
+
+        private static string[] _bearWeapons, _usecWeapons, _bearGear, _usecGear;
+        private static string[] AllBearWeapons => _bearWeapons ?? (_bearWeapons = Side(BearWeapons, MoreBearWeapons));
+        private static string[] AllUsecWeapons => _usecWeapons ?? (_usecWeapons = Side(UsecWeapons, MoreUsecWeapons));
+        private static string[] AllBearGear => _bearGear ?? (_bearGear = Side(BearGear, MoreBearGear));
+        private static string[] AllUsecGear => _usecGear ?? (_usecGear = Side(UsecGear, MoreUsecGear));
 
         private static readonly string[] BearWeapons =
         {
@@ -105,6 +163,18 @@ namespace CLASSIFIED
         /// <summary>Each unit's own weapons and gear, which it shows more often than the rest of its side's. Null for none.</summary>
         private static string[][] Pools(ThemeChoice unit)
         {
+            string[][] picked = HandPools(unit);
+            string[][] more = MorePools(unit);
+            if (picked == null || more == null)
+            {
+                return picked;
+            }
+            return new[] { Side(picked[0], more[0]), Side(picked[1], more[1]) };
+        }
+
+        /// <summary>The units' own weapons and gear as picked by hand, before 1.1.0.</summary>
+        private static string[][] HandPools(ThemeChoice unit)
+        {
             switch (unit)
             {
                 case ThemeChoice.BearCommand: return new[] { new[] { "ak12", "ak105", "ash12", "pl15", "ak101", "rpk16" }, new[] { "6b47", "6b43", "gssh01", "korundvm", "vulkan5", "intel", "zhuk6a", "redutm", "flash", "tor2", "6b23" } };
@@ -140,17 +210,33 @@ namespace CLASSIFIED
             {
                 return null;
             }
-            string[] side = faction == Faction.Usec ? UsecWeapons : BearWeapons;
+            string[] side = faction == Faction.Usec ? AllUsecWeapons : AllBearWeapons;
             string weapon = random.Next(100) < 45
                 ? pools[0][random.Next(pools[0].Length)]
                 : side[Archive.PickShuffled("kit.weapon." + faction, new List<string>(side), random)];
-            // Always one of the random builds: the stock ones carry no attachments to show.
-            int build = 1 + random.Next(Builds - 1);
+            // Always one of the random builds, or one of the game's named ones: the stock ones
+            // carry no attachments to show. A weapon with named builds shows one about a third
+            // of the time.
+            int build = FewerBuilds.TryGetValue(weapon, out int[] few)
+                ? few[random.Next(few.Length)]
+                : 1 + random.Next(Builds - 1);
+            var names = new List<int>();
+            foreach (NamedBuild n in Named)
+            {
+                if (n.Weapon == weapon)
+                {
+                    names.Add(n.Number);
+                }
+            }
+            if (names.Count > 0 && random.Next(100) < 33)
+            {
+                build = names[random.Next(names.Count)];
+            }
 
             // Gear: the unit's own first, then its side's, three different pieces.
             var gear = new List<string>();
             var own = new List<string>(pools[1]);
-            var all = new List<string>(faction == Faction.Usec ? UsecGear : BearGear);
+            var all = new List<string>(faction == Faction.Usec ? AllUsecGear : AllBearGear);
             while (gear.Count < 3 && (own.Count > 0 || all.Count > 0))
             {
                 List<string> from = own.Count > 0 && (random.Next(100) < 60 || all.Count == 0) ? own : all;

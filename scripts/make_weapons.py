@@ -243,15 +243,26 @@ ITEMS = [
 # keeping what was on them where the new part takes it, then fits attachments wherever its
 # slots take them: an optic (on a mount if it needs one), lights and lasers, a foregrip, a
 # suppressor. Everything from what the database says fits; nothing that conflicts.
-BUILDS = 8
+BUILDS = 12
+
+# Builds 1 to 7 of the weapons that were on the table before 1.1.0 stay as they were checked in
+# game: their random draws must not change. What came in 1.1.0 (bipods, an offset backup sight)
+# goes on the builds after them, and on every build of the weapons added since.
+EARLIER_BUILDS = 8
+
 REPLACE = {
     "mod_handguard": 0.7, "mod_stock": 0.85, "mod_stock_000": 0.8, "mod_stock_001": 0.8, "mod_pistol_grip": 0.75,
     "mod_pistolgrip": 0.75, "mod_muzzle": 0.6, "mod_reciever": 0.35, "mod_magazine": 0.75, "mod_charge": 0.35,
 }
-ATTACH = [("mod_scope", 0.97), ("mod_mount", 0.9), ("mod_tactical", 0.8), ("mod_foregrip", 0.85), ("mod_muzzle", 0.6)]
+ATTACH = [("mod_scope", 0.97), ("mod_mount", 0.9), ("mod_tactical", 0.8), ("mod_foregrip", 0.85), ("mod_muzzle", 0.6),
+          ("mod_bipod", 0.9)]
 
 # Parts that are never seen from outside, or are not part of the weapon.
 SKIP = ("patron", "shell", "bullet", "_hide", "collider", "camera", "fp_", "human", "belt_link")
+
+# What the item being made skips: a round on the table is all cartridge, case and bullet.
+SKIPPING = [SKIP]
+ROUND_SKIP = ("_hide", "collider", "camera", "fp_", "human")
 
 # The most triangles a weapon keeps; more are merged away.
 BUDGET = 3200
@@ -361,6 +372,21 @@ class Part:
         # z-up slot turned back a quarter. One modelled z-up sits on it as it is.
         self.y_up = any(imported_turn(self.transforms[k]) and k != self.root for k in self.world)
 
+    def reroot(self):
+        """Takes the weapon's own model tree ("<template>_model", not the simple one) as the root, if there is one."""
+        roots = [k for k, t in self.transforms.items() if t.m_Father.path_id == 0]
+        stem = self.template + "_model"
+        mine = [k for k in roots if self.name(self.transforms[k]).lower().startswith(stem)
+                and "simple" not in self.name(self.transforms[k]).lower()]
+        if not mine:
+            return
+        # The generated copy in the container first: it carries the slots the parts sit on.
+        mine.sort(key=lambda k: (not self.name(self.transforms[k]).lower().endswith(".generated"), -self.count(k)))
+        self.root = mine[0]
+        self.world = {}
+        self.walk(self.root, np.eye(4), top=True)
+        self.y_up = any(imported_turn(self.transforms[k]) and k != self.root for k in self.world)
+
     @staticmethod
     def file(obj):
         parent = getattr(obj.assets_file, "parent", None)
@@ -404,7 +430,7 @@ class Part:
             if not go.m_IsActive:
                 continue
             name = go.m_Name.lower()
-            if any(s in name for s in SKIP):
+            if any(s in name for s in SKIPPING[0]):
                 continue
             try:
                 mesh = mf.m_Mesh.read()
@@ -488,6 +514,11 @@ def assemble(streaming, items, preset, weapon, problems=None, names=None):
                         label = kind
         names.setdefault(label, item["_tpl"])
         shown = part.meshes()
+        if not shown and root and weapon:
+            # A bundle holding several trees of near one size (the PM's also holds the PD toy
+            # pistol's) can tie on the wrong one: then the weapon's own "_model" tree.
+            part.reroot()
+            shown = part.meshes()
         if not shown and weapon:
             # Its meshes in another bundle, as some parts keep them: loaded with what the
             # manifest says it needs (only then: doing it for every part broke the PKM).
@@ -583,17 +614,31 @@ def is_mount(items, tpl):
 # The kinds of attachment a build's loadout picks from, and the slot each goes in.
 LOADOUT = ("optic", "light", "grip", "muzzle")
 
+# Since 1.1.0, on top: a bipod, and a red dot on a 45-degree mount beside a magnified scope.
+EXTRAS = ("bipod", "backup")
+
 # Weapons whose stock is a set of pieces seated on one another (the SCAR's folding stock): never swapped.
 KEEP_STOCK = ("weapon_fn_mk16", "weapon_fn_mk17")
-CATEGORY = {"mod_scope": "optic", "mod_tactical": "light", "mod_foregrip": "grip", "mod_muzzle": "muzzle"}
+CATEGORY = {"mod_scope": "optic", "mod_tactical": "light", "mod_foregrip": "grip", "mod_muzzle": "muzzle", "mod_bipod": "bipod"}
+
+
+def is_offset_mount(items, tpl):
+    """A mount that holds a sight off to one side, at 45 degrees (the NcSTAR MPR45)."""
+    name = items[tpl]["_name"].lower()
+    return is_mount(items, tpl) and any(s["_name"].startswith("mod_scope") for s in items[tpl]["_props"].get("Slots", [])) \
+        and ("mpr45" in name or "offset" in name or "angled" in name or "_45" in name)
 
 
 def preset_root(preset):
     return next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])
 
 
-def random_build(items, preset, rng, streaming):
-    """The preset with parts swapped and attachments fitted at random, wherever they fit."""
+def random_build(items, preset, rng, streaming, extras=None):
+    """
+    The preset with parts swapped and attachments fitted at random, wherever they fit. With
+    extras (a generator of its own, so the draws of the builds made without stay as they were),
+    perhaps a bipod or an offset backup sight too.
+    """
     its = copy.deepcopy(preset["_items"])
     counter = [0]
 
@@ -673,6 +718,12 @@ def random_build(items, preset, rng, streaming):
     want = {k for k in LOADOUT if rng.random() < (0.85 if k == "optic" and root_class in ("SniperRifle", "MarksmanRifle") else 0.55)}
     if not want:
         want = {rng.choice(sorted(LOADOUT))}
+    if extras is not None:
+        steady = root_class in ("SniperRifle", "MarksmanRifle", "MachineGun")
+        if extras.random() < (0.55 if steady else 0.15):
+            want.add("bipod")
+        if extras.random() < 0.35:
+            want.add("backup")
 
     # Swaps.
     for it in list(its):
@@ -903,7 +954,8 @@ def random_build(items, preset, rng, streaming):
             pool = options(sl)
             if kind == "mod_mount":
                 # A mount is there to carry something: an optic, a light, a grip.
-                pool = [t for t in pool if any(s2["_name"].startswith(("mod_scope", "mod_tactical", "mod_foregrip"))
+                carried = ("mod_scope", "mod_tactical", "mod_foregrip") + (("mod_bipod",) if "bipod" in want else ())
+                pool = [t for t in pool if any(s2["_name"].startswith(carried)
                                                for s2 in items[t]["_props"].get("Slots", []))]
                 if has_scope:
                     pool = [t for t in pool if not any(s2["_name"].startswith("mod_scope") for s2 in items[t]["_props"].get("Slots", []))]
@@ -929,6 +981,9 @@ def random_build(items, preset, rng, streaming):
             swap_for("mod_tactical", fit, ("mod_tactical", "mod_mount"))
     if "grip" in want and not has_kind("mod_foregrip"):
         ensure("mod_foregrip", lambda it, sl: reach(it, sl, "mod_foregrip", any_of), ("mod_foregrip", "mod_mount"))
+    if "bipod" in want and not has_kind("mod_bipod"):
+        # Straight on where the weapon takes one (an SV-98, a PKM), else on an adapter under the handguard.
+        ensure("mod_bipod", lambda it, sl: reach(it, sl, "mod_bipod", any_of), ("mod_bipod", "mod_foregrip", "mod_mount"))
 
     # Nothing hangs off a muzzle device or suppressor (a VSS's): mounts clamped there sit at odd angles.
     for x in list(its):
@@ -938,12 +993,46 @@ def random_build(items, preset, rng, streaming):
 
     # One optic: a red dot out on the handguard in front of a scope is no use. The most capable stays.
     rank = {"OpticScope": 0, "AssaultScope": 1, "Collimator": 2, "CompactCollimator": 3, "SpecialScope": 4}
+    # (A red dot on an offset mount beside a magnified scope is the exception: that is what it is for.)
+    def on_offset(x):
+        parent = next((y for y in its if y["_id"] == x.get("parentId")), None)
+        return parent is not None and is_offset_mount(items, parent["_tpl"])
+
     sights = [x for x in its if sight_kind(items, x["_tpl"])]
     if len(sights) > 1:
         keep = min(sights, key=lambda x: rank[sight_kind(items, x["_tpl"])])
+        magnified = sight_kind(items, keep["_tpl"]) in ("OpticScope", "AssaultScope")
         for x in sights:
-            if x is not keep and x in its:
-                its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
+            if x is keep or x not in its:
+                continue
+            if magnified and on_offset(x) and sight_kind(items, x["_tpl"]) in ("Collimator", "CompactCollimator"):
+                continue
+            its[:] = [y for y in its if y["_id"] not in subtree(x["_id"])]
+
+    # The backup: a red dot on an offset mount, wherever a rail beside the scope takes the mount.
+    main_sight = [x for x in its if sight_kind(items, x["_tpl"]) in ("OpticScope", "AssaultScope")]
+    if "backup" in want and main_sight and not any(on_offset(x) for x in its):
+        dots = lambda pool: [t for t in pool if sight_kind(items, t) in ("CompactCollimator", "Collimator")]
+        placed = False
+        for it in list(its):
+            if placed:
+                break
+            for sl in items[it["_tpl"]]["_props"].get("Slots", []):
+                if any(c.get("slotId") == sl["_name"] for c in children(it["_id"])):
+                    continue
+                mounts = [t for t in options(sl) if is_offset_mount(items, t)]
+                if not mounts:
+                    continue
+                mount = {"_id": new_id(), "_tpl": rng.choice(mounts), "parentId": it["_id"], "slotId": sl["_name"]}
+                its.append(mount)
+                inner = next((s2 for s2 in items[mount["_tpl"]]["_props"].get("Slots", []) if s2["_name"].startswith("mod_scope")), None)
+                pool = dots(options(inner)) if inner else []
+                if pool:
+                    its.append({"_id": new_id(), "_tpl": rng.choice(pool), "parentId": mount["_id"], "slotId": inner["_name"]})
+                    if fill_required(mount["_id"], 3):
+                        placed = True
+                        break
+                its[:] = [x for x in its if x["_id"] not in subtree(mount["_id"])]
 
     # A NATO weapon with an optic has its flip-up iron sights folded away: off the model. Soviet
     # and Russian weapons keep theirs, which are part of the receiver and handguard.
@@ -1111,6 +1200,26 @@ KINDS = {
     "rig": ("LOAD CARRIAGE", "СНАРЯЖЕНИЕ"),
     "tech": ("RECOVERED HARDWARE", "ТРОФЕЙНАЯ ТЕХНИКА"),
     "valuable": ("VALUABLES", "ЦЕННОСТИ"),
+    "key": ("ACCESS DEVICES", "СРЕДСТВА ДОСТУПА"),
+    "keycard": ("ACCESS DEVICES", "СРЕДСТВА ДОСТУПА"),
+    "ammo": ("AMMUNITION", "БОЕПРИПАСЫ"),
+    "grenade": ("HAND GRENADES", "РУЧНЫЕ ГРАНАТЫ"),
+    "container": ("STORAGE", "ТАРА И УКЛАДКИ"),
+    "face": ("FACE PROTECTION", "ЗАЩИТА ЛИЦА"),
+    "eyewear": ("EYE PROTECTION", "ЗАЩИТА ГЛАЗ"),
+    "optic": ("SIGHTING SYSTEMS", "ПРИЦЕЛЬНЫЕ ПРИСПОСОБЛЕНИЯ"),
+    "suppressor": ("SOUND SUPPRESSORS", "ПРИБОРЫ БЕСШУМНОЙ СТРЕЛЬБЫ"),
+}
+
+# Calibres as players know them (the database's names are "Caliber556x45NATO").
+CALIBRES = {
+    "Caliber545x39": "5.45x39", "Caliber556x45NATO": "5.56x45 NATO", "Caliber762x54R": "7.62x54R",
+    "Caliber762x51": "7.62x51 NATO", "Caliber762x35": ".300 BLK", "Caliber9x39": "9x39", "Caliber9x19PARA": "9x19 PARA",
+    "Caliber9x18PM": "9x18 PM", "Caliber762x25TT": "7.62x25 TT", "Caliber9x21": "9x21", "Caliber1143x23ACP": ".45 ACP",
+    "Caliber57x28": "5.7x28", "Caliber23x75": "23x75", "Caliber86x70": ".338 LM", "Caliber40x46": "40x46 MM",
+    "Caliber762x39": "7.62x39", "Caliber12g": "12 GA", "Caliber127x55": "12.7x55", "Caliber9x33R": ".357",
+    "Caliber68x51": "6.8x51", "Caliber20g": "20 GA", "Caliber46x30": "4.6x30", "Caliber366TKM": ".366 TKM",
+    "Caliber127x33": ".50 AE", "Caliber725": "72.5 MM", "Caliber40mmRU": "40 MM VOG",
 }
 
 
@@ -1122,15 +1231,7 @@ def spec_lines(kind, key, items, preset):
         kg += items[it["_tpl"]]["_props"].get("Weight", 0.0)
     weight = (f"WEIGHT {kg:.1f} KG", f"МАССА {kg:.1f} КГ".replace(".", ","))
     if kind == "weapon":
-        calibres = {
-            "Caliber545x39": "5.45x39", "Caliber556x45NATO": "5.56x45 NATO", "Caliber762x54R": "7.62x54R",
-            "Caliber762x51": "7.62x51 NATO", "Caliber762x35": ".300 BLK", "Caliber9x39": "9x39", "Caliber9x19PARA": "9x19 PARA",
-            "Caliber9x18PM": "9x18 PM", "Caliber762x25TT": "7.62x25 TT", "Caliber9x21": "9x21", "Caliber1143x23ACP": ".45 ACP",
-            "Caliber57x28": "5.7x28", "Caliber23x75": "23x75", "Caliber86x70": ".338 LM", "Caliber40x46": "40x46 MM",
-            "Caliber762x39": "7.62x39", "Caliber12g": "12 GA", "Caliber127x55": "12.7x55", "Caliber9x33R": ".357",
-            "Caliber68x51": "6.8x51",
-        }
-        calibre = calibres.get(p.get("ammoCaliber"), p.get("ammoCaliber", "").replace("Caliber", ""))
+        calibre = CALIBRES.get(p.get("ammoCaliber"), p.get("ammoCaliber", "").replace("Caliber", ""))
         modes = [m.upper() for m in p.get("weapFireType", [])]
         en = f"CAL {calibre}   ROF {int(p.get('bFirerate', 0))} RPM   EFF RANGE {int(p.get('bEffDist', 0))} M   MODES " + "/".join(
             {"SINGLE": "SEMI", "FULLAUTO": "AUTO"}.get(m, m) for m in modes)
@@ -1154,6 +1255,44 @@ def spec_lines(kind, key, items, preset):
         return f"CAPACITY {cells} SLOTS   {weight[0]}", f"ВМЕСТИМОСТЬ {cells} ЯЧЕЕК   {weight[1]}"
     if kind == "med" and p.get("MaxHpResource"):
         return f"RESOURCE {p['MaxHpResource']} HP   {weight[0]}", f"РЕСУРС {p['MaxHpResource']} ЕД.   {weight[1]}"
+    if kind == "ammo":
+        cal = CALIBRES.get(p.get("Caliber"), p.get("Caliber", "").replace("Caliber", ""))
+        pen, dmg, speed = int(p.get("PenetrationPower", 0)), int(p.get("Damage", 0)), int(p.get("InitialSpeed", 0))
+        en = f"CAL {cal}   PEN {pen}   DMG {dmg}   SPEED {speed} M/S"
+        ru = f"КАЛИБР {cal.replace('.', ',')}   ПРОБИТИЕ {pen}   УРОН {dmg}   СКОРОСТЬ {speed} М/С"
+        return en, ru
+    if kind == "grenade":
+        fuse = float(p.get("explDelay", 0) or 0)
+        radius = int(p.get("MaxExplosionDistance", 0) or 0)
+        frags = int(p.get("FragmentsCount", 0) or 0)
+        en = f"FUSE {fuse:.1f} S" + (f"   RADIUS {radius} M" if radius else "") + (f"   FRAGMENTS {frags}" if frags else "")
+        ru = f"ЗАМЕДЛЕНИЕ {fuse:.1f} С".replace(".", ",") + (f"   РАДИУС {radius} М" if radius else "") + (f"   ОСКОЛКОВ {frags}" if frags else "")
+        return f"{en}   {weight[0]}", f"{ru}   {weight[1]}"
+    if kind in ("key", "keycard"):
+        uses = int(p.get("MaximumNumberOfUsage", 0) or 0)
+        what = ("ACCESS CARD", "КАРТА ДОСТУПА") if kind == "keycard" else ("KEY", "КЛЮЧ")
+        return (f"{what[0]}   " + (f"{uses} USES" if uses else "UNLIMITED USES"),
+                f"{what[1]}   " + (f"ИСПОЛЬЗОВАНИЙ: {uses}" if uses else "БЕЗ ОГРАНИЧЕНИЙ"))
+    if kind == "container":
+        cells = sum(g["_props"]["cellsH"] * g["_props"]["cellsV"] for g in p.get("Grids", []))
+        return f"CAPACITY {cells} SLOTS   {weight[0]}", f"ВМЕСТИМОСТЬ {cells} ЯЧЕЕК   {weight[1]}"
+    if kind in ("face", "eyewear"):
+        cls = int(p.get("armorClass", 0) or 0)
+        what = ("FACE COVER", "ЗАЩИТА ЛИЦА") if kind == "face" else ("EYEWEAR", "ОЧКИ")
+        if cls:
+            return f"ARMOR CLASS {cls}   {weight[0]}", f"КЛАСС ЗАЩИТЫ {cls}   {weight[1]}"
+        return f"{what[0]}   {weight[0]}", f"{what[1]}   {weight[1]}"
+    if kind == "optic":
+        zooms = sorted({z for row in p.get("Zooms", []) or [] for z in row if z})
+        if zooms and max(zooms) > 1.01:
+            mag = f"{zooms[0]:g}-{zooms[-1]:g}X" if len(zooms) > 1 else f"{zooms[0]:g}X"
+            return f"MAGNIFICATION {mag}   {weight[0]}", f"КРАТНОСТЬ {mag.replace('X', 'Х')}   {weight[1]}".replace(".", ",")
+        return f"REFLEX SIGHT   {weight[0]}", f"КОЛЛИМАТОРНЫЙ ПРИЦЕЛ   {weight[1]}".replace(".", ",")
+    if kind == "suppressor":
+        recoil = int(round(float(p.get("Recoil", 0) or 0)))
+        en = f"SOUND SUPPRESSOR   RECOIL {recoil:+d}%   {weight[0]}"
+        ru = f"ГЛУШИТЕЛЬ   ОТДАЧА {recoil:+d}%   {weight[1]}"
+        return en, ru
     labels = {
         "nvg": ("IMAGE INTENSIFIER", "ЭЛЕКТРОННО-ОПТИЧЕСКИЙ ПРЕОБРАЗОВАТЕЛЬ"),
         "headset": ("ACTIVE HEARING PROTECTION", "АКТИВНЫЕ ПРОТИВОШУМНЫЕ НАУШНИКИ"),
@@ -1175,6 +1314,8 @@ def spec_lines(kind, key, items, preset):
 def write_specs(entries):
     """The items' names and figures, in English and Russian, as Kit.Data.cs."""
     def cs(text):
+        # (A few of the game's names run over two lines.)
+        text = " ".join(text.splitlines())
         return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
     lines = [
         "// Generated by scripts/make_weapons.py from SPT's database. Do not edit by hand: run the script.",
@@ -1192,11 +1333,12 @@ def write_specs(entries):
         f.write("\n".join(lines))
 
 
-def side_view(path, verts, faces, edges):
+def side_view(path, verts, faces, edges, fit=False):
     w, h = 1400, 520
     img = Image.new("RGB", (w, h), (8, 10, 14))
     d = ImageDraw.Draw(img)
-    s = (w * 0.47)
+    # A weapon fills the width; equipment (fit), no wider than long, fills the height.
+    s = min(w * 0.47, h * 0.47) if fit else (w * 0.47)
     def p(v):
         return (w / 2 + v[0] * s, h / 2 - v[1] * s)
     for a, b, f0, f1, crease in edges:
@@ -1216,23 +1358,46 @@ def main():
     LOCALE_EN.update(en)
     LOCALE_RU.update(ru)
     os.makedirs(PREVIEW, exist_ok=True)
-    only = set(sys.argv[2:])
+    # Further arguments: item ids to build (all if none), and --force to build again what is built.
+    force = "--force" in sys.argv[2:]
+    only = {a for a in sys.argv[2:] if not a.startswith("--")}
+
+    # The hand-picked items, then what armory.py chooses from the database (1.1.0).
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import armory
+    adb = armory.Db(spt)
+    chosen = armory.catalogue(adb)
+    earlier = {iid for iid, _, _ in ITEMS}
+    everything = list(ITEMS) + [(e["id"], e["template"], e["kind"]) for e in chosen]
 
     specs = []
     failed = []
-    for iid, template, kind in ITEMS:
+    named = []  # (weapon id, build number, English name, Russian name)
+    for iid, template, kind in everything:
         weapon = kind == "weapon"
         preset = find_preset(globals_, items, template) or single(items, template)
         key = next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])
         line_en, line_ru = spec_lines(kind, key, items, preset)
         label = KINDS["armor"] if kind == "rig" and gear_facts(items, preset)["armoured"]             else ("THERMAL IMAGING", "ТЕПЛОВИДЕНИЕ") if kind == "nvg" and "thermal" in items[key]["_name"].lower() else KINDS[kind]
-        specs.append((iid, kind, label[0], label[1], en[key + " ShortName"], en[key + " Name"],
-                      ru.get(key + " ShortName", en[key + " ShortName"]), ru.get(key + " Name", en[key + " Name"]), line_en, line_ru))
+        short_en = en.get(key + " ShortName", items[key]["_name"])
+        name_en = en.get(key + " Name", short_en)
+        specs.append((iid, kind, label[0], label[1], short_en, name_en,
+                      ru.get(key + " ShortName", short_en), ru.get(key + " Name", name_en), line_en, line_ru))
+        presets = armory.named_presets(adb, key) if weapon else []
+        for n, (_, pen, pru, _) in enumerate(presets, start=BUILDS):
+            named.append((iid, n, pen, pru))
         if only and iid not in only:
             continue
         built = set()
         for k in range(BUILDS if weapon else 1):
             name = iid if k == 0 else f"{iid}_{k}"
+            # What is built stays (the earlier builds were checked in game); the stock build is
+            # made again whenever a random one is, for what it tells the checks.
+            if not force and k > 0 and os.path.exists(os.path.join(OUT, f"item_{name}.bin")):
+                continue
+            if not force and k == 0 and os.path.exists(os.path.join(OUT, f"item_{name}.bin")) and (
+                    not weapon or all(os.path.exists(os.path.join(OUT, f"item_{iid}_{j}.bin")) for j in range(1, BUILDS))):
+                continue
             try:
                 if k == 0:
                     make(name, kind, preset, items, streaming, weapon, base=True)
@@ -1241,16 +1406,25 @@ def main():
                 # another tried; the last try stands if none comes out whole.
                 for attempt in range(48):
                     check = []
-                    build = random_build(items, preset, random.Random(f"{iid}-{k}-{attempt}"), streaming)
+                    extras = None if (iid in earlier and k < EARLIER_BUILDS) else random.Random(f"{iid}-{k}-{attempt}-extras")
+                    build = random_build(items, preset, random.Random(f"{iid}-{k}-{attempt}"), streaming, extras)
                     if attempt < 20 and "optic" in build.get("_want", ()) and not any(sight_kind(items, x["_tpl"]) for x in build["_items"]):
                         continue
                     signature = tuple(sorted(x["_tpl"] for x in build["_items"]))
-                    if signature in built and attempt < 40:
-                        print(f"   {name} try {attempt + 1} rejected: same as another build")
-                        continue
-                    if sorted(x["_tpl"] for x in build["_items"]) == sorted(x["_tpl"] for x in preset["_items"]) and attempt < 47:
-                        print(f"   {name} try {attempt + 1} rejected: same as the stock build")
-                        continue
+                    # A weapon with little to change (an RPD) runs out of new builds: the copies are
+                    # left out, and the table draws from the builds there are (Kit.Pools.cs).
+                    if signature in built:
+                        if attempt < 47:
+                            print(f"   {name} try {attempt + 1} rejected: same as another build")
+                            continue
+                        print(f"   {name}: left out, every try came out like another build")
+                        break
+                    if sorted(x["_tpl"] for x in build["_items"]) == sorted(x["_tpl"] for x in preset["_items"]):
+                        if attempt < 47:
+                            print(f"   {name} try {attempt + 1} rejected: same as the stock build")
+                            continue
+                        print(f"   {name}: left out, every try came out like the stock build")
+                        break
                     if attempt == 47:
                         # Out of tries: the build, with its lights and lasers off (most of what fails
                         # is one of them in the wrong place), checked once more; as it is if that fails too.
@@ -1269,9 +1443,110 @@ def main():
             except Exception as e:  # one item the game builds differently should not stop the rest
                 failed.append(name)
                 print(f"{name}: FAILED ({e})")
+        # The game's own named builds, as they are (Zenit, SD, the bosses' guns): after the random ones.
+        for n, (pid, pen, _, _) in enumerate(presets, start=BUILDS):
+            name = f"{iid}_{n}"
+            if not force and os.path.exists(os.path.join(OUT, f"item_{name}.bin")):
+                continue
+            try:
+                build = next(p for p in adb.globals["ItemPresets"].values() if p["_id"] == pid)
+                make(name, kind, build, items, streaming, weapon)
+            except Exception as e:
+                failed.append(name)
+                print(f"{name} ({pen}): FAILED ({e})")
     write_specs(specs)
+    write_pools(chosen, named)
     if failed:
         print("FAILED: " + " ".join(failed))
+
+
+def write_pools(chosen, named):
+    """
+    What 1.1.0 added to each side's table and each unit's own, and the weapons' named builds, as
+    Kit.Pools.cs. Only what was built: an item whose model is missing is left out.
+    """
+    def built(iid):
+        return os.path.exists(os.path.join(OUT, f"item_{iid}.bin"))
+
+    def cs(text):
+        # (A few of the game's names run over two lines.)
+        text = " ".join(text.splitlines())
+        return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    def array(name, ids):
+        rows = [", ".join(cs(i) for i in ids[j:j + 10]) for j in range(0, len(ids), 10)]
+        return [f"        private static readonly string[] {name} =", "        {"] + \
+               ["            " + r + "," for r in rows] + ["        };", ""]
+
+    # Equipment of so few triangles it is a box on the table (a CPU, a plain can) is left out;
+    # keys, keycards and rounds are small by nature and stay.
+    def worth(e):
+        path = os.path.join(OUT, f"item_{e['id']}.bin")
+        return e["kind"] in ("weapon", "key", "keycard", "ammo") or os.path.getsize(path) >= 1500
+
+    ok = [e for e in chosen if built(e["id"]) and worth(e)]
+    for e in chosen:
+        if built(e["id"]) and not worth(e):
+            os.remove(os.path.join(OUT, f"item_{e['id']}.bin"))  # not carried in the DLL either
+    lists = {}
+    for side in ("bear", "usec"):
+        lists[side + "_weapons"] = [e["id"] for e in ok if e["kind"] == "weapon" and e["side"] in (side, "both")]
+        lists[side + "_gear"] = [e["id"] for e in ok if e["kind"] != "weapon" and e["side"] in (side, "both")]
+    lines = [
+        "// Generated by scripts/make_weapons.py (the choice is scripts/armory.py's). Do not edit by hand: run the script.",
+        "namespace CLASSIFIED",
+        "{",
+        "    internal static partial class Kit",
+        "    {",
+    ]
+    lines += array("MoreBearWeapons", lists["bear_weapons"])
+    lines += array("MoreUsecWeapons", lists["usec_weapons"])
+    lines += array("MoreBearGear", lists["bear_gear"])
+    lines += array("MoreUsecGear", lists["usec_gear"])
+    lines += [
+        "        /// <summary>What 1.1.0 added to each unit's own weapons and gear.</summary>",
+        "        private static string[][] MorePools(ThemeChoice unit)",
+        "        {",
+        "            switch (unit)",
+        "            {",
+    ]
+    import armory
+    for unit in armory.BEAR_UNITS + armory.USEC_UNITS:
+        ws = [cs(e["id"]) for e in ok if unit in e["units"] and e["kind"] == "weapon"]
+        gs = [cs(e["id"]) for e in ok if unit in e["units"] and e["kind"] != "weapon"]
+        lines.append(f"                case ThemeChoice.{unit}: return new[] {{ new string[] {{ {', '.join(ws)} }}, "
+                     f"new string[] {{ {', '.join(gs)} }} }};")
+    lines += [
+        "                default: return null;",
+        "            }",
+        "        }",
+        "",
+        "        /// <summary>The game's own named builds: the weapon, the build's number, its name in English and Russian.</summary>",
+        "        internal static readonly NamedBuild[] Named =",
+        "        {",
+    ]
+    for iid, n, en, ru in named:
+        if built(f"{iid}_{n}"):
+            lines.append(f"            new NamedBuild({cs(iid)}, {n}, {cs(en)}, {cs(ru)}),")
+    lines += [
+        "        };",
+        "",
+        "        /// <summary>",
+        "        /// The weapons with fewer random builds than the rest (whatever else was tried came out",
+        "        /// like one of them): the builds each has. 0 is the stock build, for one with none.",
+        "        /// </summary>",
+        "        internal static readonly System.Collections.Generic.Dictionary<string, int[]> FewerBuilds =",
+        "            new System.Collections.Generic.Dictionary<string, int[]>",
+        "        {",
+    ]
+    weapons =[i for i, _, k in ITEMS if k == "weapon"] + [e["id"] for e in ok if e["kind"] == "weapon"]
+    for iid in weapons:
+        have = [k for k in range(1, BUILDS) if built(f"{iid}_{k}")]
+        if len(have) < BUILDS - 1 and built(iid):
+            lines.append(f"            {{ {cs(iid)}, new[] {{ {', '.join(str(k) for k in (have or [0]))} }} }},")
+    lines += ["        };", "    }", "}", ""]
+    with open(os.path.join(ROOT, "src", "CLASSIFIED", "Kit.Pools.cs"), "w", newline="\n", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
 
 def dense(tris):
@@ -1347,7 +1622,7 @@ def gear_anchors(kind, verts, facts):
         return out
     if kind == "helmet":
         return [("gear_shell", top), ("gear_rim", at([hi[0], lo[1] + size[1] * 0.25, mid[2]]))]
-    if kind == "nvg":
+    if kind in ("nvg", "optic"):
         long = 0 if size[0] >= size[2] else 2
         end = mid.copy()
         end[long] = hi[long]
@@ -1431,6 +1706,7 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
     """
     problems = []
     names = {}
+    SKIPPING[0] = ROUND_SKIP if kind == "ammo" else SKIP
     parts = assemble(streaming, items, preset, weapon, problems, names)
     if not parts:
         print(f"{iid}: no meshes")
@@ -1612,7 +1888,7 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
         anchor_list = named
     path = os.path.join(OUT, f"item_{iid}.bin")
     write(path, verts, faces, anchor_list)
-    side_view(os.path.join(PREVIEW, f"{iid}.png"), verts, faces, edges)
+    side_view(os.path.join(PREVIEW, f"{iid}.png"), verts, faces, edges, fit=not weapon)
     print(f"{iid}: {len(parts)} meshes, {raw} -> {len(faces)} triangles, {len(verts)} vertices, "
           f"{len(edges)} edges ({creases} creases), {os.path.getsize(path) // 1024} KB")
 

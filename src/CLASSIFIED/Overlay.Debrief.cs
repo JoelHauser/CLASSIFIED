@@ -239,6 +239,12 @@ namespace CLASSIFIED
 
                 // The words.
                 string name = Russian ? O.Cyr(_spec.ShortRu) : _spec.Short;
+                // One of the game's named builds goes by its name too: AKS-74UN "Zenit".
+                Kit.NamedBuild buildName = Kit.NameOf(_kit[index]);
+                if (buildName != null)
+                {
+                    name += " \"" + (Russian ? O.Cyr(buildName.Ru) : buildName.En) + "\"";
+                }
                 string full = (Russian ? O.Cyr(_spec.NameRu) : _spec.Name).ToUpperInvariant();
                 string line = Russian ? O.Cyr(_spec.LineRu) : _spec.LineEn;
                 if (_kindLabel != null)

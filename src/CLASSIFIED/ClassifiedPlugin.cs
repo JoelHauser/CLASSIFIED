@@ -61,7 +61,7 @@ namespace CLASSIFIED
         public const string PluginName = "CLASSIFIED";
 
         /// <summary>Must match the csproj's Version. Two places, and they have to agree.</summary>
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         private const string AccessGrantedGuid = "com.mybutthasarash.accessgranted";
 
