@@ -453,6 +453,7 @@ namespace CLASSIFIED
             Stretch(_scanlines.rectTransform);
             _band = MakeRaw("Band", c, Art.Band, Accent);
             Isolate(_band);
+            BuildCountdownAlert(r, c);
 
             // The intro's covers, over the content.
             _shutterTop = MakeImage("ShutterTop", transform, Color.black).rectTransform;
@@ -530,6 +531,7 @@ namespace CLASSIFIED
             _glow.color = Glow;
             _emblemGlow.color = Primary;
             _alertGlow.color = Warn;
+            ColourCountdownAlert();
             _wordmark.color = Text;
             _wordmarkGhost.color = _labelGhost.color = Theme.WithAlpha(Accent, 180);
             _wordmarkSplit.color = _labelSplit.color = Theme.WithAlpha(theme.Split, 150);
@@ -805,6 +807,7 @@ namespace CLASSIFIED
                 ShowCurtain(_previewLoop);
             }
 
+            UpdateCountdownAlert(t);
             if (_phase == Phase.Loading)
             {
                 _group.alpha = _showreel ? ShowreelAlpha()
@@ -996,6 +999,7 @@ namespace CLASSIFIED
             LayoutBar(rx, barWidth, barTop);
 
             SetText(_currentLabel, rx - barWidth * 0.15f, ry - 136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
+            LayoutCountdownAlert(rx, barWidth, ry - 136f * u, u);
             SetText(_labelGhost, rx - barWidth * 0.15f, ry - 136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
             SetText(_labelSplit, rx - barWidth * 0.15f, ry - 136f * u, barWidth * 0.7f, 30f * u, 21f * u, 4f);
             SetText(_currentTime, rx + barWidth * 0.35f, ry - 136f * u, barWidth * 0.3f, 30f * u, 21f * u, 4f);
