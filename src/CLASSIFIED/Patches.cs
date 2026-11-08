@@ -266,6 +266,9 @@ namespace CLASSIFIED
             {
                 if (!ClassifiedPlugin.ShowThisDeploy())
                 {
+                    // A transit goes from the raid's unloading straight to the next raid's load,
+                    // never reaching the main menu the after-raid terminal waits for.
+                    Overlay.StepAsideForRaid("the game went straight on to load a raid (a transit)");
                     return;
                 }
                 StartupTracker.BeginDeploy();
@@ -307,7 +310,12 @@ namespace CLASSIFIED
             Overlay.Countdown(seconds);
         }
 
-        private static void RaidStarted() => Overlay.RaidStarted();
+        private static void RaidStarted()
+        {
+            Overlay.RaidStarted();
+            // Whatever else is still up, the raid is live: it must never play behind the terminal.
+            Overlay.StepAsideForRaid("the raid started");
+        }
 
         private static void Handbook() => StartupTracker.Reach(StepId.Handbook);
         private static void WeaponBuilds() => StartupTracker.Reach(StepId.WeaponBuilds);
