@@ -774,6 +774,7 @@ namespace CLASSIFIED
             new Spec("7n42", "ammo", "AMMUNITION", "БОЕПРИПАСЫ", "7N42", "9x21mm 7N42 Zubilo", "ПП", "9x21мм 7Н42 \"Зубило\"", "CAL 9x21   PEN 38   DMG 49   SPEED 400 M/S", "КАЛИБР 9x21   ПРОБИТИЕ 38   УРОН 49   СКОРОСТЬ 400 М/С"),
             new Spec("fmj2", "ammo", "AMMUNITION", "БОЕПРИПАСЫ", "FMJ", ".357 Magnum FMJ", "FMJ", ".357 Magnum FMJ", "CAL .357   PEN 35   DMG 70   SPEED 385 M/S", "КАЛИБР ,357   ПРОБИТИЕ 35   УРОН 70   СКОРОСТЬ 385 М/С"),
             new Spec("bp", "ammo", "AMMUNITION", "БОЕПРИПАСЫ", "BP", "9x39mm BP gs", "БП", "9x39мм БП гс", "CAL 9x39   PEN 54   DMG 58   SPEED 295 M/S", "КАЛИБР 9x39   ПРОБИТИЕ 54   УРОН 58   СКОРОСТЬ 295 М/С"),
+            new Spec("saga6", "grenade", "HAND GRENADES", "РУЧНЫЕ ГРАНАТЫ", "SAGA-6", "SAGA-6 Incendiary Grenade", "SAGA-6", "Зажигательная граната SAGA-6", "INCENDIARY   IGNITES ON IMPACT   BURNS AT 1,200 C", "ЗАЖИГАТЕЛЬНАЯ   ВОСПЛАМЕНЯЕТСЯ ПРИ УДАРЕ   ГОРИТ ПРИ 1 200 C"),
         };
     }
 }

@@ -3,6 +3,20 @@ namespace CLASSIFIED
 {
     internal static partial class Kit
     {
+        /// <summary>Equipment that is the same model as an item kept, under another name: left off the table.</summary>
+        internal static readonly System.Collections.Generic.HashSet<string> Twins = new System.Collections.Generic.HashSet<string>
+        {
+            "drd", "bluefolders", "dormmrk", "aem", "w203san", "brokenlcd", "6b13fl", "6b13ke", "6b232mf", "korakulonemr",
+            "ubey", "6b47emra", "6b516", "black", "blue", "green", "red", "access", "yellow", "labrys2",
+            "resunit", "keycard", "violet", "11sr", "21ws", "goshan", "idea", "oli",
+        };
+
+        /// <summary>Items other mods add, and the DLL that shows each mod is installed: shown only where it is.</summary>
+        internal static readonly System.Collections.Generic.Dictionary<string, string> Mods = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "saga6", "IncendiaryGrenade.dll" },
+        };
+
         private static readonly string[] MoreBearWeapons =
         {
             "rshg2", "mts25512", "ak74", "akm", "akmn", "akms", "akmsn", "aks74ub", "mp18", "mp443grach",
@@ -21,75 +35,83 @@ namespace CLASSIFIED
         private static readonly string[] MoreBearGear =
         {
             "smw", "cabin", "directors", "gasoffice", "dorm118", "dormmrk", "tglasses", "gpsa", "mb", "mcc",
-            "ec", "ewunit", "mrkerman", "xenoalien", "bear", "bloodsucker", "cultist", "dedmoroz", "mutkevich", "crooker",
-            "killa", "origins", "reshala", "ryzhy", "scav", "nailhead", "tagilla", "pointyguy", "usec", "batwolf",
-            "flux", "strike", "kibaouter", "emc", "olioffice", "rgd5", "w104san", "w203san", "pistols", "alpha",
-            "anam2", "mfun", "sling", "partisan", "sanitar", "vkbo", "scavbp", "balaclava", "cf", "ghost",
-            "blackrock", "6sh112ss", "trizip", "chainlet", "goldchain", "irongate", "rusted", "concsec", "aband", "cpufan",
-            "oliroute", "duffle", "rglasses", "dundukk", "raybench", "comtacii", "6b47emr", "tankhelmet", "k1s", "tc2002",
-            "rac", "sferas", "comtacvi", "untar", "horse", "radar", "bulb", "mcable", "caps", "controller1",
-            "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor", "magnet",
-            "cord", "relay", "splug", "wires", "cyclon", "maps", "bloodset", "oscope", "h2o2", "nacl",
-            "meds", "syringe", "vitamins", "medtools", "den", "rooster", "badge", "tamatthi", "lega", "ornament",
-            "axel", "prokill", "roler", "skull", "viibiin", "zabey", "clock", "wz", "pfilter", "ammo",
-            "keycards", "holodilnick", "grenades", "injectors", "thicc", "junk", "keytool", "gingy", "keys", "sicc",
-            "magazines", "medicine", "toolbox", "money", "plates", "dogtags", "items", "weapons", "eslamp", "uvlamp",
-            "6b13fl", "6b13ke", "6b232mf", "thoric", "gen4full", "gen4hmk", "korakulonemr", "redutt5", "daypack", "f4terminator",
-            "f5switchblade", "g2gunslingerii", "t30", "t20", "terraframe", "lk3f", "rkpt25", "readypack", "zryachiy", "cqcm",
-            "roninrespirator", "ronin", "gp5", "gp7", "glorious", "ghoul", "skull2", "mask", "deathknight", "momex",
-            "plaguemask", "pipe", "shattered", "shemagh", "shroud", "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey",
-            "6b34", "aviator", "crossbow", "gascan", "johnb", "mframe", "condor", "proximity", "zryachiy2", "bandana",
-            "bomber", "cap", "tep300", "6b47emra", "lshz", "bacbastion", "caiman", "tkfastmt", "maska1schke", "neosteel",
-            "hjelm", "psh97", "shpm", "6b515", "6b516", "mbss", "rbavaf", "bagariy", "lbcr", "poyascombo",
-            "plateframege", "lbcrge", "cpcge", "khamelion", "bssmk1", "tactec", "type56chicom", "csa", "security", "ospreymk4aa",
-            "ospreymk4ap", "anam1", "microrig", "mppv", "m4rscr", "crmk2a", "crmk2r", "sdmod2", "sppcv2", "avste",
-            "ttsk", "ttmkiii", "rush100", "gaswelder", "docs", "vhs", "danex", "ariadne", "bbqs43", "wheel",
-            "polikhim", "black", "blue", "green", "red", "access", "yellow", "labrys2", "resunit", "keycard",
-            "violet", "toughbook", "santape", "blackkc", "11sr", "21ws", "letter", "police", "halfmask", "module3m",
-            "gphone", "psu", "disk", "copy", "respirator", "pilad4x32", "pag17", "ekp818", "pk120", "krechet",
-            "ps320", "bossxe", "prism25x", "1p59", "1p69", "1p781", "ekp1s03", "ekp802dt", "pkaa", "pso1",
-            "pso1m21", "pso1m2", "okp7dt", "usp1", "nspum", "obzor", "pbsupp", "val2", "mbss2", "goshan",
-            "idea", "oli", "tbag", "afglass", "wallet", "mk3tv104", "tv106tv109", "vog17", "vog25", "f1",
-            "rdg2b", "rgn", "v40", "zarya", "scavvest", "ps12b", "ap20", "tssap", "barrikada", "apm",
-            "pst", "maiap", "bs", "pbp", "7n42", "bp",
+            "ec", "ewunit", "soic", "aem", "mrkerman", "xenoalien", "bear", "bloodsucker", "cultist", "dedmoroz",
+            "mutkevich", "crooker", "killa", "origins", "reshala", "ryzhy", "scav", "nailhead", "tagilla", "pointyguy",
+            "usec", "batwolf", "flux", "strike", "kibaouter", "emc", "olioffice", "rgd5", "w104san", "w203san",
+            "pistols", "alpha", "anam2", "mfun", "sling", "partisan", "sanitar", "vkbo", "scavbp", "balaclava",
+            "cf", "ghost", "blackrock", "6sh112ss", "trizip", "carbattery", "chainlet", "goldchain", "irongate", "rusted",
+            "concsec", "aband", "cpufan", "oliroute", "duffle", "rglasses", "dundukk", "raybench", "comtacii", "6b47emr",
+            "tankhelmet", "k1s", "tc2002", "rac", "sferas", "comtacvi", "untar", "horse", "radar", "bulb",
+            "mcable", "caps", "controller1", "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd",
+            "brokenlcd", "nixxor", "magnet", "cord", "relay", "splug", "iridium", "wires", "cyclon", "maps",
+            "aquapeps", "bloodset", "oscope", "h2o2", "nacl", "meds", "syringe", "vitamins", "medtools", "den",
+            "1gphone", "rooster", "egg", "badge", "tamatthi", "lega", "ornament", "axel", "prokill", "roler",
+            "skull", "viibiin", "zabey", "clock", "wz", "pfilter", "ammo", "keycards", "holodilnick", "grenades",
+            "injectors", "thicc", "junk", "keytool", "gingy", "keys", "sicc", "magazines", "medicine", "toolbox",
+            "money", "plates", "dogtags", "items", "weapons", "6b13fl", "6b13ke", "6b232mf", "thoric", "gen4full",
+            "gen4hmk", "korakulonemr", "redutt5", "daypack", "f4terminator", "f5switchblade", "g2gunslingerii", "t30", "t20", "terraframe",
+            "lk3f", "rkpt25", "readypack", "zryachiy", "cqcm", "roninrespirator", "ronin", "gp5", "gp7", "glorious",
+            "ghoul", "skull2", "mask", "deathknight", "momex", "plaguemask", "pipe", "shattered", "shemagh", "shroud",
+            "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey", "6b34", "aviator", "crossbow", "gascan", "johnb",
+            "mframe", "condor", "proximity", "zryachiy2", "bandana", "bomber", "cap", "tep300", "6b47emra", "lshz",
+            "bacbastion", "caiman", "tkfastmt", "maska1schke", "neosteel", "hjelm", "psh97", "shpm", "6b515", "6b516",
+            "mbss", "rbavaf", "bagariy", "lbcr", "poyascombo", "plateframege", "lbcrge", "cpcge", "khamelion", "bssmk1",
+            "tactec", "type56chicom", "csa", "security", "ospreymk4aa", "ospreymk4ap", "anam1", "microrig", "mppv", "m4rscr",
+            "crmk2a", "crmk2r", "sdmod2", "sppcv2", "avste", "ttsk", "ttmkiii", "rush100", "gaswelder", "bakeezy",
+            "docs", "vhs", "danex", "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue", "green",
+            "red", "access", "yellow", "labrys2", "resunit", "keycard", "violet", "toughbook", "santape", "blackkc",
+            "11sr", "21ws", "letter", "police", "halfmask", "module3m", "gphone", "psu", "copy", "respirator",
+            "pilad4x32", "pag17", "ekp818", "pk06", "okp7", "pk120", "ps320", "p1x42", "bossxe", "prism25x",
+            "1p59", "1p69", "1p781", "ekp1s03", "ekp802dt", "pkaa", "pso1", "pso1m21", "pso1m2", "okp7dt",
+            "usp1", "nspum", "obzor", "hexagon12k", "ak122", "hexagonak74", "tgpa", "dtk4m", "pbs4", "pl152",
+            "r439x19", "r43366tkm", "ash122", "r43762x54r", "bramit", "pbsupp", "vityaz2", "pp9101", "hexagonsks", "sr1mp2",
+            "sv1381", "sr3m2", "sv98supp", "ttsupp", "val2", "r43101", "mbss2", "goshan", "idea", "oli",
+            "tbag", "afglass", "tplug", "wallet", "mk3tv104", "tv106tv109", "vog17", "vog25", "f1", "rdg2b",
+            "rgn", "v40", "zarya", "scavvest", "ps12b", "ap20", "tssap", "barrikada", "apm", "pst",
+            "maiap", "bs", "pbp", "7n42", "bp", "saga6",
         };
 
         private static readonly string[] MoreUsecGear =
         {
             "smw", "cabin", "directors", "gasoffice", "dorm118", "dormmrk", "tglasses", "gpsa", "mb", "mcc",
-            "ec", "ewunit", "mrkerman", "xenoalien", "bear", "bloodsucker", "cultist", "dedmoroz", "mutkevich", "crooker",
-            "killa", "origins", "reshala", "ryzhy", "scav", "nailhead", "tagilla", "pointyguy", "usec", "batwolf",
-            "flux", "strike", "kibaouter", "emc", "olioffice", "w104san", "w203san", "pistols", "alpha", "anam2",
-            "mfun", "sling", "partisan", "sanitar", "vkbo", "scavbp", "balaclava", "cf", "ghost", "blackrock",
-            "6sh112ss", "trizip", "chainlet", "goldchain", "irongate", "rusted", "concsec", "aband", "cpufan", "oliroute",
-            "duffle", "rglasses", "dundukk", "raybench", "comtacii", "tankhelmet", "k1s", "tc2002", "rac", "sferas",
-            "comtacvi", "untar", "horse", "radar", "bulb", "mcable", "caps", "controller1", "kosa", "drill",
-            "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor", "magnet", "cord", "relay",
-            "splug", "wires", "cyclon", "maps", "bloodset", "oscope", "h2o2", "nacl", "meds", "syringe",
-            "vitamins", "medtools", "den", "rooster", "badge", "tamatthi", "lega", "ornament", "axel", "prokill",
-            "roler", "skull", "viibiin", "zabey", "clock", "wz", "pfilter", "ammo", "keycards", "holodilnick",
-            "grenades", "injectors", "thicc", "junk", "keytool", "gingy", "keys", "sicc", "magazines", "medicine",
-            "toolbox", "money", "plates", "dogtags", "items", "weapons", "eslamp", "uvlamp", "6b13ke", "thoric",
-            "gen4full", "gen4hmk", "daypack", "f4terminator", "f5switchblade", "g2gunslingerii", "t30", "t20", "terraframe", "lk3f",
-            "rkpt25", "readypack", "zryachiy", "cqcm", "roninrespirator", "ronin", "gp5", "gp7", "glorious", "ghoul",
-            "skull2", "mask", "deathknight", "momex", "plaguemask", "pipe", "shattered", "shemagh", "shroud", "deadlyskull",
-            "smoke", "deathshadow", "gorilla", "ubey", "aviator", "crossbow", "gascan", "johnb", "mframe", "condor",
-            "proximity", "zryachiy2", "bandana", "bomber", "cap", "tep300", "bacbastion", "caiman", "tkfastmt", "maska1schke",
-            "neosteel", "hjelm", "psh97", "shpm", "mbss", "rbavaf", "bagariy", "lbcr", "poyascombo", "plateframege",
-            "lbcrge", "cpcge", "khamelion", "bssmk1", "tactec", "type56chicom", "csa", "security", "ospreymk4aa", "ospreymk4ap",
-            "anam1", "microrig", "mppv", "m4rscr", "crmk2a", "crmk2r", "sdmod2", "sppcv2", "avste", "rush100",
-            "gaswelder", "docs", "vhs", "danex", "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue",
-            "green", "red", "access", "yellow", "labrys2", "resunit", "keycard", "violet", "toughbook", "santape",
-            "blackkc", "11sr", "21ws", "letter", "police", "halfmask", "module3m", "gphone", "psu", "disk",
-            "copy", "respirator", "tac30", "vudu16x24", "6520x50", "324x42ffp", "razorhdgen2", "pmii18x24", "tango6t", "ff416",
-            "atacr735x56", "pmii320x50", "pmii525x56", "mark5hd525x56", "specterdr", "hco", "os4x", "553", "hhs1", "hhs1tan",
-            "falkele", "flirrs32", "hs401g5", "utg", "hamr", "m2a1", "compact2x32", "adop4", "nxs2510", "bravo4",
-            "romeo8t", "echo1", "romeo7", "trihawk3x30", "srs02", "mrs", "bossxe", "a3m115x", "stg7715x", "h2",
-            "pro", "compm4", "vulcanmg35x", "zeuspro640", "shakhin", "rv", "justice", "ta01nsn", "ta11d", "reapir",
-            "rusak", "hkv3x", "hkv15x", "ringsight", "sl7ibl338", "qdc65x35", "rotex2", "sparrow22", "mbss2", "goshan",
-            "idea", "oli", "tbag", "afglass", "wallet", "m18", "m67", "m7290", "scavvest", "ap",
-            "fmj", "ap20", "tssap", "m576", "apsx", "ssaap", "ss190", "hybrid", "ap2", "m993",
-            "ap3", "pbp", "fmj2",
+            "ec", "ewunit", "soic", "aem", "mrkerman", "xenoalien", "bear", "bloodsucker", "cultist", "dedmoroz",
+            "mutkevich", "crooker", "killa", "origins", "reshala", "ryzhy", "scav", "nailhead", "tagilla", "pointyguy",
+            "usec", "batwolf", "flux", "strike", "kibaouter", "emc", "olioffice", "w104san", "w203san", "pistols",
+            "alpha", "anam2", "mfun", "sling", "partisan", "sanitar", "vkbo", "scavbp", "balaclava", "cf",
+            "ghost", "blackrock", "6sh112ss", "trizip", "carbattery", "chainlet", "goldchain", "irongate", "rusted", "concsec",
+            "aband", "cpufan", "oliroute", "duffle", "rglasses", "dundukk", "raybench", "comtacii", "tankhelmet", "k1s",
+            "tc2002", "rac", "sferas", "comtacvi", "untar", "horse", "radar", "bulb", "mcable", "caps",
+            "controller1", "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor",
+            "magnet", "cord", "relay", "splug", "iridium", "wires", "cyclon", "maps", "aquapeps", "bloodset",
+            "oscope", "h2o2", "nacl", "meds", "syringe", "vitamins", "medtools", "den", "1gphone", "rooster",
+            "egg", "badge", "tamatthi", "lega", "ornament", "axel", "prokill", "roler", "skull", "viibiin",
+            "zabey", "clock", "wz", "pfilter", "ammo", "keycards", "holodilnick", "grenades", "injectors", "thicc",
+            "junk", "keytool", "gingy", "keys", "sicc", "magazines", "medicine", "toolbox", "money", "plates",
+            "dogtags", "items", "weapons", "6b13ke", "thoric", "gen4full", "gen4hmk", "daypack", "f4terminator", "f5switchblade",
+            "g2gunslingerii", "t30", "t20", "terraframe", "lk3f", "rkpt25", "readypack", "zryachiy", "cqcm", "roninrespirator",
+            "ronin", "gp5", "gp7", "glorious", "ghoul", "skull2", "mask", "deathknight", "momex", "plaguemask",
+            "pipe", "shattered", "shemagh", "shroud", "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey", "aviator",
+            "crossbow", "gascan", "johnb", "mframe", "condor", "proximity", "zryachiy2", "bandana", "bomber", "cap",
+            "tep300", "bacbastion", "caiman", "tkfastmt", "maska1schke", "neosteel", "hjelm", "psh97", "shpm", "mbss",
+            "rbavaf", "bagariy", "lbcr", "poyascombo", "plateframege", "lbcrge", "cpcge", "khamelion", "bssmk1", "tactec",
+            "type56chicom", "csa", "security", "ospreymk4aa", "ospreymk4ap", "anam1", "microrig", "mppv", "m4rscr", "crmk2a",
+            "crmk2r", "sdmod2", "sppcv2", "avste", "rush100", "gaswelder", "bakeezy", "docs", "vhs", "danex",
+            "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue", "green", "red", "access", "yellow",
+            "labrys2", "resunit", "keycard", "violet", "toughbook", "santape", "blackkc", "11sr", "21ws", "letter",
+            "police", "halfmask", "module3m", "gphone", "psu", "copy", "respirator", "tac30", "vudu16x24", "6520x50",
+            "324x42ffp", "razorhdgen2", "pmii18x24", "tango6t", "ff416", "atacr735x56", "pmii320x50", "pmii525x56", "mark5hd525x56", "specterdr",
+            "os4x", "553", "hhs1", "hhs1tan", "falkele", "flirrs32", "hs401g5", "utg", "hamr", "m2a1",
+            "compact2x32", "adop4", "nxs2510", "bravo4", "romeo8t", "echo1", "romeo7", "trihawk3x30", "t12w", "srs02",
+            "mrs", "bossxe", "a3m115x", "stg7715x", "acrop1", "h2", "pro", "compm4", "vulcanmg35x", "zeuspro640",
+            "ff3", "shakhin", "rv", "dp", "romeo4", "justice", "ta01nsn", "ta11d", "reapir", "rmr",
+            "rusak", "hkv3x", "hkv15x", "ringsight", "sfn57", "9a91", "tsm338lm", "illusion9", "alpha9", "srd762",
+            "srd9", "osprey9", "apb2", "sdn6", "sakerasr556", "sl7i556", "t4aug556", "thorpsr", "srd762qd", "omega45k",
+            "salvo12", "sl7ibl338", "g28qd", "slx68", "mp5sdsupp", "nt4", "qdc65x35", "hybrid46", "rotex2", "mp92",
+            "ronin12", "ronin8", "attenuator", "qdc556", "m4sdk", "mpxsd", "sparrow22", "556mini", "556monster", "556rc2",
+            "ultra5", "pgm338", "umpoem", "uzisupp", "waveqd", "mbss2", "goshan", "idea", "oli", "tbag",
+            "afglass", "tplug", "wallet", "m18", "m67", "m7290", "scavvest", "ap", "fmj", "ap20",
+            "tssap", "m576", "apsx", "ssaap", "ss190", "hybrid", "ap2", "m993", "ap3", "pbp",
+            "fmj2", "saga6",
         };
 
         /// <summary>What 1.1.0 added to each unit's own weapons and gear.</summary>
@@ -97,18 +119,18 @@ namespace CLASSIFIED
         {
             switch (unit)
             {
-                case ThemeChoice.BearCommand: return new[] { new string[] { "mts25512", "ak74", "akm", "akmn", "akms", "akmsn", "aks74ub", "rsh12", "vpo209" }, new string[] { "cultist", "killa", "reshala", "tagilla", "flux", "strike", "rgd5", "mfun", "sanitar", "6b47emr", "tankhelmet", "k1s", "tc2002", "sferas", "untar", "6b13fl", "6b13ke", "6b232mf", "thoric", "gen4full", "gen4hmk", "korakulonemr", "redutt5", "zryachiy", "roninrespirator", "ronin", "deathknight", "zryachiy2", "bandana", "bomber", "cap", "6b47emra", "lshz", "bacbastion", "caiman", "tkfastmt", "maska1schke", "neosteel", "hjelm", "psh97", "shpm", "plateframege", "lbcrge", "cpcge", "khamelion", "avste", "keycard", "santape", "module3m", "bossxe", "vog17", "vog25", "f1", "rdg2b", "rgn", "v40", "zarya" } };
-                case ThemeChoice.BearReconnaissance: return new[] { new string[] { "dvl10", "vpo215gornostay", "t5000m" }, new string[] { "tglasses", "batwolf", "sling", "partisan", "vkbo", "scavbp", "balaclava", "cf", "ghost", "trizip", "duffle", "rglasses", "dundukk", "raybench", "daypack", "f4terminator", "f5switchblade", "g2gunslingerii", "t30", "t20", "terraframe", "lk3f", "rkpt25", "readypack", "cqcm", "gp5", "gp7", "glorious", "ghoul", "skull2", "mask", "momex", "plaguemask", "pipe", "shattered", "shemagh", "shroud", "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey", "6b34", "aviator", "crossbow", "gascan", "johnb", "mframe", "condor", "proximity", "rush100", "gaswelder", "halfmask", "respirator", "pilad4x32", "pag17", "ekp818", "pk120", "krechet", "ps320", "prism25x", "1p59", "1p69", "1p781", "ekp1s03", "ekp802dt", "pkaa", "pso1", "pso1m21", "pso1m2", "okp7dt", "usp1", "nspum", "obzor", "mbss2", "tbag", "afglass" } };
-                case ThemeChoice.BearSignals: return new[] { new string[] { "avt40" }, new string[] { "gpsa", "mb", "mcc", "ec", "ewunit", "cpufan", "comtacii", "rac", "comtacvi", "radar", "bulb", "mcable", "caps", "controller1", "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor", "magnet", "cord", "relay", "splug", "wires", "cyclon", "pfilter", "eslamp", "uvlamp", "tep300", "toughbook", "gphone", "psu", "disk" } };
-                case ThemeChoice.BearCounterintelligence: return new[] { new string[] { "mp443grach", "pm", "pmt", "vsk94", "aps", "pb", "sr1mp", "apb", "tt", "ttgold", "pp9101kedrb", "pp91kedr", "pp9klin" }, new string[] { "smw", "cabin", "directors", "gasoffice", "dorm118", "dormmrk", "kibaouter", "emc", "olioffice", "w104san", "w203san", "irongate", "rusted", "concsec", "aband", "oliroute", "maps", "vhs", "danex", "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue", "green", "red", "access", "yellow", "labrys2", "resunit", "violet", "blackkc", "11sr", "21ws", "letter", "police", "copy", "pbsupp", "val2", "goshan", "idea", "oli" } };
-                case ThemeChoice.BearSupply: return new[] { new string[] { "rshg2", "rpd", "rpdn" }, new string[] { "mrkerman", "xenoalien", "bear", "bloodsucker", "dedmoroz", "mutkevich", "crooker", "origins", "ryzhy", "scav", "nailhead", "pointyguy", "usec", "pistols", "alpha", "anam2", "blackrock", "6sh112ss", "chainlet", "goldchain", "horse", "den", "rooster", "badge", "tamatthi", "lega", "ornament", "axel", "prokill", "roler", "skull", "viibiin", "zabey", "clock", "wz", "ammo", "keycards", "holodilnick", "grenades", "injectors", "thicc", "junk", "keytool", "gingy", "keys", "sicc", "magazines", "medicine", "toolbox", "money", "plates", "dogtags", "items", "weapons", "6b515", "6b516", "mbss", "rbavaf", "bagariy", "lbcr", "poyascombo", "bssmk1", "tactec", "type56chicom", "csa", "security", "ospreymk4aa", "ospreymk4ap", "anam1", "microrig", "mppv", "m4rscr", "crmk2a", "crmk2r", "sdmod2", "sppcv2", "ttsk", "ttmkiii", "docs", "wallet", "mk3tv104", "tv106tv109", "scavvest", "ps12b", "ap20", "tssap", "barrikada", "apm", "pst", "maiap", "bs", "pbp", "7n42", "bp" } };
-                case ThemeChoice.BearMedical: return new[] { new string[] { "mp18", "mp133", "mp153", "sawedoff", "mp431c", "saiga12kfa", "toz106" }, new string[] { "bloodset", "oscope", "h2o2", "nacl", "meds", "syringe", "vitamins", "medtools" } };
-                case ThemeChoice.UsecOperations: return new[] { new string[] { "sa58", "mdr2", "model1", "ak545short", "auga1" }, new string[] { "tglasses", "batwolf", "flux", "strike", "mfun", "balaclava", "cf", "ghost", "rglasses", "dundukk", "raybench", "tankhelmet", "k1s", "tc2002", "sferas", "untar", "thoric", "gen4full", "gen4hmk", "cqcm", "roninrespirator", "ronin", "gp5", "gp7", "glorious", "ghoul", "skull2", "mask", "momex", "plaguemask", "pipe", "shattered", "shemagh", "shroud", "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey", "aviator", "crossbow", "gascan", "johnb", "mframe", "condor", "proximity", "bomber", "bacbastion", "caiman", "tkfastmt", "neosteel", "hjelm", "psh97", "shpm", "gaswelder", "halfmask", "module3m", "respirator", "afglass", "m18", "m67", "m7290" } };
-                case ThemeChoice.UsecIntelligence: return new[] { new string[] { "axmc" }, new string[] { "smw", "cabin", "directors", "gasoffice", "dorm118", "dormmrk", "kibaouter", "emc", "olioffice", "w104san", "w203san", "irongate", "rusted", "concsec", "aband", "oliroute", "maps", "vhs", "danex", "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue", "green", "red", "access", "yellow", "labrys2", "resunit", "violet", "blackkc", "11sr", "21ws", "letter", "police", "copy", "tac30", "vudu16x24", "6520x50", "324x42ffp", "razorhdgen2", "pmii18x24", "tango6t", "ff416", "atacr735x56", "pmii320x50", "pmii525x56", "mark5hd525x56", "specterdr", "hco", "os4x", "553", "hhs1", "hhs1tan", "falkele", "flirrs32", "hs401g5", "utg", "hamr", "m2a1", "compact2x32", "adop4", "nxs2510", "bravo4", "romeo8t", "echo1", "romeo7", "trihawk3x30", "srs02", "mrs", "a3m115x", "stg7715x", "h2", "pro", "compm4", "vulcanmg35x", "zeuspro640", "shakhin", "rv", "justice", "ta01nsn", "ta11d", "reapir", "rusak", "hkv3x", "hkv15x", "ringsight", "sl7ibl338", "qdc65x35", "rotex2", "sparrow22", "goshan", "idea", "oli" } };
-                case ThemeChoice.UsecSignals: return new[] { new string[] {  }, new string[] { "gpsa", "mb", "mcc", "ec", "ewunit", "cpufan", "comtacii", "rac", "comtacvi", "radar", "bulb", "mcable", "caps", "controller1", "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor", "magnet", "cord", "relay", "splug", "wires", "cyclon", "pfilter", "eslamp", "uvlamp", "tep300", "toughbook", "gphone", "psu", "disk" } };
+                case ThemeChoice.BearCommand: return new[] { new string[] { "mts25512", "ak74", "akm", "akmn", "akms", "akmsn", "aks74ub", "rsh12", "vpo209" }, new string[] { "cultist", "killa", "reshala", "tagilla", "flux", "strike", "rgd5", "mfun", "sanitar", "6b47emr", "tankhelmet", "k1s", "tc2002", "sferas", "untar", "6b13fl", "6b13ke", "6b232mf", "thoric", "gen4full", "gen4hmk", "korakulonemr", "redutt5", "zryachiy", "roninrespirator", "ronin", "deathknight", "zryachiy2", "bandana", "bomber", "cap", "6b47emra", "lshz", "bacbastion", "caiman", "tkfastmt", "maska1schke", "neosteel", "hjelm", "psh97", "shpm", "plateframege", "lbcrge", "cpcge", "khamelion", "avste", "keycard", "santape", "module3m", "bossxe", "vog17", "vog25", "f1", "rdg2b", "rgn", "v40", "zarya", "saga6" } };
+                case ThemeChoice.BearReconnaissance: return new[] { new string[] { "dvl10", "vpo215gornostay", "t5000m" }, new string[] { "tglasses", "batwolf", "sling", "partisan", "vkbo", "scavbp", "balaclava", "cf", "ghost", "trizip", "duffle", "rglasses", "dundukk", "raybench", "daypack", "f4terminator", "f5switchblade", "g2gunslingerii", "t30", "t20", "terraframe", "lk3f", "rkpt25", "readypack", "cqcm", "gp5", "gp7", "glorious", "ghoul", "skull2", "mask", "momex", "plaguemask", "pipe", "shattered", "shemagh", "shroud", "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey", "6b34", "aviator", "crossbow", "gascan", "johnb", "mframe", "condor", "proximity", "rush100", "gaswelder", "halfmask", "respirator", "pilad4x32", "pag17", "ekp818", "pk06", "okp7", "pk120", "ps320", "p1x42", "prism25x", "1p59", "1p69", "1p781", "ekp1s03", "ekp802dt", "pkaa", "pso1", "pso1m21", "pso1m2", "okp7dt", "usp1", "nspum", "obzor", "mbss2", "tbag", "afglass" } };
+                case ThemeChoice.BearSignals: return new[] { new string[] { "avt40" }, new string[] { "gpsa", "mb", "mcc", "ec", "ewunit", "carbattery", "cpufan", "comtacii", "rac", "comtacvi", "radar", "bulb", "mcable", "caps", "controller1", "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor", "magnet", "cord", "relay", "splug", "iridium", "wires", "cyclon", "1gphone", "pfilter", "tep300", "toughbook", "gphone", "psu", "tplug" } };
+                case ThemeChoice.BearCounterintelligence: return new[] { new string[] { "mp443grach", "pm", "pmt", "vsk94", "aps", "pb", "sr1mp", "apb", "tt", "ttgold", "pp9101kedrb", "pp91kedr", "pp9klin" }, new string[] { "smw", "cabin", "directors", "gasoffice", "dorm118", "dormmrk", "soic", "aem", "kibaouter", "emc", "olioffice", "w104san", "w203san", "irongate", "rusted", "concsec", "aband", "oliroute", "maps", "bakeezy", "vhs", "danex", "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue", "green", "red", "access", "yellow", "labrys2", "resunit", "violet", "blackkc", "11sr", "21ws", "letter", "police", "copy", "hexagon12k", "ak122", "hexagonak74", "tgpa", "dtk4m", "pbs4", "pl152", "r439x19", "r43366tkm", "ash122", "r43762x54r", "bramit", "pbsupp", "vityaz2", "pp9101", "hexagonsks", "sr1mp2", "sv1381", "sr3m2", "sv98supp", "ttsupp", "val2", "r43101", "goshan", "idea", "oli" } };
+                case ThemeChoice.BearSupply: return new[] { new string[] { "rshg2", "rpd", "rpdn" }, new string[] { "mrkerman", "xenoalien", "bear", "bloodsucker", "dedmoroz", "mutkevich", "crooker", "origins", "ryzhy", "scav", "nailhead", "pointyguy", "usec", "pistols", "alpha", "anam2", "blackrock", "6sh112ss", "chainlet", "goldchain", "horse", "den", "rooster", "egg", "badge", "tamatthi", "lega", "ornament", "axel", "prokill", "roler", "skull", "viibiin", "zabey", "clock", "wz", "ammo", "keycards", "holodilnick", "grenades", "injectors", "thicc", "junk", "keytool", "gingy", "keys", "sicc", "magazines", "medicine", "toolbox", "money", "plates", "dogtags", "items", "weapons", "6b515", "6b516", "mbss", "rbavaf", "bagariy", "lbcr", "poyascombo", "bssmk1", "tactec", "type56chicom", "csa", "security", "ospreymk4aa", "ospreymk4ap", "anam1", "microrig", "mppv", "m4rscr", "crmk2a", "crmk2r", "sdmod2", "sppcv2", "ttsk", "ttmkiii", "docs", "wallet", "mk3tv104", "tv106tv109", "scavvest", "ps12b", "ap20", "tssap", "barrikada", "apm", "pst", "maiap", "bs", "pbp", "7n42", "bp" } };
+                case ThemeChoice.BearMedical: return new[] { new string[] { "mp18", "mp133", "mp153", "sawedoff", "mp431c", "saiga12kfa", "toz106" }, new string[] { "aquapeps", "bloodset", "oscope", "h2o2", "nacl", "meds", "syringe", "vitamins", "medtools" } };
+                case ThemeChoice.UsecOperations: return new[] { new string[] { "sa58", "mdr2", "model1", "ak545short", "auga1" }, new string[] { "tglasses", "batwolf", "flux", "strike", "mfun", "balaclava", "cf", "ghost", "rglasses", "dundukk", "raybench", "tankhelmet", "k1s", "tc2002", "sferas", "untar", "thoric", "gen4full", "gen4hmk", "cqcm", "roninrespirator", "ronin", "gp5", "gp7", "glorious", "ghoul", "skull2", "mask", "momex", "plaguemask", "pipe", "shattered", "shemagh", "shroud", "deadlyskull", "smoke", "deathshadow", "gorilla", "ubey", "aviator", "crossbow", "gascan", "johnb", "mframe", "condor", "proximity", "bomber", "bacbastion", "caiman", "tkfastmt", "neosteel", "hjelm", "psh97", "shpm", "gaswelder", "halfmask", "module3m", "respirator", "afglass", "m18", "m67", "m7290", "saga6" } };
+                case ThemeChoice.UsecIntelligence: return new[] { new string[] { "axmc" }, new string[] { "smw", "cabin", "directors", "gasoffice", "dorm118", "dormmrk", "soic", "aem", "kibaouter", "emc", "olioffice", "w104san", "w203san", "irongate", "rusted", "concsec", "aband", "oliroute", "maps", "bakeezy", "vhs", "danex", "ariadne", "bbqs43", "wheel", "polikhim", "black", "blue", "green", "red", "access", "yellow", "labrys2", "resunit", "violet", "blackkc", "11sr", "21ws", "letter", "police", "copy", "tac30", "vudu16x24", "6520x50", "324x42ffp", "razorhdgen2", "pmii18x24", "tango6t", "ff416", "atacr735x56", "pmii320x50", "pmii525x56", "mark5hd525x56", "specterdr", "os4x", "553", "hhs1", "hhs1tan", "falkele", "flirrs32", "hs401g5", "utg", "hamr", "m2a1", "compact2x32", "adop4", "nxs2510", "bravo4", "romeo8t", "echo1", "romeo7", "trihawk3x30", "t12w", "srs02", "mrs", "a3m115x", "stg7715x", "acrop1", "h2", "pro", "compm4", "vulcanmg35x", "zeuspro640", "ff3", "shakhin", "rv", "dp", "romeo4", "justice", "ta01nsn", "ta11d", "reapir", "rmr", "rusak", "hkv3x", "hkv15x", "ringsight", "sfn57", "9a91", "tsm338lm", "illusion9", "alpha9", "srd762", "srd9", "osprey9", "apb2", "sdn6", "sakerasr556", "sl7i556", "t4aug556", "thorpsr", "srd762qd", "omega45k", "salvo12", "sl7ibl338", "g28qd", "slx68", "mp5sdsupp", "nt4", "qdc65x35", "hybrid46", "rotex2", "mp92", "ronin12", "ronin8", "attenuator", "qdc556", "m4sdk", "mpxsd", "sparrow22", "556mini", "556monster", "556rc2", "ultra5", "pgm338", "umpoem", "uzisupp", "waveqd", "goshan", "idea", "oli" } };
+                case ThemeChoice.UsecSignals: return new[] { new string[] {  }, new string[] { "gpsa", "mb", "mcc", "ec", "ewunit", "carbattery", "cpufan", "comtacii", "rac", "comtacvi", "radar", "bulb", "mcable", "caps", "controller1", "kosa", "drill", "motor", "gpx", "mgt", "helix", "lcd", "brokenlcd", "nixxor", "magnet", "cord", "relay", "splug", "iridium", "wires", "cyclon", "1gphone", "pfilter", "tep300", "toughbook", "gphone", "psu", "tplug" } };
                 case ThemeChoice.UsecLogistics: return new[] { new string[] { "fn40gl", "aa12gen2", "m60e6" }, new string[] { "pistols", "alpha", "anam2", "sling", "partisan", "vkbo", "scavbp", "blackrock", "6sh112ss", "trizip", "duffle", "wz", "ammo", "keycards", "holodilnick", "grenades", "injectors", "thicc", "junk", "keytool", "gingy", "keys", "sicc", "magazines", "medicine", "toolbox", "money", "plates", "dogtags", "items", "weapons", "daypack", "f4terminator", "f5switchblade", "g2gunslingerii", "t30", "t20", "terraframe", "lk3f", "rkpt25", "readypack", "mbss", "rbavaf", "bagariy", "lbcr", "poyascombo", "bssmk1", "tactec", "type56chicom", "csa", "security", "ospreymk4aa", "ospreymk4ap", "anam1", "microrig", "mppv", "m4rscr", "crmk2a", "crmk2r", "sdmod2", "sppcv2", "rush100", "docs", "mbss2", "tbag", "wallet", "scavvest", "ap", "fmj", "ap20", "tssap", "m576", "apsx", "ssaap", "ss190", "hybrid", "ap2", "m993", "ap3", "pbp", "fmj2" } };
-                case ThemeChoice.UsecMedical: return new[] { new string[] { "mp9", "mp9n", "p90", "mp7a1", "mp7a2", "uzipropistol", "vector9x19" }, new string[] { "bloodset", "oscope", "h2o2", "nacl", "meds", "syringe", "vitamins", "medtools" } };
-                case ThemeChoice.UsecCommand: return new[] { new string[] { "cr50ds", "m45a1", "glock17", "glock18c", "glock19x", "deserteaglel5", "deserteaglel52", "deserteaglemkxix", "msgl", "p226r" }, new string[] { "mrkerman", "xenoalien", "bear", "bloodsucker", "cultist", "dedmoroz", "mutkevich", "crooker", "killa", "origins", "reshala", "ryzhy", "scav", "nailhead", "tagilla", "pointyguy", "usec", "sanitar", "chainlet", "goldchain", "horse", "den", "rooster", "badge", "tamatthi", "lega", "ornament", "axel", "prokill", "roler", "skull", "viibiin", "zabey", "clock", "6b13ke", "zryachiy", "deathknight", "zryachiy2", "bandana", "cap", "maska1schke", "plateframege", "lbcrge", "cpcge", "khamelion", "avste", "keycard", "santape", "bossxe" } };
+                case ThemeChoice.UsecMedical: return new[] { new string[] { "mp9", "mp9n", "p90", "mp7a1", "mp7a2", "uzipropistol", "vector9x19" }, new string[] { "aquapeps", "bloodset", "oscope", "h2o2", "nacl", "meds", "syringe", "vitamins", "medtools" } };
+                case ThemeChoice.UsecCommand: return new[] { new string[] { "cr50ds", "m45a1", "glock17", "glock18c", "glock19x", "deserteaglel5", "deserteaglel52", "deserteaglemkxix", "msgl", "p226r" }, new string[] { "mrkerman", "xenoalien", "bear", "bloodsucker", "cultist", "dedmoroz", "mutkevich", "crooker", "killa", "origins", "reshala", "ryzhy", "scav", "nailhead", "tagilla", "pointyguy", "usec", "sanitar", "chainlet", "goldchain", "horse", "den", "rooster", "egg", "badge", "tamatthi", "lega", "ornament", "axel", "prokill", "roler", "skull", "viibiin", "zabey", "clock", "6b13ke", "zryachiy", "deathknight", "zryachiy2", "bandana", "cap", "maska1schke", "plateframege", "lbcrge", "cpcge", "khamelion", "avste", "keycard", "santape", "bossxe" } };
                 default: return null;
             }
         }

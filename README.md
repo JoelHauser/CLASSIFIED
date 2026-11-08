@@ -13,7 +13,7 @@ For SPT 4.1.x. Client only.
 - **Six units each**, every one with its own colours, wording and choice of the parts above:
   - BEAR: Command Post, Reconnaissance, Signals, Counterintelligence, Supply, Medical Service.
   - USEC: Tactical Operations Center, S2 Intelligence, S6 Communications, S4 Logistics, Medical, Corporate Command.
-- **The debrief.** Beside the terminal, the unit's kit turns on a table as a hologram, one piece after another: one of its weapons, often with an optic, light, foregrip or suppressor fitted, then three pieces of its gear (helmets, armour, night vision, headsets, packs, medical kit, rations), with their names and figures; a weapon's parts are named as it comes side on. Next to it, one of several panels: the operations map (an assault, a drone over the target, direction finding, a convoy, a casualty evacuation or a surveillance track, in each side's own map conventions), a wanted dossier, a radio intercept, reconnaissance imagery being enhanced, the unit's readiness, or your own tasks.
+- **The debrief.** Beside the terminal, the unit's kit turns on a table as a hologram, one piece after another: one of its weapons (any in the game with a default preset, in one of up to 12 builds, often with an optic, light, foregrip, suppressor or bipod fitted, or now and then one of the game's named builds, such as AKS-74UN "Zenit"), then three pieces of its gear (helmets, armour, rigs, packs, night vision, headsets, face covers, eyewear, keys and keycards, rounds, grenades, cases, optics, suppressors, medical kit, rations, tech and valuables, boss gear among them), with their names and figures; a weapon's parts are named as it comes side on. Next to it, one of several panels: the operations map (an assault, a drone over the target, direction finding, a convoy, a casualty evacuation or a surveillance track, in each side's own map conventions), a wanted dossier, a radio intercept, reconnaissance imagery being enhanced, the unit's readiness, or your own tasks.
 - **Your tasks.** The terminal reads the tasks your profile has under way and now and then passes on intel about one of them.
 - **The factions' own insignia.** The BEAR and USEC logos, flying together piece by piece as the terminal comes on.
 - **Traffic.** Orders signed by officers of your side, priority intel on the region, the other side's radio intercepts, and a ticker of headlines and the day's readings. Nothing repeats until you have seen the rest.
@@ -36,6 +36,7 @@ With **Advanced settings** ticked:
 - **Layout**, **Background**, **Insignia Frame**, **Intro**, **Progress Bar**, **Ending** pin any part instead of letting the unit choose.
 - **Preview Key** (Ctrl+F6 in the main menu) plays the terminal over a pretend load, with every key listed along the bottom: change unit, layout or any part, hold or slow the load, step through it, jump to the ending, call up a notice or a glitch, and hide parts of the screen down to the logo alone. **Preview Length** sets how long its load takes.
 - **Play Showreel** runs every unit in turn (or one faction's, with **Showreel Units**), each for **Showreel Shot Length** seconds. Nothing but the terminal shows, for recording; Left/Right skip units, Space holds one, H shows what is on screen.
+- **Item Browser** opens the preview on everything the debrief's table can draw, one item at a time, each held until stepped on with its id: `,` and `.` step an item, Shift a whole weapon or kind of gear, Home goes back to the first, K turns it on and off in any preview. Items with no model or no figures are listed in `BepInEx\LogOutput.log`.
 
 ## Build
 
@@ -46,7 +47,7 @@ scripts\pack.ps1 -SPTPath H:\SPT4.1.X
 The pictures the DLL carries are made by scripts (numpy, scipy, pillow; the weapons also UnityPy), and only need running again after changing what they make:
 
 - `python scripts/make_insignia.py`: the insignia, from the logos in `art/`.
-- `python scripts/make_weapons.py H:\SPT4.1.X`: the debrief's weapons and equipment, assembled from the game's own models by SPT's default presets, with their names and figures from SPT's database.
+- `python scripts/make_weapons.py H:\SPT4.1.X`: the debrief's weapons and equipment, assembled from the game's own models by SPT's default presets, with their names and figures from SPT's database. Items other mods add (its `MOD_ITEMS`, such as the SAGA-6 from Sage's Incendiary Grenade) are built from that mod's bundle, and shown only where the mod is installed.
 - `python scripts/make_backdrops.py`: the six faction backdrops.
 
 Run the pack script from PowerShell. It builds against the install, checks that the versions agree, and packs `dist\CLASSIFIED-<version>.zip` (the DLL only). Add `-Install` to copy the DLL into the install.

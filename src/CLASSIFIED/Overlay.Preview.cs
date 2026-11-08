@@ -91,6 +91,11 @@ namespace CLASSIFIED
             o._previewKind = ClassifiedPlugin.PreviewLoad.Value == PreviewKind.Deploy ? RunKind.Deploy : RunKind.Launch;
             o._previewPins = Pins.FromConfig();
             o._previewGlitches = ClassifiedPlugin.Glitches.Value;
+            o._browsing = false;
+            if (ClassifiedPlugin.ItemBrowser.Value)
+            {
+                o.EnterBrowse();
+            }
             o.PlayPreview(o.RollPreview(ClassifiedPlugin.Theme.Value));
         }
 
@@ -162,6 +167,15 @@ namespace CLASSIFIED
         private void PreviewKeys(bool back)
         {
             Variant v = _previewVariant;
+            if (Input.GetKeyDown(KeyCode.K))
+            {
+                ToggleBrowse();
+                return;
+            }
+            if (BrowseKeys())
+            {
+                return;
+            }
             int unit = Input.GetKeyDown(KeyCode.RightArrow) ? 1 : Input.GetKeyDown(KeyCode.LeftArrow) ? -1 : 0;
             int layout = Input.GetKeyDown(KeyCode.DownArrow) ? 1 : Input.GetKeyDown(KeyCode.UpArrow) ? -1 : 0;
             int step = back ? -1 : 1;
@@ -444,7 +458,7 @@ namespace CLASSIFIED
 
         private const string PreviewHelp =
             "LEFT/RIGHT  UNIT      UP/DOWN  LAYOUT      1-6  PIN PART (SHIFT: BACK)      0  UNPIN ALL      N  RE-ROLL      R  REPLAY      I  INTRO      E  ENDING      L  LOOP      T  LAUNCH / RAID\n"
-            + "SPACE  HOLD      - / +  SPEED      [ / ]  STEP      M  NOTICE      G  GLITCH      D  DENIAL      C  CROSSFADE      V  VIEW      H  HIDE THIS      ESC  CLOSE";
+            + "SPACE  HOLD      - / +  SPEED      [ / ]  STEP      M  NOTICE      G  GLITCH      D  DENIAL      C  CROSSFADE      K  ITEMS      V  VIEW      H  HIDE THIS      ESC  CLOSE";
 
         private const string ReelHelp =
             "LEFT/RIGHT  UNIT      SPACE  HOLD      - / +  SPEED      V  VIEW      H  HIDE THIS      ESC  STOP";
@@ -494,7 +508,7 @@ namespace CLASSIFIED
             Variant v = _variant;
             string key = string.Join("|", v.GetHashCode(), v.Layout, v.Backdrop, v.Frame, v.Intro, v.Bar, v.Outro, v.Glitches,
                 v.FakeDenial, StartupTracker.Current, Mathf.FloorToInt(StartupTracker.Elapsed * 10f), _phase, _previewHold,
-                _previewSpeed, _previewLoop, _view, _shot);
+                _previewSpeed, _previewLoop, _view, _shot, _browsing, _browseIndex);
             if (key == _captionKey)
             {
                 return;
@@ -520,6 +534,12 @@ namespace CLASSIFIED
             _caption.text = b.ToString();
 
             b.Clear();
+            if (_browsing && !_showreel)
+            {
+                string[] all = Kit.Catalogue();
+                int at = Mathf.Clamp(_browseIndex, 0, all.Length - 1);
+                b.Append($"ITEM {at + 1} / {all.Length}  ").Append(all[at].ToUpperInvariant()).Append("  //  ");
+            }
             if (_phase == Phase.Loading)
             {
                 b.Append(_previewKind == RunKind.Deploy && !_showreel ? "RAID LOAD  //  " : "LAUNCH  //  ");
@@ -543,7 +563,7 @@ namespace CLASSIFIED
                 b.Append("  //  DENIAL ").Append(v.FakeDenial ? "ON" : "OFF");
             }
             _captionState.text = b.ToString();
-            _captionHelp.text = _showreel ? ReelHelp : PreviewHelp;
+            _captionHelp.text = _showreel ? ReelHelp : _browsing ? BrowseHelp : PreviewHelp;
         }
 
         /// <summary>One part for the caption: a pinned one in brackets.</summary>
@@ -617,6 +637,12 @@ namespace CLASSIFIED
         private void EndPreview()
         {
             _previewing = false;
+            if (_browsing)
+            {
+                // The browser's models go with it; the next table reads its own.
+                _browsing = false;
+                WeaponModel.ClearCache();
+            }
             ShowCurtain(false);
             SetCaptionActive(false);
             ApplyView();

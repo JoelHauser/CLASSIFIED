@@ -88,6 +88,7 @@ namespace CLASSIFIED
         internal static ConfigEntry<DeployScreenMode> WithDeployScreen;
         internal static ConfigEntry<bool> ShowMapName;
         internal static ConfigEntry<bool> AfterRaids;
+        internal static ConfigEntry<bool> ItemBrowser;
 
         private const string DeployScreenGuid = "com.mybutthasarash.deployscreen";
 
@@ -302,6 +303,10 @@ namespace CLASSIFIED
             AfterRaids = Config.Bind("Raid Loading", "Show After Raids", true,
                 "Show the terminal while the game goes back to the main menu after a raid, once the after-action report is done: "
                 + "the same unit you signed in to, from the raid unloading to the menu.");
+            ItemBrowser = Config.Bind("Preview", "Item Browser", false, Advanced(
+                "For checking the debrief's armoury: the preview (Preview Key) opens with the table showing every item it can draw, one at a time, held until stepped on, "
+                + "with each item's id and anything wrong with it. , and . step an item, Shift steps a whole weapon or kind of gear, Home goes back to the first. "
+                + "K turns it on and off in any preview. Items with no model or no figures are listed in BepInEx\\LogOutput.log."));
             ReelUnits = Config.Bind("Preview", "Showreel Units", ReelFactions.Both, Advanced(
                 "Whose units the showreel plays: all twelve, BEAR and USEC in turn, or one faction's six."));
             // A button, not a setting: the value is never read.

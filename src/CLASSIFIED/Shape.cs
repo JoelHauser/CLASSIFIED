@@ -171,9 +171,12 @@ namespace CLASSIFIED
                 return;
             }
             bool closed = sweepDegrees >= 359.99f;
-            int steps = Mathf.Max(2, Mathf.CeilToInt(sweepDegrees / 3f));
             float inner = radius - thickness * 0.5f;
             float outer = radius + thickness * 0.5f;
+            // Each side about 2.5 pixels long whatever the ring's size, so a big ring on a big
+            // screen stays as round as a small one: its soft edge shows any flat run.
+            int least = Mathf.Max(2, Mathf.CeilToInt(sweepDegrees / 3f));
+            int steps = Mathf.Clamp(Mathf.CeilToInt(sweepDegrees * Mathf.Deg2Rad * outer / 2.5f), least, 720);
             Color32 clear = Clear(color);
 
             // Four rings of vertices per step: clear, solid, solid, clear.

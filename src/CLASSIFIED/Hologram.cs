@@ -51,13 +51,12 @@ namespace CLASSIFIED
         }
 
         /// <summary>An item's figures. A weapon's builds (ak74m_1, ak74m_2) share its default's.</summary>
-        internal static Spec Get(string id)
+        internal static Spec Get(string id) => Find(id) ?? All[0];
+
+        /// <summary>An item's figures, or null if the data has none for it.</summary>
+        internal static Spec Find(string id)
         {
-            int build = id.LastIndexOf('_');
-            if (build > 0 && int.TryParse(id.Substring(build + 1), out _))
-            {
-                id = id.Substring(0, build);
-            }
+            id = BaseOf(id);
             foreach (Spec spec in All)
             {
                 if (spec.Id == id)
@@ -65,7 +64,128 @@ namespace CLASSIFIED
                     return spec;
                 }
             }
-            return All[0];
+            return null;
+        }
+
+        /// <summary>The item a build is of: ak74m for ak74m_3; equipment is its own.</summary>
+        internal static string BaseOf(string id)
+        {
+            int build = id.LastIndexOf('_');
+            return build > 0 && int.TryParse(id.Substring(build + 1), out _) ? id.Substring(0, build) : id;
+        }
+
+        private static string[] _catalogue;
+
+        /// <summary>
+        /// Everything the table can ever draw, for the item browser: each weapon in every build it
+        /// can show, its named builds after its random ones, weapons A to Z; then the gear, kind by
+        /// kind. Both sides' and every unit's. Built once.
+        /// </summary>
+        internal static string[] Catalogue()
+        {
+            if (_catalogue != null)
+            {
+                return _catalogue;
+            }
+            var weapons = new List<string>();
+            var gear = new List<string>();
+            void AddAll(List<string> to, IEnumerable<string> ids)
+            {
+                foreach (string id in ids)
+                {
+                    if (!to.Contains(id))
+                    {
+                        to.Add(id);
+                    }
+                }
+            }
+            AddAll(weapons, AllBearWeapons);
+            AddAll(weapons, AllUsecWeapons);
+            AddAll(gear, AllBearGear);
+            AddAll(gear, AllUsecGear);
+            foreach (Theme theme in Theme.All)
+            {
+                string[][] pools = Pools(theme.Id);
+                if (pools != null)
+                {
+                    AddAll(weapons, pools[0]);
+                    AddAll(gear, pools[1]);
+                }
+            }
+            weapons.Sort(StringComparer.Ordinal);
+
+            var table = new List<string>();
+            foreach (string weapon in weapons)
+            {
+                if (FewerBuilds.TryGetValue(weapon, out int[] few))
+                {
+                    foreach (int b in few)
+                    {
+                        table.Add(b == 0 ? weapon : weapon + "_" + b);
+                    }
+                }
+                else
+                {
+                    for (int b = 1; b < Builds; b++)
+                    {
+                        table.Add(weapon + "_" + b);
+                    }
+                }
+                foreach (NamedBuild n in Named)
+                {
+                    if (n.Weapon == weapon)
+                    {
+                        table.Add(weapon + "_" + n.Number);
+                    }
+                }
+            }
+            // Gear by kind, in the order the kinds first come in the data, then A to Z.
+            var kinds = new List<string>();
+            foreach (Spec spec in All)
+            {
+                if (!kinds.Contains(spec.Kind))
+                {
+                    kinds.Add(spec.Kind);
+                }
+            }
+            int KindOrder(string id)
+            {
+                Spec spec = Find(id);
+                return spec == null ? int.MaxValue : kinds.IndexOf(spec.Kind);
+            }
+            gear.Sort((a, b) =>
+            {
+                int byKind = KindOrder(a).CompareTo(KindOrder(b));
+                return byKind != 0 ? byKind : string.CompareOrdinal(a, b);
+            });
+            table.AddRange(gear);
+            _catalogue = table.ToArray();
+            return _catalogue;
+        }
+
+        /// <summary>What the browser's Shift steps by: the weapon for a weapon's builds, the kind for gear.</summary>
+        internal static string GroupOf(string id)
+        {
+            Spec spec = Find(id);
+            return spec == null ? "?" : spec.Weapon ? BaseOf(id) : spec.Kind;
+        }
+
+        /// <summary>Logs every item in the catalogue with no model in the DLL or no figures in the data.</summary>
+        internal static void CheckCatalogue()
+        {
+            string[] all = Catalogue();
+            int problems = 0;
+            foreach (string id in all)
+            {
+                bool model = WeaponModel.Exists(id);
+                bool figures = Find(id) != null;
+                if (!model || !figures)
+                {
+                    problems++;
+                    ClassifiedPlugin.Log.LogWarning($"Item browser: {id}: " + (!model && !figures ? "no model and no figures" : !model ? "no model in the DLL" : "no figures in the data"));
+                }
+            }
+            ClassifiedPlugin.Log.LogInfo($"Item browser: {all.Length} items, {problems} with a problem.");
         }
 
         /// <summary>One of the game's own named builds of a weapon (Kit.Pools.cs): drawn as weapon_number.</summary>
@@ -108,15 +228,53 @@ namespace CLASSIFIED
         /// <summary>How a side's whole table reads: the hand-picked items, then what 1.1.0 added.</summary>
         private static string[] Side(string[] picked, string[] more)
         {
-            var all = new List<string>(picked);
+            // Less the twins (the same model under another name), and another mod's items where
+            // that mod is not installed (Kit.Pools.cs).
+            var all = new List<string>();
+            foreach (string id in picked)
+            {
+                if (!all.Contains(id) && !Twins.Contains(id) && Installed(id))
+                {
+                    all.Add(id);
+                }
+            }
             foreach (string id in more)
             {
-                if (!all.Contains(id))
+                if (!all.Contains(id) && !Twins.Contains(id) && Installed(id))
                 {
                     all.Add(id);
                 }
             }
             return all.ToArray();
+        }
+
+        private static readonly Dictionary<string, bool> _modInstalled = new Dictionary<string, bool>();
+
+        /// <summary>
+        /// Whether an item is in this game: always, unless another mod adds it (Kit.Mods), when its
+        /// mod's DLL must be in BepInEx\plugins. By the file, not the loaded plugins: the table is
+        /// drawn while plugins are still loading.
+        /// </summary>
+        private static bool Installed(string id)
+        {
+            if (!Mods.TryGetValue(id, out string dll))
+            {
+                return true;
+            }
+            if (!_modInstalled.TryGetValue(dll, out bool found))
+            {
+                try
+                {
+                    found = Directory.GetFiles(BepInEx.Paths.PluginPath, dll, SearchOption.AllDirectories).Length > 0;
+                }
+                catch (Exception e)
+                {
+                    ClassifiedPlugin.Log.LogDebug($"Could not look for {dll}: {e.Message}");
+                    found = false;
+                }
+                _modInstalled[dll] = found;
+            }
+            return found;
         }
 
         private static string[] _bearWeapons, _usecWeapons, _bearGear, _usecGear;
@@ -165,10 +323,11 @@ namespace CLASSIFIED
         {
             string[][] picked = HandPools(unit);
             string[][] more = MorePools(unit);
-            if (picked == null || more == null)
+            if (picked == null)
             {
-                return picked;
+                return null;
             }
+            more = more ?? new[] { new string[0], new string[0] };
             return new[] { Side(picked[0], more[0]), Side(picked[1], more[1]) };
         }
 
@@ -309,6 +468,22 @@ namespace CLASSIFIED
                 Cache[id] = model;
             }
             return model;
+        }
+
+        /// <summary>Whether the DLL carries a model for <paramref name="id"/>, without reading it.</summary>
+        internal static bool Exists(string id) =>
+            typeof(WeaponModel).Assembly.GetManifestResourceInfo("CLASSIFIED.item_" + id + ".bin") != null;
+
+        /// <summary>How many models are kept.</summary>
+        internal static int Cached
+        {
+            get
+            {
+                lock (Cache)
+                {
+                    return Cache.Count;
+                }
+            }
         }
 
         /// <summary>Forgets every model read so far; the next table reads its own again.</summary>

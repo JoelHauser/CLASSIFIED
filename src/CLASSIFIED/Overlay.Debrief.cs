@@ -153,8 +153,9 @@ namespace CLASSIFIED
 
             private void BuildArmory(Rect zone)
             {
-                // This launch's table, the same however many times the screen is laid out.
-                _kit = Kit.Draw(T.Id, T.Faction, Rng);
+                // This launch's table, the same however many times the screen is laid out; in the
+                // item browser, everything the table can draw.
+                _kit = O._browsing ? Kit.Catalogue() : Kit.Draw(T.Id, T.Faction, Rng);
                 if (_kit == null)
                 {
                     return;
@@ -187,15 +188,46 @@ namespace CLASSIFIED
                     _lineLabel = Fit(Label("", x + w * 0.5f, top - 26f, w, 9f, A(T.Dim, 210), TextAlignmentOptions.Left), 9f);
                 }
 
-                // The table's models read on a worker thread now, not on the frame each comes on.
-                WeaponModel.Prefetch(_kit);
                 _holo = Hologram.Create("Item", R);
                 _holo.Ink = A(T.Accent, 255);
                 _leaders = Draw();
+                if (O._browsing)
+                {
+                    // The browser holds each item until it is stepped on.
+                    O._browseIndex = Mathf.Clamp(O._browseIndex, 0, _kit.Length - 1);
+                    Browse(O._browseIndex);
+                    return;
+                }
+                // The table's models read on a worker thread now, not on the frame each comes on.
+                WeaponModel.Prefetch(_kit);
                 // Where the table had got to: a layout partway through must not start it again.
                 float since = Mathf.Max(0f, O._animClock - O._debriefAt);
                 int shown = Mathf.FloorToInt(since / Cycle);
                 ShowItem(shown % _kit.Length, O._debriefAt + shown * Cycle);
+            }
+
+            /// <summary>
+            /// The item browser: puts catalogue item <paramref name="index"/> on the table, building
+            /// in from side on, and reads the next few ahead. The models seen are let go now and
+            /// then, so going through all of them does not keep all of them.
+            /// </summary>
+            internal void Browse(int index)
+            {
+                if (_holo == null || _kit == null)
+                {
+                    return;
+                }
+                if (WeaponModel.Cached > 48)
+                {
+                    WeaponModel.ClearCache();
+                }
+                ShowItem(index, O._animClock);
+                var ahead = new List<string>();
+                for (int i = 1; i <= 4 && index + i < _kit.Length; i++)
+                {
+                    ahead.Add(_kit[index + i]);
+                }
+                WeaponModel.Prefetch(ahead);
             }
 
             private const float Turn = 0.34f;
@@ -247,9 +279,24 @@ namespace CLASSIFIED
                 }
                 string full = (Russian ? O.Cyr(_spec.NameRu) : _spec.Name).ToUpperInvariant();
                 string line = Russian ? O.Cyr(_spec.LineRu) : _spec.LineEn;
+                string kind = Russian ? O.Cyr(_spec.KindRu) : _spec.KindEn;
+                if (!O._browsing)
+                {
+                    kind += Ru("  //  СЕКРЕТНО", "  //  RESTRICTED");
+                }
+                else
+                {
+                    // The item's id, and what is wrong with it if anything: these are what to report.
+                    string problem = model == null ? "NO MODEL" : Kit.Find(_kit[index]) == null ? "NO FIGURES (SHOWING AK-12'S)" : null;
+                    kind += "  //  " + _kit[index] + (problem != null ? $"  //  <color={T.WarnHex}>{problem}</color>" : "");
+                    if (_kindLabel == null)
+                    {
+                        line = kind + "   " + line;
+                    }
+                }
                 if (_kindLabel != null)
                 {
-                    _kindLabel.text = (Russian ? O.Cyr(_spec.KindRu) : _spec.KindEn) + Ru("  //  СЕКРЕТНО", "  //  RESTRICTED");
+                    _kindLabel.text = kind;
                     _shownAzimuth = -1;
                     _fullLabel.text = full;
                     _nameLabel.text = name;
@@ -384,13 +431,15 @@ namespace CLASSIFIED
                 // Everything here follows from the time on the table, so nothing restarts when the
                 // screen is laid out again.
                 float age = t - _itemAt;
-                if (age >= Cycle && _kit.Length > 1)
+                // The browser holds each item until it is stepped on.
+                bool cycling = _kit.Length > 1 && !O._browsing;
+                if (age >= Cycle && cycling)
                 {
                     ShowItem((_item + 1) % _kit.Length, _itemAt + Cycle);
                     age = t - _itemAt;
                 }
                 float dissolveAt = BuildTime + ItemTime;
-                _dissolving = _kit.Length > 1 && age > dissolveAt;
+                _dissolving = cycling && age > dissolveAt;
 
                 // Building in, eased; dissolving, faster and the same way along.
                 float build = Mathf.Clamp01((age - 0.15f) / BuildTime);

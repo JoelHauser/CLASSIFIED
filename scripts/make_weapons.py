@@ -7,6 +7,7 @@ the game's bundles (UnityPy), its meshes placed through the slot transforms the 
 assembles it, and the whole merged, welded and cut down to a few thousand triangles. Written to
 src/CLASSIFIED/Resources/item_<id>.bin (see Hologram.cs for the format), with a side view of each
 in art/weapons/ to check by eye, and the names and figures to src/CLASSIFIED/Kit.Data.cs.
+Items other mods add (MOD_ITEMS) are built the same way from the mod's own bundle.
 
     python -I scripts/make_weapons.py H:\\SPT4.1.X        (needs numpy, pillow, UnityPy)
 """
@@ -258,14 +259,42 @@ ATTACH = [("mod_scope", 0.97), ("mod_mount", 0.9), ("mod_tactical", 0.8), ("mod_
           ("mod_bipod", 0.9)]
 
 # Parts that are never seen from outside, or are not part of the weapon.
-SKIP = ("patron", "shell", "bullet", "_hide", "collider", "camera", "fp_", "human", "belt_link")
+# The game spells its loot colliders both ways.
+SKIP = ("patron", "shell", "bullet", "_hide", "collider", "colider", "camera", "fp_", "human", "belt_link")
 
 # What the item being made skips: a round on the table is all cartridge, case and bullet.
 SKIPPING = [SKIP]
-ROUND_SKIP = ("_hide", "collider", "camera", "fp_", "human")
+ROUND_SKIP = ("_hide", "collider", "colider", "camera", "fp_", "human")
+
+# The shadow the game casts from loot is a mesh of its own ("shadow", "..._SHADOW_lod0"): a
+# second, rougher copy of the item. A word of the name, so the Death Shadow mask stays.
+SHADOW = re.compile(r"(^|_)shadow(_|$)")
 
 # The most triangles a weapon keeps; more are merged away.
 BUDGET = 3200
+
+# And a piece of equipment: as much as a weapon, so a big rig keeps its pouches.
+GEAR_BUDGET = BUDGET + 400
+
+# Equipment that lies in the game with its face up but is not flat enough to be stood up by its
+# shape: stood up all the same (the skull ring's skull is on top of the ring).
+STAND_UP = {"skull"}
+
+# Equipment whose face is on the far side otherwise: turned round to face the viewer. For a
+# figurine, which is turned round as a rule, the one that already faces the viewer.
+TURN_ROUND = {"skull", "zabey", "catstatue"}
+
+# Equipment that reads best from an angle of its own, in degrees about the vertical (90 shows
+# its right side): the rooster in profile, its head turned a little away.
+FACING = {"rooster": 120}
+
+
+def mesh_triangles(mesh):
+    """How many triangles a mesh has, from its index buffer's sub-meshes, without unpacking it."""
+    try:
+        return sum(int(sm.indexCount) for sm in mesh.m_SubMeshes) // 3
+    except Exception:
+        return 1 << 30
 
 
 def quat_matrix(q):
@@ -371,6 +400,21 @@ class Part:
         # LVOA's, were re-exported without it but keep it on their slots): such a part sits on a
         # z-up slot turned back a quarter. One modelled z-up sits on it as it is.
         self.y_up = any(imported_turn(self.transforms[k]) and k != self.root for k in self.world)
+        # Worn equipment carries two models: "Loot", as it lies on the ground, and "Skin", as
+        # worn, switched off. Both are modelled z up, like a character.
+        names = {self.name(self.transforms[k]) for k in self.world}
+        self.worn = "Loot" in names and "Skin" in names
+
+    def hidden(self, key):
+        """Whether the node or one above it in the model is switched off."""
+        while key in self.world:
+            t = self.transforms[key]
+            if not t.m_GameObject.read().m_IsActive:
+                return True
+            if t.m_Father.path_id == 0 or key == self.root:
+                return False
+            key = (key[0], t.m_Father.path_id)
+        return False
 
     def reroot(self):
         """Takes the weapon's own model tree ("<template>_model", not the simple one) as the root, if there is one."""
@@ -430,11 +474,14 @@ class Part:
             if not go.m_IsActive:
                 continue
             name = go.m_Name.lower()
-            if any(s in name for s in SKIPPING[0]):
+            if any(s in name for s in SKIPPING[0]) or SHADOW.search(name):
                 continue
             try:
                 mesh = mf.m_Mesh.read()
             except Exception:
+                continue
+            # Equipment's switched-off copy (the worn model under "Skin") would draw it twice.
+            if not self.weapon and self.hidden(key):
                 continue
             base, lod = name, 0
             if "_lod" in name:
@@ -452,8 +499,12 @@ class Part:
         out = []
         heavy = []
         for base, lods in found.items():
-            # LOD1 where there is one: the game's own simplification, fine at hologram size.
+            # LOD1 where there is one: the game's own simplification, fine at hologram size. Small
+            # equipment (a round, a ring, a medal) is shown far bigger than in the game, where its
+            # LOD1 reads as faceted: its full detail, where that is within the budget anyway.
             lod = 1 if 1 in lods else min(lods)
+            if not self.weapon and 0 in lods and lod != 0 and mesh_triangles(lods[0][0]) <= GEAR_BUDGET:
+                lod = 0
             mesh, key = lods[lod]
             handler = MeshHandler(mesh)
             handler.process()
@@ -473,7 +524,26 @@ class Part:
                 heavy.append((base, w[idx]))
                 continue
             out.append((base, w[idx]))
+        if not self.weapon:
+            out = distinct(out)
         return out or heavy
+
+
+def distinct(meshes):
+    """
+    Equipment's meshes less copies of one another: two detail levels of one mesh under names
+    that do not show it (a balaclava's "..._base_LOD1" and "wildman_balaclava") fill the same
+    box. The more detailed is kept.
+    """
+    kept = []
+    for name, tris in sorted(meshes, key=lambda m: -len(m[1])):
+        pts = tris.reshape(-1, 3)
+        lo, hi = pts.min(axis=0), pts.max(axis=0)
+        tol = 0.03 * max(float((hi - lo).max()), 1e-6)
+        if any(np.abs(lo - klo).max() < tol and np.abs(hi - khi).max() < tol for _, _, klo, khi in kept):
+            continue
+        kept.append((name, tris, lo, hi))
+    return [(name, tris) for name, tris, _, _ in kept]
 
 
 def stock_runs_back(template, shown):
@@ -485,6 +555,10 @@ def stock_runs_back(template, shown):
         return False
     v = np.concatenate([tris.reshape(-1, 3) for _, tris in shown])
     return -v[:, 2].min() > v[:, 1].max()
+
+
+# Whether the item last assembled is worn equipment, modelled z up (Part.worn).
+WORN = [False]
 
 
 def assemble(streaming, items, preset, weapon, problems=None, names=None):
@@ -514,6 +588,8 @@ def assemble(streaming, items, preset, weapon, problems=None, names=None):
                         label = kind
         names.setdefault(label, item["_tpl"])
         shown = part.meshes()
+        if root:
+            WORN[0] = part.worn
         if not shown and root and weapon:
             # A bundle holding several trees of near one size (the PM's also holds the PD toy
             # pistol's) can tie on the wrong one: then the weapon's own "_model" tree.
@@ -1366,7 +1442,12 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import armory
     adb = armory.Db(spt)
-    chosen = armory.catalogue(adb)
+    chosen = armory.catalogue(adb) + mod_items(spt, items)
+    for e in chosen:
+        if e["key"].startswith("mod_"):
+            for field in (" ShortName", " Name"):
+                en[e["key"] + field] = LOCALE_EN[e["key"] + field]
+                ru[e["key"] + field] = LOCALE_RU[e["key"] + field]
     earlier = {iid for iid, _, _ in ITEMS}
     everything = list(ITEMS) + [(e["id"], e["template"], e["kind"]) for e in chosen]
 
@@ -1378,6 +1459,10 @@ def main():
         preset = find_preset(globals_, items, template) or single(items, template)
         key = next(it["_tpl"] for it in preset["_items"] if it["_id"] == preset["_parent"])
         line_en, line_ru = spec_lines(kind, key, items, preset)
+        mod = next((m for m in MOD_ITEMS if m["id"] == iid), None)
+        if mod:
+            # A mod's item: its figures are set in its code, not its data; written out here.
+            line_en, line_ru = mod["line"]
         label = KINDS["armor"] if kind == "rig" and gear_facts(items, preset)["armoured"]             else ("THERMAL IMAGING", "ТЕПЛОВИДЕНИЕ") if kind == "nvg" and "thermal" in items[key]["_name"].lower() else KINDS[kind]
         short_en = en.get(key + " ShortName", items[key]["_name"])
         name_en = en.get(key + " Name", short_en)
@@ -1460,6 +1545,94 @@ def main():
         print("FAILED: " + " ".join(failed))
 
 
+# Items other mods add to the game, which SPT's database does not hold: the mod's server code
+# makes them when the server starts. Each is built from the mod's own bundle, with its names
+# and figures written out here, and shown only where the mod is installed (Kit.Mods).
+MOD_ITEMS = [
+    {
+        "id": "saga6", "template": "weapon_grenade_saga6", "kind": "grenade",
+        # Sage's Incendiary Grenade (sp-mod.com/mod/3113): an M18 body, retextured.
+        "folder": "IncendiaryGrenade", "dll": "IncendiaryGrenade.dll",
+        "bundle": "bundles/assets/content/weapons/saga6/weapon_grenade_saga6_container.bundle",
+        # Its data the mod clones from the M18; its name and words from the mod.
+        "like": "weapon_grenade_m18",
+        "short": ("SAGA-6", "SAGA-6"),
+        "name": ("SAGA-6 Incendiary Grenade", "Зажигательная граната SAGA-6"),
+        "line": ("INCENDIARY   IGNITES ON IMPACT   BURNS AT 1,200 C", "ЗАЖИГАТЕЛЬНАЯ   ВОСПЛАМЕНЯЕТСЯ ПРИ УДАРЕ   ГОРИТ ПРИ 1 200 C"),
+        "side": "both", "units": ["BearCommand", "UsecOperations"],
+    },
+]
+
+
+def mod_items(spt, items):
+    """
+    The MOD_ITEMS installed in this SPT: each put into items (a copy of the item it is like, with
+    its own name and the mod's bundle as its model) and its names into the locales, and returned
+    as armory.catalogue entries, so the rest of the script builds and lists it like any other.
+    """
+    out = []
+    for m in MOD_ITEMS:
+        bundle = os.path.join(spt, "SPT_Runtime", "user", "mods", m["folder"], m["bundle"].replace("/", os.sep))
+        like = next((k for k, v in items.items() if v["_name"] == m["like"]), None)
+        if not os.path.exists(bundle) or like is None:
+            print(f"{m['id']}: its mod is not installed, left out")
+            continue
+        key = "mod_" + m["id"]
+        item = copy.deepcopy(items[like])
+        item["_id"] = key
+        item["_name"] = m["template"]
+        # An absolute path: Part joins it onto the game's folder, which leaves it as it is.
+        item["_props"]["Prefab"] = {"path": bundle, "rcid": ""}
+        items[key] = item
+        for loc, i in ((LOCALE_EN, 0), (LOCALE_RU, 1)):
+            loc[key + " ShortName"] = m["short"][i]
+            loc[key + " Name"] = m["name"][i]
+        out.append({"id": m["id"], "template": m["template"], "key": key, "kind": m["kind"], "side": m["side"],
+                    "units": list(m["units"]), "presets": []})
+    return out
+
+
+def mods_array():
+    """Kit.Mods: each mod item and the DLL its mod puts in BepInEx's plugins, by which the table knows it is installed."""
+    rows = [f'            {{ "{m["id"]}", "{m["dll"]}" }},' for m in MOD_ITEMS]
+    return ["        /// <summary>Items other mods add, and the DLL that shows each mod is installed: shown only where it is.</summary>",
+            "        internal static readonly System.Collections.Generic.Dictionary<string, string> Mods = new System.Collections.Generic.Dictionary<string, string>",
+            "        {"] + rows + ["        };", ""]
+
+
+def twins(order):
+    """
+    Equipment that comes out the same model as an item before it in order: the game tells them
+    apart by colour or print (the keycards, the folders, a vest's EMR twin), which a one-colour
+    hologram cannot show. By the built geometry, so only true copies count.
+    """
+    import hashlib
+    seen = {}
+    out = []
+    for iid in order:
+        path = os.path.join(OUT, f"item_{iid}.bin")
+        if not os.path.exists(path):
+            continue
+        with gzip.open(path, "rb") as f:
+            digest = hashlib.sha1(f.read()).hexdigest()
+        if digest in seen:
+            out.append(iid)
+        else:
+            seen[digest] = iid
+    return out
+
+
+def twins_array(ok):
+    """Kit.Twins: the copies the table leaves out, the hand-picked items kept over the later ones."""
+    order = [iid for iid, _, kind in ITEMS if kind != "weapon"] + [e["id"] for e in ok if e["kind"] != "weapon"]
+    # A mod's item is shown whatever it looks like: it was asked for by name.
+    ids = [i for i in twins(order) if not any(m["id"] == i for m in MOD_ITEMS)]
+    rows = [", ".join('"' + i + '"' for i in ids[j:j + 10]) for j in range(0, len(ids), 10)]
+    return ["        /// <summary>Equipment that is the same model as an item kept, under another name: left off the table.</summary>",
+            "        internal static readonly System.Collections.Generic.HashSet<string> Twins = new System.Collections.Generic.HashSet<string>",
+            "        {"] + ["            " + r + "," for r in rows] + ["        };", ""]
+
+
 def write_pools(chosen, named):
     """
     What 1.1.0 added to each side's table and each unit's own, and the weapons' named builds, as
@@ -1499,6 +1672,8 @@ def write_pools(chosen, named):
         "    internal static partial class Kit",
         "    {",
     ]
+    lines += twins_array(ok)
+    lines += mods_array()
     lines += array("MoreBearWeapons", lists["bear_weapons"])
     lines += array("MoreUsecWeapons", lists["usec_weapons"])
     lines += array("MoreBearGear", lists["bear_gear"])
@@ -1698,6 +1873,169 @@ STOCK_LABELS = set()
 ESSENTIAL_LABELS = {"mod_magazine", "mod_stock", "mod_pistol_grip", "mod_pistolgrip", "mod_barrel"}
 
 
+def seated(tris):
+    """
+    A round less what is hidden inside its case. The game closes the case under the bullet with
+    a cone that dips into it, and some rounds model the bullet's base down in the case too;
+    nothing of either shows in the game, but a see-through hologram shows them as an upside-down
+    point in the case. Cut: every triangle between the base and the case's mouth that lies well
+    inside the round's outer wall at its height.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    pts = tris.reshape(-1, 3)
+    size = float(np.ptp(pts, axis=0).max())
+    verts, faces = weld(tris, size / 20000.0)
+    if len(faces) == 0:
+        return tris
+    # Along its length, base down, as stand() will set it.
+    axis = int(np.argmax(np.ptp(verts, axis=0)))
+    h = verts[:, axis]
+    others = [a for a in range(3) if a != axis]
+    centre = verts[:, others].mean(axis=0)
+    r = np.hypot(*(verts[:, others] - centre).T)
+    span = h.max() - h.min()
+    top_r = r[h > h.max() - 0.15 * span].max(initial=0.0)
+    bottom_r = r[h < h.min() + 0.15 * span].max(initial=0.0)
+    if top_r > bottom_r:
+        h = -h
+    h = h - h.min()
+    # The case's mouth: the top of the piece the base is part of (pieces: triangles joined by
+    # shared vertices). A round in one piece has its mouth where it is widest from the top down.
+    n = len(verts)
+    a = np.concatenate([faces[:, 0], faces[:, 1], faces[:, 2]])
+    b = np.concatenate([faces[:, 1], faces[:, 2], faces[:, 0]])
+    _, label = connected_components(coo_matrix((np.ones(len(a)), (a, b)), shape=(n, n)), directed=False)
+    mouth = h[label == label[np.argmin(h)]].max()
+    # Below the mouth and above the base, what faces in toward the round's middle line is the
+    # inside of something: the cone under the bullet. A face's side from its winding, which is
+    # the same over the whole mesh; which way that is, from the case's outer wall, which faces out.
+    tri = verts[faces]
+    normal = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    middle = tri.mean(axis=1)
+    radial = middle.copy()
+    radial[:, axis] = 0.0
+    radial[:, others] -= centre
+    length = np.linalg.norm(normal, axis=1) * np.maximum(np.linalg.norm(radial, axis=1), 1e-12)
+    facing = np.einsum("ij,ij->i", normal, radial) / np.maximum(length, 1e-18)
+    fh = h[faces].mean(axis=1)
+    wall = (r[faces].min(axis=1) > 0.9 * r.max()) & (fh > 0.05 * span) & (fh < mouth)
+    if wall.any() and np.median(facing[wall]) < 0:
+        facing = -facing
+    between = (fh > 0.03 * span) & (fh < mouth - 0.01 * span)
+    inward = between & (facing < -0.3)
+    # And a bullet modelled down into the case: any other piece's triangles wholly below the
+    # mouth and within the case.
+    case = label == label[np.argmin(h)]
+    case_r = r[case].max()
+    seated_ = (label[faces[:, 0]] != label[np.argmin(h)]) & (h[faces] < mouth - 0.002 * span).all(axis=1)         & (r[faces] < case_r * 1.02).all(axis=1)
+    return verts[faces[~(inward | seated_)]]
+
+
+def upright(verts, axis):
+    """verts turned so axis (a unit vector) points up +y, about the line square to both (Rodrigues)."""
+    k = np.cross(axis, [0.0, 1.0, 0.0])
+    sin, cos = float(np.linalg.norm(k)), float(axis[1])
+    if sin < 1e-6:
+        return verts
+    k = k / sin
+    kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return verts @ (np.eye(3) + sin * kx + (1 - cos) * kx @ kx).T
+
+
+def stand(iid, kind, verts, faces):
+    """
+    A piece of equipment turned to stand on the table facing the viewer, who looks along -z:
+    worn equipment (modelled z up) stood up a quarter turn, a pack turned to show its outside;
+    a round stood on its base, bullet up; a scope or suppressor, and anything long laid end on,
+    turned side on; a grenade stood upright, square on its base where it has a flat one; loot
+    that lies flat in the game, face up (a medal, a folder, a chain), stood up facing the viewer;
+    a figurine turned round to face them. Glasses, helmets, headsets and night vision stay as the
+    game holds them, y up. TURN_ROUND and FACING set single items. Turns only, never mirrors,
+    so the faces keep their winding.
+    """
+    def turn(m):
+        return verts @ np.asarray(m, dtype=np.float64).T
+
+    # Up is z: z to y, y to -z (the front of a vest or a face, -y, comes to the viewer).
+    up_from_z = [[1, 0, 0], [0, 0, 1], [0, -1, 0]]
+    # Face up to face the viewer: y to z, z to -y.
+    face_to_viewer = [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
+    # Half a turn about the vertical: the far side to the viewer.
+    round_ = np.diag([-1.0, 1.0, -1.0])
+    if kind == "eyewear":
+        # Glasses stand as the game holds them: lenses to the viewer, arms back.
+        return verts, faces
+    if kind in ("armor", "backpack", "rig") or WORN[0]:
+        verts = turn(up_from_z)
+        # A pack's outside is on the wearer's back: turned round, so the viewer sees it, not the straps.
+        if (kind == "backpack") != (iid in TURN_ROUND):
+            verts = verts @ round_
+        return verts, faces
+    ext = np.ptp(verts, axis=0)
+    if kind == "ammo":
+        long_axis = int(np.argmax(ext))
+        if long_axis == 2:
+            verts = turn(up_from_z)
+        elif long_axis == 0:
+            verts = turn([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+        # Base down: the rim is the round's widest end; a bullet narrows to its tip.
+        y = verts[:, 1]
+        lo, hi = y.min(), y.max()
+        span = hi - lo
+        radial = np.hypot(verts[:, 0] - verts[:, 0].mean(), verts[:, 2] - verts[:, 2].mean())
+        top = radial[y > hi - 0.15 * span].max(initial=0.0)
+        bottom = radial[y < lo + 0.15 * span].max(initial=0.0)
+        if top > bottom:
+            verts = verts @ np.diag([1.0, -1.0, -1.0])
+        return verts, faces
+    # Long things the game lays end on to the viewer (a scope, a suppressor, a kunai) are
+    # turned side on, the length across the table, as a weapon is.
+    along_x_from_z = [[0, 0, 1], [0, 1, 0], [-1, 0, 0]]
+    along_x_from_y = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
+    if kind in ("optic", "suppressor"):
+        long_axis = int(np.argmax(ext))
+        if long_axis == 2:
+            verts = turn(along_x_from_z)
+        elif long_axis == 1:
+            verts = turn(along_x_from_y)
+        return verts, faces
+    if kind not in ("helmet", "headset", "nvg", "eyewear", "face") and ext[2] > 1.6 * ext[0]:
+        verts = turn(along_x_from_z)
+        ext = np.ptp(verts, axis=0)
+    if kind == "grenade":
+        # Fuze up: its length upright, where it has one (a smoke grenade lies at a slant).
+        centred = verts - verts.mean(axis=0)
+        _, sv, vt = np.linalg.svd(centred, full_matrices=False)
+        axis = vt[0] if vt[0][1] >= 0 else -vt[0]
+        # Only one that lies at a real slant: the ring and lever lean a standing one's axis a
+        # few degrees, and turning by that would tilt it.
+        if sv[0] > 1.25 * sv[1] and axis[1] < math.cos(math.radians(12)):
+            verts = upright(verts, axis)
+        # Then a canister with a flat base squared up on it: the base rim is a flat ring, its
+        # plane square to the canister's axis, which the ring and lever lean the length off by
+        # a few degrees (and a held one is modelled a few degrees off besides).
+        y = verts[:, 1]
+        rim = verts[y < y.min() + 0.06 * np.ptp(y)]
+        if len(rim) >= 8:
+            _, rs, rvt = np.linalg.svd(rim - rim.mean(axis=0), full_matrices=False)
+            n = rvt[2] if rvt[2][1] >= 0 else -rvt[2]
+            if rs[2] < 0.2 * rs[1] and n[1] > math.cos(math.radians(15)):
+                verts = upright(verts, n)
+        return verts, faces
+    stood = ext[1] < 0.4 * min(ext[0], ext[2]) or iid in STAND_UP
+    if stood:
+        verts = turn(face_to_viewer)
+    # A figurine faces the far side as the game holds it: turned round.
+    if (kind == "valuable" and not stood) != (iid in TURN_ROUND):
+        verts = verts @ round_
+    if iid in FACING:
+        # The angle the hologram would show it at, made its own: x' = x cos + z sin, as Unity turns.
+        a = math.radians(FACING[iid])
+        verts = turn([[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]])
+    return verts, faces
+
+
 def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
     """
     One model: assembled, cut down, turned the right way up, written. With check (a random
@@ -1729,10 +2067,12 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
         if check:
             return
     tris = np.concatenate([p[2] for p in parts])
+    if kind == "ammo":
+        tris = seated(tris)
     if kind in ("armor", "rig") and plated(items, preset):
         tris = np.concatenate([tris, plates(tris)])
     raw = len(tris)
-    verts, faces, grid = cut_down(tris, (BUDGET + 400) if weapon else BUDGET * 3 // 4)
+    verts, faces, grid = cut_down(tris, (BUDGET + 400) if weapon else GEAR_BUDGET)
 
     # Centred on its box. A weapon turned barrel along +x, top up; equipment stays as the
     # game holds it, y up.
@@ -1745,9 +2085,7 @@ def make(iid, kind, preset, items, streaming, weapon, check=None, base=False):
         verts, axes = orient(verts, down)
     else:
         verts, axes = verts - c, (0, 1, 2)
-        if kind in ("armor", "backpack", "rig"):
-            # Body armour and packs are character meshes, z-up: stood up a quarter turn.
-            verts = np.c_[verts[:, 0], verts[:, 2], -verts[:, 1]]
+        verts, faces = stand(iid, kind, verts, faces)
 
     # A callout's anchor is the middle of its part's box, in the same space as the vertices.
     # The anchor is on the part itself: of its points, the one nearest the middle of its
