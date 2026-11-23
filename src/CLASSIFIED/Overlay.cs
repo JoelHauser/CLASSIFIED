@@ -643,6 +643,7 @@ namespace CLASSIFIED
             }
             _screen = null;
             _status = null;
+            DeployScene.Uncover(_raidStarted);
             _deployScreen = null;
             CanCancel = false;
             // The logos are only needed on screen; the next show lays out again and reloads them.

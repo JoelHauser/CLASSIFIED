@@ -72,6 +72,7 @@ namespace CLASSIFIED
             o._countdownEnds = -1f;
             o._deployTopRight = DeployHeader(raidSettings);
             o.StartLoading(null);
+            DeployScene.Cover(screen, ClassifiedPlugin.LoadFps.Value);
             ClassifiedPlugin.Log.LogInfo("Raid load: the terminal is showing it.");
         }
 
@@ -224,6 +225,10 @@ namespace CLASSIFIED
         /// <summary>Decides when a raid load is over: the raid started, or it stopped without one.</summary>
         private void WatchDeploy(float realTime)
         {
+            if (_introClock >= IntroLength)
+            {
+                DeployScene.Covered();
+            }
             if (_raidStarted)
             {
                 Grant(realTime);
@@ -271,6 +276,7 @@ namespace CLASSIFIED
             }
             _fading = true;
             _fadeProgress = 0f;
+            DeployScene.Uncover(_raidStarted);
             _deployScreen = null;
             CanCancel = false;
         }
